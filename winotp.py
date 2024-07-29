@@ -26,7 +26,7 @@ def init_frames(data):
         frames[token]["code_label"].pack()
         frames[token]["time_remaining_label"].pack()
         frames[token]["frame"].pack(pady = 20, padx = 20)
-        copy_btn = ttk.Button(root=frames[token]["frame"], command=copy_totp(name=frames[token]["name"], totp=frames[token]["code_label"], root=root), text="Copy")
+        copy_btn = ttk.Button(command=copy_totp(name=frames[token]["name"], totp=frames[token]["code_label"], root=root), text="Copy")
         copy_btn.pack()
     
     return frames
