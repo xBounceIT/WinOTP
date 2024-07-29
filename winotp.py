@@ -5,7 +5,16 @@ from datetime import datetime
 
 root = ttk.Window(themename='journal')
 root.title("WinOTP")
-root.geometry("500x600")
+w = 500
+h = 600
+
+ws = root.winfo_screenwidth()
+hs = root.winfo_screenheight()
+
+x = (ws/2) - (w/2)
+y = (hs/2) - (h/2)
+
+root.geometry('%dx%d+%d+%d' % (w, h, x, y))
 root.minsize(500,600)
 root.maxsize(500,600)
 
