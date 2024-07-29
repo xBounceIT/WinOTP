@@ -26,15 +26,13 @@ def init_frames(data):
         frames[token]["code_label"].pack()
         frames[token]["time_remaining_label"].pack()
         frames[token]["frame"].pack(pady = 20, padx = 20)
-        copy_btn = ttk.Button(command=copy_totp(name=frames[token]["name"], totp=frames[token]["code_label"], root=root), text="Copy")
+        copy_btn = ttk.Button(master=frames[token]["frame"], text="Copy", command=lambda n=frames[token]["name"], t=frames[token]["code_label"]: copy_totp(n, t, root))
         copy_btn.pack()
     
     return frames
 
 def copy_totp(name, totp, root):
-    # Clear the clipboard
     root.clipboard_clear()
-    # Append the label's content to the clipboard
     root.clipboard_append(totp["text"])
 
 def update(frames, root):
