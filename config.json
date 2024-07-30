@@ -1,32 +1,8 @@
 {
     "Test 1": {
-        "seed": "pippo"
+        "secret": "JBSWY3DPFQQFO33N"
     },
     "Test 2": {
-        "seed": "pluto"
-    },
-    "Test 3": {
-        "seed": "pluto"
-    },
-    "Test 4": {
-        "seed": "pluto"
-    },
-    "Test 5": {
-        "seed": "pluto"
-    },
-    "Test 6": {
-        "seed": "pluto"
-    },
-    "Test 7": {
-        "seed": "pluto"
-    },
-    "Test 8": {
-        "seed": "pluto"
-    },
-    "Test 9": {
-        "seed": "pluto"
-    },
-    "Test 10": {
-        "seed": "pluto"
+        "secret": "MFZWIYLTNFXG6ZDF"
     }
 }
