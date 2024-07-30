@@ -1,3 +1,7 @@
+# ALPHA7
+- Fixed exception when closing file dialog for add token without selecting a file
+- Added settings button (yet to implement)
+
 # ALPHA6
 - Added scrolling capabilities to the window
 

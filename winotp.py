@@ -10,7 +10,7 @@ from ttkbootstrap.icons import Icon
 
 root = ttk.Window(themename='journal')
 root.title("WinOTP")
-w = 400
+w = 500
 h = 600
 
 ws = root.winfo_screenwidth()
@@ -57,6 +57,7 @@ search_frame.grid(row=0, column=0, pady=20, padx=20, sticky="ew")
 search_frame.grid_columnconfigure(0, weight=1)
 search_frame.grid_columnconfigure(1, weight=1)
 search_frame.grid_columnconfigure(2, weight=1)
+search_frame.grid_columnconfigure(3, weight=1)
 
 search_input = ttk.Entry(master=search_frame)
 search_input.grid(row=0, column=0, sticky='ew')
@@ -66,6 +67,9 @@ search_button.grid(row=0, column=1, sticky='w')
 
 add_btn = ttk.Button(master=search_frame, command=lambda: add_token(), text="+")
 add_btn.grid(row=0, column=2, sticky='e')
+
+settings_btn = ttk.Button(master=search_frame, text="S")
+settings_btn.grid(row=0, column=3, sticky='e')
 
 frames = {}
 
@@ -126,22 +130,23 @@ def update(frames, root):
 
 def add_token():
     filename = filedialog.askopenfilename()
-    qr_data = decode(Image.open(filename))
-    uri = qr_data[0].data.decode("utf-8")
-    print(uri)
-    pattern = r'otpauth://totp/(?P<name>[^?]+)\?secret=(?P<secret>[^&]+)'
-    match = re.search(pattern, uri)
-    
-    if match:
-        name = match.group('name').replace('%20', ' ')
-        secret = match.group('secret')
-    token = {name: {"secret": secret}}
-    config = read_json("config.json")
-    config.update(token)
-    write_json("config.json", config)
-    frames = init_frames()
-    delete_frames(frames)
-    grid_frames(frames)
+    if filename:
+        qr_data = decode(Image.open(filename))
+        uri = qr_data[0].data.decode("utf-8")
+        print(uri)
+        pattern = r'otpauth://totp/(?P<name>[^?]+)\?secret=(?P<secret>[^&]+)'
+        match = re.search(pattern, uri)
+        
+        if match:
+            name = match.group('name').replace('%20', ' ')
+            secret = match.group('secret')
+        token = {name: {"secret": secret}}
+        config = read_json("config.json")
+        config.update(token)
+        write_json("config.json", config)
+        frames = init_frames()
+        delete_frames(frames)
+        grid_frames(frames)
 
 def read_json(file_path):
     try:
