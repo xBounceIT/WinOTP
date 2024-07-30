@@ -1,5 +1,5 @@
 import ttkbootstrap as ttk
-from tkinter import filedialog
+from tkinter import filedialog, Canvas, Scrollbar
 import json
 import pyotp
 from datetime import datetime
@@ -16,14 +16,56 @@ h = 600
 ws = root.winfo_screenwidth()
 hs = root.winfo_screenheight()
 
-x = (ws/2) - (w/2)
-y = (hs/2) - (h/2)
+x = (ws / 2) - (w / 2)
+y = (hs / 2) - (h / 2)
 
 root.geometry('%dx%d+%d+%d' % (w, h, x, y))
 root.minsize(w, h)
 root.maxsize(w, h)
+# Create a canvas
+canvas = Canvas(root, width=w)
 
-root.columnconfigure(0, weight=100)
+canvas.grid(row=1, column=0, sticky="nsew")
+
+# Add vertical scrollbar to the canvas
+v_scrollbar = Scrollbar(root, orient="vertical", command=canvas.yview)
+v_scrollbar.grid(row=1, column=1, sticky="ns")
+
+# Configure the canvas to use the scrollbars
+canvas.configure(yscrollcommand=v_scrollbar.set)
+canvas.bind('<Configure>', lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+# Create an inner frame to hold the widgets
+scrollable_frame = ttk.Frame(canvas)
+scrollable_frame.columnconfigure(0, weight=1)
+
+canvas_window = canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+
+def configure_scroll_region(event):
+    canvas.configure(scrollregion=canvas.bbox("all"))
+
+def configure_window_size(event):
+    canvas.itemconfig(canvas_window, width=event.width)
+
+scrollable_frame.bind("<Configure>", configure_scroll_region)
+canvas.bind("<Configure>", configure_window_size)
+
+root.columnconfigure(0, weight=1)
+root.rowconfigure(1, weight=1)
+
+search_frame = ttk.Frame(master=scrollable_frame, width=w)
+search_frame.grid(row=0, column=0, pady=20, padx=20, sticky="ew")
+search_frame.grid_columnconfigure(0, weight=1)
+search_frame.grid_columnconfigure(1, weight=1)
+search_frame.grid_columnconfigure(2, weight=1)
+
+search_input = ttk.Entry(master=search_frame)
+search_input.grid(row=0, column=0, sticky='ew')
+
+search_button = ttk.Button(master=search_frame, text="Search")
+search_button.grid(row=0, column=1, sticky='w')
+
+add_btn = ttk.Button(master=search_frame, command=lambda: add_token(), text="+")
+add_btn.grid(row=0, column=2, sticky='e')
 
 frames = {}
 
@@ -59,7 +101,7 @@ def init_frames():
         frames[token] = data[token]
         frames[token]["secret"] = data[token]["secret"]
         frames[token]["code"] = ttk.StringVar(value=totp.now())
-        frames[token]["frame"] = ttk.Frame(master=root, width=400, height=100)
+        frames[token]["frame"] = ttk.Frame(master=scrollable_frame, width=400, height=100)
         frames[token]["name"] = ttk.StringVar(value=token)
         frames[token]["time_remaining"] = ttk.StringVar(value=int(totp.interval - datetime.now().timestamp() % totp.interval))
         frames[token]["name_label"] = ttk.Label(master=frames[token]["frame"], textvariable=frames[token]["name"])
@@ -70,7 +112,6 @@ def init_frames():
     return frames
 
 def copy_totp(name, totp, root):
-    # TODO: Aggiungere popup
     root.clipboard_clear()
     root.clipboard_append(totp["text"])
 
@@ -113,29 +154,23 @@ def write_json(file_path, data):
     with open(file_path, 'w') as file:
         json.dump(data, file, indent=4)
 
+def on_mouse_wheel(event):
+    # Get the current position of the scrollbar
+    current_view = canvas.yview()
+    if (event.delta > 0 and current_view[0] <= 0) or (event.delta < 0 and current_view[1] >= 1):
+        return  # Prevent scrolling if already at the top or bottom
+    canvas.yview_scroll(-1 * int(event.delta / 120), "units")
+
 def main():
-    search_frame = ttk.Frame(master=root, width=w)
-    search_frame.grid(row=0, column=0, pady=20, padx=20, sticky="we")
-    search_frame.grid_columnconfigure(0, weight=1)
-    search_frame.grid_columnconfigure(1, weight=1)
-    search_frame.grid_columnconfigure(2, weight=1)
-
-    search_input = ttk.Entry(master=search_frame)
-    search_input.grid(row=0, column=0, sticky='ew')
-
-    search_button = ttk.Button(master=search_frame, text="Search")
-    search_button.grid(row=0, column=1, sticky='w')
-    
-    #add_icon = Icon(name="plus-circle")
-    add_btn = ttk.Button(master=search_frame, command=lambda: add_token(), text="+")
-    add_btn.grid(row=0, column=2, sticky='e')
-
-    
-
     frames = init_frames()
     grid_frames(frames)
 
     update(frames, root)
+
+    # Bind mouse wheel event to the canvas
+    canvas.bind_all("<MouseWheel>", on_mouse_wheel)
+    canvas.bind_all("<Button-4>", on_mouse_wheel)
+    canvas.bind_all("<Button-5>", on_mouse_wheel)
 
     root.mainloop()
 

@@ -1,3 +1,6 @@
+# ALPHA6
+- Added scrolling capabilities to the window
+
 # ALPHA5
 - Added add token via qr code image functionality
 - Switched GUI layout to grid for better organization
