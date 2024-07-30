@@ -1,3 +1,6 @@
+# ALPHA8
+- Disabled window resize
+
 # ALPHA7
 - Fixed exception when closing file dialog for add token without selecting a file
 - Added settings button (yet to implement)

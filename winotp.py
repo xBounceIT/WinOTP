@@ -20,8 +20,7 @@ x = (ws / 2) - (w / 2)
 y = (hs / 2) - (h / 2)
 
 root.geometry('%dx%d+%d+%d' % (w, h, x, y))
-root.minsize(w, h)
-root.maxsize(w, h)
+root.resizable(False, False)
 # Create a canvas
 canvas = Canvas(root, width=w)
 
