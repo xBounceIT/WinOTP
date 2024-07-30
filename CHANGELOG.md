@@ -1,5 +1,5 @@
 # ALPHA5
-- Implement add token functionality
+- Added add token via qr code image functionality
 - Switched GUI layout to grid for better organization
 
 # ALPHA4
