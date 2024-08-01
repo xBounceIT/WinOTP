@@ -1,3 +1,6 @@
+# ALPHA10
+- Added delete token functionality
+
 # ALPHA9
 - Code refactor to use classes
 - Searchbar separated from scrolling canvas to keep it usable when scrolling

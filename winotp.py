@@ -8,7 +8,7 @@ from pyzbar.pyzbar import decode
 import re
 
 class TOTPFrame(ttk.Frame):
-    def __init__(self, master, name, secret):
+    def __init__(self, master, name, secret, delete_token_callback):
         super().__init__(master, width=400, height=100)
         self.name = name
         self.secret = secret
@@ -17,12 +17,14 @@ class TOTPFrame(ttk.Frame):
         self.time_remaining = ttk.StringVar(value=self.get_time_remaining())
 
         self.name_label = ttk.Label(self, text=self.name)
+        self.delete_btn = ttk.Button(self, text="x", command=delete_token_callback)
         self.code_label = ttk.Label(self, textvariable=self.code, font="Calibri 24")
         self.time_remaining_label = ttk.Label(self, textvariable=self.time_remaining, font="Calibri 16")
         self.copy_btn = ttk.Button(self, text="Copy", command=self.copy_totp)
 
         self.grid_columnconfigure((0, 1, 2), weight=1)
         self.name_label.grid(row=0, column=0, sticky='w')
+        self.delete_btn.grid(row=0, column=2, sticky='e', padx=20)
         self.code_label.grid(row=1, column=0, sticky='ew')
         self.copy_btn.grid(row=1, column=1, sticky='w')
         self.time_remaining_label.grid(row=1, column=2, sticky='e', padx=20)
@@ -59,13 +61,14 @@ class SearchBar(ttk.Frame):
         self.settings_btn.grid(row=0, column=3, sticky='e')
 
 class WinOTP(ttk.Window):
-    def __init__(self):
+    def __init__(self, conf_path):
         super().__init__(themename='journal')
         self.title("WinOTP")
         self.width = 500
         self.height = 600
         self.center_window()
         self.resizable(False, False)
+        self.conf_path = conf_path
 
         self.columnconfigure(0, weight=1)
         self.rowconfigure(1, weight=1)
@@ -107,9 +110,9 @@ class WinOTP(ttk.Window):
         self.canvas.configure(scrollregion=self.canvas.bbox("all"))
 
     def init_frames(self):
-        config = self.read_json("config.json")
+        config = self.read_json(self.conf_path)
         for token, data in config.items():
-            self.frames[token] = TOTPFrame(self.scrollable_frame, token, data["secret"])
+            self.frames[token] = TOTPFrame(self.scrollable_frame, token, data["secret"], lambda: self.delete_token(token))
             self.frames[token].grid(row=len(self.frames), column=0, pady=20, padx=20, sticky='ew')
 
     def update_frames(self):
@@ -128,13 +131,19 @@ class WinOTP(ttk.Window):
             if match:
                 name = match.group('name').replace('%20', ' ')
                 secret = match.group('secret')
-                config = self.read_json("config.json")
+                config = self.read_json(self.conf_path)
                 config[name] = {"secret": secret}
-                self.write_json("config.json", config)
+                self.write_json(self.conf_path, config)
                 
-                new_frame = TOTPFrame(self.scrollable_frame, name, secret)
+                new_frame = TOTPFrame(self.scrollable_frame, name, secret, lambda: self.delete_token(name))
                 new_frame.grid(row=len(self.frames), column=0, pady=20, padx=20, sticky='ew')
                 self.frames[name] = new_frame
+
+    def delete_token(self, token):
+        config = self.read_json(self.conf_path)
+        config.pop(str(token))
+        self.frames[token].grid_forget()
+        self.write_json(self.conf_path, config)
 
     @staticmethod
     def read_json(file_path):
@@ -153,8 +162,9 @@ class WinOTP(ttk.Window):
         current_view = self.canvas.yview()
         if (event.delta > 0 and current_view[0] <= 0) or (event.delta < 0 and current_view[1] >= 1):
             return
-        self.canvas.yview_scroll(-1 * int(event.delta / 120), "units")
+        self.canvas.yview_scroll(-int(event.delta / 120), "units")
 
 if __name__ == "__main__":
-    app = WinOTP()
+    conf_path = "config.json"
+    app = WinOTP(conf_path)
     app.mainloop()
