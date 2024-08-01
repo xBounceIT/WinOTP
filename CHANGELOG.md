@@ -1,3 +1,7 @@
+# ALPHA9
+- Code refactor to use classes
+- Searchbar separated from scrolling canvas to keep it usable when scrolling
+
 # ALPHA8
 - Disabled window resize
 

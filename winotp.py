@@ -3,180 +3,158 @@ from tkinter import filedialog, Canvas, Scrollbar
 import json
 import pyotp
 from datetime import datetime
-from PIL import Image
+from PIL import Image, ImageTk
 from pyzbar.pyzbar import decode
 import re
-from ttkbootstrap.icons import Icon
 
-root = ttk.Window(themename='journal')
-root.title("WinOTP")
-w = 500
-h = 600
+class TOTPFrame(ttk.Frame):
+    def __init__(self, master, name, secret):
+        super().__init__(master, width=400, height=100)
+        self.name = name
+        self.secret = secret
+        self.totp = pyotp.TOTP(self.secret)
+        self.code = ttk.StringVar(value=self.totp.now())
+        self.time_remaining = ttk.StringVar(value=self.get_time_remaining())
 
-ws = root.winfo_screenwidth()
-hs = root.winfo_screenheight()
+        self.name_label = ttk.Label(self, text=self.name)
+        self.code_label = ttk.Label(self, textvariable=self.code, font="Calibri 24")
+        self.time_remaining_label = ttk.Label(self, textvariable=self.time_remaining, font="Calibri 16")
+        self.copy_btn = ttk.Button(self, text="Copy", command=self.copy_totp)
 
-x = (ws / 2) - (w / 2)
-y = (hs / 2) - (h / 2)
+        self.grid_columnconfigure((0, 1, 2), weight=1)
+        self.name_label.grid(row=0, column=0, sticky='w')
+        self.code_label.grid(row=1, column=0, sticky='ew')
+        self.copy_btn.grid(row=1, column=1, sticky='w')
+        self.time_remaining_label.grid(row=1, column=2, sticky='e', padx=20)
 
-root.geometry('%dx%d+%d+%d' % (w, h, x, y))
-root.resizable(False, False)
-# Create a canvas
-canvas = Canvas(root, width=w)
+    def update(self):
+        self.code.set(self.totp.now())
+        self.time_remaining.set(self.get_time_remaining())
 
-canvas.grid(row=1, column=0, sticky="nsew")
+    def get_time_remaining(self):
+        return int(self.totp.interval - datetime.now().timestamp() % self.totp.interval)
 
-# Add vertical scrollbar to the canvas
-v_scrollbar = Scrollbar(root, orient="vertical", command=canvas.yview)
-v_scrollbar.grid(row=1, column=1, sticky="ns")
+    def copy_totp(self):
+        self.master.master.clipboard_clear()
+        self.master.master.clipboard_append(self.code.get())
 
-# Configure the canvas to use the scrollbars
-canvas.configure(yscrollcommand=v_scrollbar.set)
-canvas.bind('<Configure>', lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
-# Create an inner frame to hold the widgets
-scrollable_frame = ttk.Frame(canvas)
-scrollable_frame.columnconfigure(0, weight=1)
+class SearchBar(ttk.Frame):
+    def __init__(self, master, add_token_callback):
+        super().__init__(master, width=master.width)
+        self.grid(row=0, column=0, pady=20, padx=20, sticky="ew")
+        self.grid_columnconfigure((0, 1, 2, 3), weight=1)
 
-canvas_window = canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        self.search_input = ttk.Entry(self)
+        self.search_input.grid(row=0, column=0, sticky='ew')
 
-def configure_scroll_region(event):
-    canvas.configure(scrollregion=canvas.bbox("all"))
+        search_button_icon = ImageTk.PhotoImage(Image.open(r"C:\Users\dange\Desktop\Projects\WinOTP\static\images\search.png").resize((16,16), Image.LANCZOS))
+        self.search_button = ttk.Button(self, image=search_button_icon, compound=ttk.CENTER)
+        self.search_button.image = search_button_icon
+        self.search_button.grid(row=0, column=1, sticky='w')
 
-def configure_window_size(event):
-    canvas.itemconfig(canvas_window, width=event.width)
+        self.add_btn = ttk.Button(self, command=add_token_callback, text="+")
+        self.add_btn.grid(row=0, column=2, sticky='e')
 
-scrollable_frame.bind("<Configure>", configure_scroll_region)
-canvas.bind("<Configure>", configure_window_size)
+        self.settings_btn = ttk.Button(self, text="S")
+        self.settings_btn.grid(row=0, column=3, sticky='e')
 
-root.columnconfigure(0, weight=1)
-root.rowconfigure(1, weight=1)
+class WinOTP(ttk.Window):
+    def __init__(self):
+        super().__init__(themename='journal')
+        self.title("WinOTP")
+        self.width = 500
+        self.height = 600
+        self.center_window()
+        self.resizable(False, False)
 
-search_frame = ttk.Frame(master=scrollable_frame, width=w)
-search_frame.grid(row=0, column=0, pady=20, padx=20, sticky="ew")
-search_frame.grid_columnconfigure(0, weight=1)
-search_frame.grid_columnconfigure(1, weight=1)
-search_frame.grid_columnconfigure(2, weight=1)
-search_frame.grid_columnconfigure(3, weight=1)
+        self.columnconfigure(0, weight=1)
+        self.rowconfigure(1, weight=1)
 
-search_input = ttk.Entry(master=search_frame)
-search_input.grid(row=0, column=0, sticky='ew')
+        self.search_bar = SearchBar(self, self.add_token)
+        self.canvas = Canvas(self, width=self.width)
+        self.canvas.grid(row=1, column=0, sticky="nsew")
 
-search_button = ttk.Button(master=search_frame, text="Search")
-search_button.grid(row=0, column=1, sticky='w')
+        self.v_scrollbar = Scrollbar(self, orient="vertical", command=self.canvas.yview)
+        self.v_scrollbar.grid(row=1, column=1, sticky="ns")
 
-add_btn = ttk.Button(master=search_frame, command=lambda: add_token(), text="+")
-add_btn.grid(row=0, column=2, sticky='e')
+        self.canvas.configure(yscrollcommand=self.v_scrollbar.set)
 
-settings_btn = ttk.Button(master=search_frame, text="S")
-settings_btn.grid(row=0, column=3, sticky='e')
+        self.scrollable_frame = ttk.Frame(self.canvas)
+        self.scrollable_frame.columnconfigure(0, weight=1)
 
-frames = {}
+        self.canvas_window = self.canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
 
-def delete_frames(frames):
-    for token in frames:
-        frames[token]["name_label"].grid_forget()
-        frames[token]["code_label"].grid_forget()
-        frames[token]["time_remaining_label"].grid_forget()
-        frames[token]["frame"].grid_forget()
-        frames[token]["copy_btn"].grid_forget()
+        self.scrollable_frame.bind("<Configure>", self.configure_scroll_region)
+        self.canvas.itemconfig(self.canvas_window, width=self.width)
 
-def grid_frames(frames):
-    row = 1
-    for token in frames:
-        frames[token]["frame"].grid(row=row, column=0, columnspan=4, pady=20, padx=20, sticky='ew')
-        frames[token]["frame"].grid_columnconfigure(0, weight=1)
-        frames[token]["frame"].grid_columnconfigure(1, weight=1)
-        frames[token]["frame"].grid_columnconfigure(2, weight=1)
-        
-        frames[token]["name_label"].grid(row=0, column=0, sticky='w')
-        frames[token]["code_label"].grid(row=1, column=0, sticky='ew')
-        frames[token]["copy_btn"].grid(row=1, column=1, sticky='w')
-        frames[token]["time_remaining_label"].grid(row=1, column=2, sticky='e')
+        self.frames = {}
+        self.init_frames()
 
-        row += 1
+        self.canvas.bind_all("<MouseWheel>", self.on_mouse_wheel)
+        self.canvas.bind_all("<Button-4>", self.on_mouse_wheel)
+        self.canvas.bind_all("<Button-5>", self.on_mouse_wheel)
 
-def init_frames():
-    with open("config.json", "r") as f:
-        data = json.load(f)
+        self.after(1000, self.update_frames)
 
-    for token in data:
-        totp = pyotp.TOTP(data[token]["secret"])
-        frames[token] = data[token]
-        frames[token]["secret"] = data[token]["secret"]
-        frames[token]["code"] = ttk.StringVar(value=totp.now())
-        frames[token]["frame"] = ttk.Frame(master=scrollable_frame, width=400, height=100)
-        frames[token]["name"] = ttk.StringVar(value=token)
-        frames[token]["time_remaining"] = ttk.StringVar(value=int(totp.interval - datetime.now().timestamp() % totp.interval))
-        frames[token]["name_label"] = ttk.Label(master=frames[token]["frame"], textvariable=frames[token]["name"])
-        frames[token]["code_label"] = ttk.Label(master=frames[token]["frame"], textvariable=frames[token]["code"], font="Calibri 24")
-        frames[token]["time_remaining_label"] = ttk.Label(master=frames[token]["frame"], textvariable=frames[token]["time_remaining"], font="Calibri 16")
-        frames[token]["copy_btn"] = ttk.Button(master=frames[token]["frame"], text="Copy", command=lambda n=frames[token]["name"], t=frames[token]["code_label"]: copy_totp(n, t, root))
-    
-    return frames
+    def center_window(self):
+        ws = self.winfo_screenwidth()
+        hs = self.winfo_screenheight()
+        x = (ws / 2) - (self.width / 2)
+        y = (hs / 2) - (self.height / 2)
+        self.geometry('%dx%d+%d+%d' % (self.width, self.height, x, y))
 
-def copy_totp(name, totp, root):
-    root.clipboard_clear()
-    root.clipboard_append(totp["text"])
+    def configure_scroll_region(self, event):
+        self.canvas.configure(scrollregion=self.canvas.bbox("all"))
 
-def update(frames, root):
-    for token in frames:
-        totp = pyotp.TOTP(frames[token]["secret"])
-        time_remaining = int(totp.interval - datetime.now().timestamp() % totp.interval)
-        frames[token]["code"].set(totp.now())
-        frames[token]["time_remaining"].set(time_remaining)
-    
-    root.after(1000, update, frames, root)
+    def init_frames(self):
+        config = self.read_json("config.json")
+        for token, data in config.items():
+            self.frames[token] = TOTPFrame(self.scrollable_frame, token, data["secret"])
+            self.frames[token].grid(row=len(self.frames), column=0, pady=20, padx=20, sticky='ew')
 
-def add_token():
-    filename = filedialog.askopenfilename()
-    if filename:
-        qr_data = decode(Image.open(filename))
-        uri = qr_data[0].data.decode("utf-8")
-        print(uri)
-        pattern = r'otpauth://totp/(?P<name>[^?]+)\?secret=(?P<secret>[^&]+)'
-        match = re.search(pattern, uri)
-        
-        if match:
-            name = match.group('name').replace('%20', ' ')
-            secret = match.group('secret')
-        token = {name: {"secret": secret}}
-        config = read_json("config.json")
-        config.update(token)
-        write_json("config.json", config)
-        frames = init_frames()
-        delete_frames(frames)
-        grid_frames(frames)
+    def update_frames(self):
+        for frame in self.frames.values():
+            frame.update()
+        self.after(1000, self.update_frames)
 
-def read_json(file_path):
-    try:
-        with open(file_path, 'r') as file:
-            return json.load(file)
-    except FileNotFoundError:
-        return {}
+    def add_token(self):
+        filename = filedialog.askopenfilename()
+        if filename:
+            qr_data = decode(Image.open(filename))
+            uri = qr_data[0].data.decode("utf-8")
+            pattern = r'otpauth://totp/(?P<name>[^?]+)\?secret=(?P<secret>[^&]+)'
+            match = re.search(pattern, uri)
+            
+            if match:
+                name = match.group('name').replace('%20', ' ')
+                secret = match.group('secret')
+                config = self.read_json("config.json")
+                config[name] = {"secret": secret}
+                self.write_json("config.json", config)
+                
+                new_frame = TOTPFrame(self.scrollable_frame, name, secret)
+                new_frame.grid(row=len(self.frames), column=0, pady=20, padx=20, sticky='ew')
+                self.frames[name] = new_frame
 
-def write_json(file_path, data):
-    with open(file_path, 'w') as file:
-        json.dump(data, file, indent=4)
+    @staticmethod
+    def read_json(file_path):
+        try:
+            with open(file_path, 'r') as file:
+                return json.load(file)
+        except FileNotFoundError:
+            return {}
 
-def on_mouse_wheel(event):
-    # Get the current position of the scrollbar
-    current_view = canvas.yview()
-    if (event.delta > 0 and current_view[0] <= 0) or (event.delta < 0 and current_view[1] >= 1):
-        return  # Prevent scrolling if already at the top or bottom
-    canvas.yview_scroll(-1 * int(event.delta / 120), "units")
+    @staticmethod
+    def write_json(file_path, data):
+        with open(file_path, 'w') as file:
+            json.dump(data, file, indent=4)
 
-def main():
-    frames = init_frames()
-    grid_frames(frames)
-
-    update(frames, root)
-
-    # Bind mouse wheel event to the canvas
-    canvas.bind_all("<MouseWheel>", on_mouse_wheel)
-    canvas.bind_all("<Button-4>", on_mouse_wheel)
-    canvas.bind_all("<Button-5>", on_mouse_wheel)
-
-    root.mainloop()
+    def on_mouse_wheel(self, event):
+        current_view = self.canvas.yview()
+        if (event.delta > 0 and current_view[0] <= 0) or (event.delta < 0 and current_view[1] >= 1):
+            return
+        self.canvas.yview_scroll(-1 * int(event.delta / 120), "units")
 
 if __name__ == "__main__":
-    main()
+    app = WinOTP()
+    app.mainloop()
