@@ -1,3 +1,7 @@
+# ALPHA11
+- Fixed delete token functionality by correctly deleting it from the loaded token also
+- Fixed visual glitch when adding token after deleting one related to the previous issue
+
 # ALPHA10
 - Added delete token functionality
 

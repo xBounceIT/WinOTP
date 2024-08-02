@@ -6,24 +6,25 @@ from datetime import datetime
 from PIL import Image, ImageTk
 from pyzbar.pyzbar import decode
 import re
+from urllib.parse import unquote
 
 class TOTPFrame(ttk.Frame):
-    def __init__(self, master, name, secret, delete_token_callback):
+    def __init__(self, master, issuer, secret, delete_token_callback):
         super().__init__(master, width=400, height=100)
-        self.name = name
+        self.issuer = issuer
         self.secret = secret
         self.totp = pyotp.TOTP(self.secret)
         self.code = ttk.StringVar(value=self.totp.now())
         self.time_remaining = ttk.StringVar(value=self.get_time_remaining())
 
-        self.name_label = ttk.Label(self, text=self.name)
+        self.issuer_label = ttk.Label(self, text=self.issuer)
         self.delete_btn = ttk.Button(self, text="x", command=delete_token_callback)
         self.code_label = ttk.Label(self, textvariable=self.code, font="Calibri 24")
         self.time_remaining_label = ttk.Label(self, textvariable=self.time_remaining, font="Calibri 16")
         self.copy_btn = ttk.Button(self, text="Copy", command=self.copy_totp)
 
         self.grid_columnconfigure((0, 1, 2), weight=1)
-        self.name_label.grid(row=0, column=0, sticky='w')
+        self.issuer_label.grid(row=0, column=0, sticky='w')
         self.delete_btn.grid(row=0, column=2, sticky='e', padx=20)
         self.code_label.grid(row=1, column=0, sticky='ew')
         self.copy_btn.grid(row=1, column=1, sticky='w')
@@ -111,9 +112,9 @@ class WinOTP(ttk.Window):
 
     def init_frames(self):
         config = self.read_json(self.conf_path)
-        for token, data in config.items():
-            self.frames[token] = TOTPFrame(self.scrollable_frame, token, data["secret"], lambda: self.delete_token(token))
-            self.frames[token].grid(row=len(self.frames), column=0, pady=20, padx=20, sticky='ew')
+        for issuer, data in config.items():
+            self.frames[issuer] = TOTPFrame(self.scrollable_frame, issuer, data["secret"], lambda i=issuer: self.delete_token(i))
+            self.frames[issuer].grid(row=len(self.frames), column=0, pady=20, padx=20, sticky='ew')
 
     def update_frames(self):
         for frame in self.frames.values():
@@ -125,24 +126,27 @@ class WinOTP(ttk.Window):
         if filename:
             qr_data = decode(Image.open(filename))
             uri = qr_data[0].data.decode("utf-8")
-            pattern = r'otpauth://totp/(?P<name>[^?]+)\?secret=(?P<secret>[^&]+)'
+            print(uri)
+            pattern = r'otpauth://totp/(?P<name>[^?]+)\?secret=(?P<secret>[^&]+)&issuer=(?P<issuer>[^&]+)'
             match = re.search(pattern, uri)
             
             if match:
-                name = match.group('name').replace('%20', ' ')
+                name = unquote(match.group('name'))
                 secret = match.group('secret')
+                issuer = unquote(match.group('issuer'))
                 config = self.read_json(self.conf_path)
-                config[name] = {"secret": secret}
+                config[issuer] = {"name": name, "secret": secret}
                 self.write_json(self.conf_path, config)
                 
-                new_frame = TOTPFrame(self.scrollable_frame, name, secret, lambda: self.delete_token(name))
+                new_frame = TOTPFrame(self.scrollable_frame, issuer, secret, lambda i=issuer: self.delete_token(i))
                 new_frame.grid(row=len(self.frames), column=0, pady=20, padx=20, sticky='ew')
-                self.frames[name] = new_frame
+                self.frames[issuer] = new_frame
 
-    def delete_token(self, token):
+    def delete_token(self, issuer):
+        self.frames[issuer].grid_forget()
+        self.frames.pop(issuer)
         config = self.read_json(self.conf_path)
-        config.pop(str(token))
-        self.frames[token].grid_forget()
+        config.pop(str(issuer))
         self.write_json(self.conf_path, config)
 
     @staticmethod
@@ -165,6 +169,6 @@ class WinOTP(ttk.Window):
         self.canvas.yview_scroll(-int(event.delta / 120), "units")
 
 if __name__ == "__main__":
-    conf_path = "config.json"
+    conf_path = "tokens.json.dev"
     app = WinOTP(conf_path)
     app.mainloop()
