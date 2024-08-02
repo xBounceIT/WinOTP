@@ -62,14 +62,14 @@ class SearchBar(ttk.Frame):
         self.settings_btn.grid(row=0, column=3, sticky='e')
 
 class WinOTP(ttk.Window):
-    def __init__(self, conf_path):
+    def __init__(self, tokens_path):
         super().__init__(themename='journal')
         self.title("WinOTP")
         self.width = 500
         self.height = 600
         self.center_window()
         self.resizable(False, False)
-        self.conf_path = conf_path
+        self.tokens_path = tokens_path
 
         self.columnconfigure(0, weight=1)
         self.rowconfigure(1, weight=1)
@@ -111,7 +111,7 @@ class WinOTP(ttk.Window):
         self.canvas.configure(scrollregion=self.canvas.bbox("all"))
 
     def init_frames(self):
-        config = self.read_json(self.conf_path)
+        config = self.read_json(self.tokens_path)
         for issuer, data in config.items():
             self.frames[issuer] = TOTPFrame(self.scrollable_frame, issuer, data["secret"], lambda i=issuer: self.delete_token(i))
             self.frames[issuer].grid(row=len(self.frames), column=0, pady=20, padx=20, sticky='ew')
@@ -134,9 +134,9 @@ class WinOTP(ttk.Window):
                 name = unquote(match.group('name'))
                 secret = match.group('secret')
                 issuer = unquote(match.group('issuer'))
-                config = self.read_json(self.conf_path)
+                config = self.read_json(self.tokens_path)
                 config[issuer] = {"name": name, "secret": secret}
-                self.write_json(self.conf_path, config)
+                self.write_json(self.tokens_path, config)
                 
                 new_frame = TOTPFrame(self.scrollable_frame, issuer, secret, lambda i=issuer: self.delete_token(i))
                 new_frame.grid(row=len(self.frames), column=0, pady=20, padx=20, sticky='ew')
@@ -145,9 +145,9 @@ class WinOTP(ttk.Window):
     def delete_token(self, issuer):
         self.frames[issuer].grid_forget()
         self.frames.pop(issuer)
-        config = self.read_json(self.conf_path)
+        config = self.read_json(self.tokens_path)
         config.pop(str(issuer))
-        self.write_json(self.conf_path, config)
+        self.write_json(self.tokens_path, config)
 
     @staticmethod
     def read_json(file_path):
@@ -169,6 +169,6 @@ class WinOTP(ttk.Window):
         self.canvas.yview_scroll(-int(event.delta / 120), "units")
 
 if __name__ == "__main__":
-    conf_path = "tokens.json.dev"
-    app = WinOTP(conf_path)
+    tokens_path = "tokens.json.dev"
+    app = WinOTP(tokens_path)
     app.mainloop()
