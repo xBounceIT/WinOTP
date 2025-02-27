@@ -278,6 +278,7 @@ class SearchBar(ttk.Frame):
             self.settings_btn = ttk.Button(
                 self, 
                 image=master.settings_icon,
+                command=master.show_settings,  # Connect to the settings method
                 style="Custom.TButton"  # Apply our custom style
             )
             self.settings_btn.image = master.settings_icon  # Keep reference to prevent GC
@@ -285,6 +286,7 @@ class SearchBar(ttk.Frame):
             self.settings_btn = ttk.Button(
                 self, 
                 text="⚙",
+                command=master.show_settings,  # Connect to the settings method
                 style="Custom.TButton"  # Apply our custom style
             )
         self.settings_btn.grid(row=0, column=4, sticky='e', padx=5)  # Changed column to 4
@@ -363,6 +365,10 @@ class WinOTP(ttk.Window):
 
         self.frames = {}
         self.filtered_frames = {} #keep track of the filtered frames
+        
+        # Initialize welcome_frame as None
+        self.welcome_frame = None
+        
         self.init_frames()
         
         # Update sort button text
@@ -399,7 +405,9 @@ class WinOTP(ttk.Window):
             "copy_confirm_icon": "copy_confirm.png",  # Add the new confirmation icon
             "delete_icon": "delete.png",
             "sort_asc_icon": "sort_asc.png",
-            "sort_desc_icon": "sort_desc.png"
+            "sort_desc_icon": "sort_desc.png",
+            # Add empty drawer icon
+            "empty_drawer_icon": "drawer-empty.png"
         }
         
         # Define icon sizes
@@ -415,7 +423,9 @@ class WinOTP(ttk.Window):
             "copy_confirm_icon": (16, 16),  # Add size for the new icon
             "delete_icon": (16, 16),
             "sort_asc_icon": (16, 16),
-            "sort_desc_icon": (16, 16)
+            "sort_desc_icon": (16, 16),
+            # Define size for empty drawer icon
+            "empty_drawer_icon": (128, 128)
         }
         
         # Load each icon
@@ -469,6 +479,12 @@ class WinOTP(ttk.Window):
     def init_frames(self):
         config = self.read_json(self.tokens_path)
         
+        # Check if there are any tokens
+        if not config:
+            # Show welcome message when no tokens exist
+            self.show_welcome_message()
+            return
+        
         # Create frames but don't add them to grid yet
         for token_id, data in config.items():
             # Make sure we have the required fields, handle old format gracefully
@@ -489,6 +505,10 @@ class WinOTP(ttk.Window):
         # Sort by issuer and add frames to the grid
         self._apply_current_sorting()
         
+        # Hide welcome message if it exists
+        if self.welcome_frame:
+            self.welcome_frame.grid_forget()
+            
         # Update scrollbar visibility after adding frames
         self.after(100, self.update_scrollbar_visibility)
         
@@ -497,6 +517,53 @@ class WinOTP(ttk.Window):
         for token_id, data in self.frames.items():
             frame = data["frame"]
             print(f"  {frame.issuer}: {frame.secret[:3]}...{frame.secret[-3:]} ({token_id})")
+    
+    def show_welcome_message(self):
+        """Show a welcome message when no tokens exist"""
+        # If welcome frame exists, remove it first
+        if self.welcome_frame:
+            self.welcome_frame.grid_forget()
+            
+        # Create a new welcome frame
+        self.welcome_frame = ttk.Frame(self.scrollable_frame)
+        self.welcome_frame.grid(row=0, column=0, sticky='nsew', padx=20, pady=20)
+        
+        # Center the content within the welcome frame
+        self.welcome_frame.columnconfigure(0, weight=1)
+        
+        # Create a container for the welcome message
+        welcome_container = ttk.Frame(self.welcome_frame)
+        welcome_container.grid(row=0, column=0, pady=80)
+        welcome_container.columnconfigure(0, weight=1)
+        
+        # Add empty drawer image
+        if hasattr(self, 'empty_drawer_icon') and self.empty_drawer_icon:
+            image_label = ttk.Label(welcome_container, image=self.empty_drawer_icon)
+            image_label.grid(row=0, column=0, pady=10)
+        
+        # Add welcome message
+        ttk.Label(
+            welcome_container, 
+            text="No TOTP tokens found", 
+            font="Calibri 16 bold"
+        ).grid(row=1, column=0, pady=10)
+        
+        ttk.Label(
+            welcome_container, 
+            text="Click the + button in the top bar to add your first token", 
+            font="Calibri 12", 
+            wraplength=350
+        ).grid(row=2, column=0, pady=5)
+        
+        # Add text about bulk import instead of Add Token button
+        ttk.Label(
+            welcome_container,
+            text="If you have a compatible export from another app, you can use the ⚙ Settings menu to bulk import your tokens.",
+            font="Calibri 12 italic",
+            foreground="#A9A9A9",  # Dark gray for secondary information
+            wraplength=350,
+            justify="center"
+        ).grid(row=3, column=0, pady=20)
 
     def update_frames(self):
         for data in self.frames.values():
@@ -676,6 +743,10 @@ class WinOTP(ttk.Window):
         self.frames[token_id] = {"frame": new_frame, "issuer": issuer}
         self.filtered_frames[token_id] = {"frame": new_frame, "issuer": issuer} 
         
+        # Hide welcome message if it was shown
+        if self.welcome_frame:
+            self.welcome_frame.grid_forget()
+        
         # Apply sorting after adding a new token
         self.search_tokens(self.search_bar.search_input.get())
         
@@ -699,6 +770,10 @@ class WinOTP(ttk.Window):
         
         # Update the search/display
         self.search_tokens(self.search_bar.search_input.get())
+        
+        # Show welcome message if all tokens have been deleted
+        if not self.frames:
+            self.show_welcome_message()
 
     @staticmethod
     def read_json(file_path):
@@ -755,6 +830,168 @@ class WinOTP(ttk.Window):
             self.v_scrollbar.grid(row=1, column=1, sticky="ns")
         else:
             self.v_scrollbar.grid_forget()
+
+    def show_settings(self):
+        """Show the settings page"""
+        for widget in self.winfo_children():
+            widget.grid_forget()
+
+        # Create settings frame
+        self.settings_frame = ttk.Frame(self)
+        self.settings_frame.grid(row=0, column=0, sticky="nsew", padx=20, pady=20)
+        self.settings_frame.columnconfigure(0, weight=1)
+
+        # Add back button at the top left
+        if hasattr(self, 'back_icon') and self.back_icon:
+            back_btn = ttk.Button(
+                self.settings_frame, 
+                image=self.back_icon, 
+                compound=ttk.LEFT, 
+                command=self.show_main_view, 
+                style='Link.TButton'
+            )
+        else:
+            back_btn = ttk.Button(
+                self.settings_frame, 
+                text="←", 
+                command=self.show_main_view, 
+                style='Link.TButton'
+            )
+        back_btn.grid(row=0, column=0, sticky="nw", pady=5)
+
+        # Add settings title
+        ttk.Label(
+            self.settings_frame, 
+            text="Settings", 
+            font="Calibri 16 bold"
+        ).grid(row=1, column=0, pady=10, sticky="w")
+        
+        # Bulk import section
+        ttk.Label(
+            self.settings_frame, 
+            text="Bulk Import", 
+            font="Calibri 14 bold"
+        ).grid(row=2, column=0, pady=(20, 10), sticky="w")
+        
+        ttk.Label(
+            self.settings_frame, 
+            text="Import multiple TOTP tokens from a JSON file", 
+            wraplength=450
+        ).grid(row=3, column=0, pady=5, sticky="w")
+        
+        ttk.Button(
+            self.settings_frame, 
+            text="Import from JSON", 
+            command=self.bulk_import_tokens, 
+            bootstyle="primary"
+        ).grid(row=4, column=0, pady=10, sticky="w")
+        
+        # JSON format help
+        ttk.Label(
+            self.settings_frame,
+            text="Expected JSON Format:",
+            font="Calibri 12 bold"
+        ).grid(row=5, column=0, pady=(20, 5), sticky="w")
+        
+        format_text = """{
+    "token_1": {
+        "issuer": "Service Name",
+        "name": "username@example.com",
+        "secret": "BASE32SECRET"
+    },
+    "token_2": {
+        "issuer": "Another Service",
+        "name": "username",
+        "secret": "ANOTHERBASE32SECRET"
+    }
+}"""
+        
+        format_label = ttk.Label(
+            self.settings_frame,
+            text=format_text,
+            font="Courier 10",
+            justify="left",
+            wraplength=450
+        )
+        format_label.grid(row=6, column=0, pady=5, sticky="w")
+
+    def bulk_import_tokens(self):
+        """Import multiple tokens from a JSON file"""
+        filename = filedialog.askopenfilename(
+            title="Select JSON file with TOTP tokens",
+            filetypes=[("JSON files", "*.json"), ("All files", "*.*")]
+        )
+        
+        if not filename:
+            return
+        
+        try:
+            # Read the import file
+            with open(filename, 'r') as file:
+                import_data = json.load(file)
+            
+            if not import_data:
+                messagebox.showerror("Error", "The selected file doesn't contain any tokens.")
+                return
+            
+            # Get current tokens
+            current_tokens = self.read_json(self.tokens_path)
+            
+            # Track import statistics
+            imported_count = 0
+            duplicate_count = 0
+            
+            # Process each token in the import file
+            for token_id, data in import_data.items():
+                # Verify required fields
+                if not all(key in data for key in ["issuer", "name", "secret"]):
+                    continue
+                
+                # Check for duplicate secrets
+                is_duplicate = False
+                for existing_token in current_tokens.values():
+                    if existing_token.get("secret") == data["secret"]:
+                        duplicate_count += 1
+                        is_duplicate = True
+                        break
+                
+                if is_duplicate:
+                    continue
+                
+                # Create a new unique token ID
+                import uuid
+                new_token_id = f"token_{uuid.uuid4().hex[:8]}"
+                
+                # Add to current tokens
+                current_tokens[new_token_id] = {
+                    "issuer": data["issuer"],
+                    "name": data["name"],
+                    "secret": data["secret"]
+                }
+                imported_count += 1
+            
+            # Save updated tokens
+            self.write_json(self.tokens_path, current_tokens)
+            
+            # Show success message
+            messagebox.showinfo(
+                "Import Complete", 
+                f"Successfully imported {imported_count} tokens.\n"
+                f"Skipped {duplicate_count} duplicate tokens."
+            )
+            
+            # Refresh the main view
+            self.show_main_view()
+            
+            # Reinitialize frames with the new tokens
+            self.frames = {}
+            self.filtered_frames = {}
+            self.init_frames()
+            
+        except json.JSONDecodeError:
+            messagebox.showerror("Error", "Invalid JSON file format.")
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to import tokens: {str(e)}")
 
 if __name__ == "__main__":
     # Check if debug mode is enabled via command line arguments
