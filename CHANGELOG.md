@@ -1,3 +1,8 @@
+# ALPHA16
+- Added icons for sort, copy, and delete buttons
+- Improved sort button to display appropriate icon for current sort direction
+- Enhanced consistency of button icon display across the application
+
 # ALPHA15
 - Fixed scrollbar display to match app theme using ttk.Scrollbar
 - Added smart scrollbar that hides when content doesn't exceed window height

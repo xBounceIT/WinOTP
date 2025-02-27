@@ -21,7 +21,15 @@ class TOTPFrame(ttk.Frame):
 
         # Update issuer label with a larger font
         self.issuer_label = ttk.Label(self, text=self.issuer, font="Calibri 16 bold")
-        self.delete_btn = ttk.Button(self, text="×", command=delete_token_callback)
+        
+        # Fix: The correct way to access the main window from TOTPFrame
+        main_window = self.winfo_toplevel()
+        
+        # Update delete button to use icon if available
+        if hasattr(main_window, 'delete_icon') and main_window.delete_icon:
+            self.delete_btn = ttk.Button(self, image=main_window.delete_icon, command=delete_token_callback)
+        else:
+            self.delete_btn = ttk.Button(self, text="×", command=delete_token_callback)
 
         # New: Add token name label with truncation and dark grey foreground
         self.full_name = token_name
@@ -32,7 +40,12 @@ class TOTPFrame(ttk.Frame):
         self.code_frame = ttk.Frame(self)
         self.code_label = ttk.Label(self.code_frame, textvariable=self.code, font="Calibri 24")
         self.code_label.pack(side="left", fill="x", expand=True)
-        self.copy_btn = ttk.Button(self.code_frame, text="Copy", command=self.copy_totp)
+        
+        # Update copy button to use icon if available - also use main_window
+        if hasattr(main_window, 'copy_icon') and main_window.copy_icon:
+            self.copy_btn = ttk.Button(self.code_frame, image=main_window.copy_icon, command=self.copy_totp)
+        else:
+            self.copy_btn = ttk.Button(self.code_frame, text="Copy", command=self.copy_totp)
         self.copy_btn.pack(side="left", padx=10)
 
         self.time_remaining_label = ttk.Label(self, textvariable=self.time_remaining, font="Calibri 16")
@@ -115,13 +128,24 @@ class SearchBar(ttk.Frame):
             )
         self.search_button.grid(row=0, column=1, sticky='w', padx=5)  # Add padding between buttons
 
-        # Add sort button
-        self.sort_btn = ttk.Button(
-            self, 
-            text="↑↓",  # Default to up/down arrows as icon
-            command=sort_callback,
-            style="Custom.TButton"
-        )
+        # Add sort button with icon support
+        if hasattr(master, 'sort_asc_icon') and master.sort_asc_icon:
+            self.sort_btn = ttk.Button(
+                self, 
+                image=master.sort_asc_icon,  # Start with ascending icon
+                command=sort_callback,
+                style="Custom.TButton"
+            )
+            # Store both icons as attributes for later switching
+            self.sort_asc_image = master.sort_asc_icon
+            self.sort_desc_image = master.sort_desc_icon
+        else:
+            self.sort_btn = ttk.Button(
+                self, 
+                text="↑↓",  # Default to up/down arrows as icon
+                command=sort_callback,
+                style="Custom.TButton"
+            )
         self.sort_btn.grid(row=0, column=2, sticky='w', padx=5)
         
         # Create add button with icon or fallback text
@@ -158,9 +182,12 @@ class SearchBar(ttk.Frame):
             )
         self.settings_btn.grid(row=0, column=4, sticky='e', padx=5)  # Changed column to 4
 
-    # Add a method to update the sort button text based on current sort order
+    # Update method to handle icon switching
     def update_sort_button(self, ascending):
-        self.sort_btn.configure(text="A→Z" if ascending else "Z→A")
+        if hasattr(self, 'sort_asc_image') and hasattr(self, 'sort_desc_image'):
+            self.sort_btn.configure(image=self.sort_asc_image if ascending else self.sort_desc_image)
+        else:
+            self.sort_btn.configure(text="A→Z" if ascending else "Z→A")
 
 class WinOTP(ttk.Window):
     def __init__(self, tokens_path):
@@ -236,7 +263,12 @@ class WinOTP(ttk.Window):
             "back_icon": "back_arrow.png", 
             "plus_icon": "plus.png",
             "settings_icon": "settings.png", 
-            "search_icon": "search.png"
+            "search_icon": "search.png",
+            # Add new icons for sort, copy, and delete buttons
+            "copy_icon": "copy.png",
+            "delete_icon": "delete.png",
+            "sort_asc_icon": "sort_asc.png",
+            "sort_desc_icon": "sort_desc.png"
         }
         
         # Define icon sizes
@@ -246,7 +278,12 @@ class WinOTP(ttk.Window):
             "back_icon": (24, 24),
             "plus_icon": (16, 16),
             "settings_icon": (16, 16),
-            "search_icon": (16, 16)
+            "search_icon": (16, 16),
+            # Define sizes for new icons
+            "copy_icon": (16, 16),
+            "delete_icon": (16, 16),
+            "sort_asc_icon": (16, 16),
+            "sort_desc_icon": (16, 16)
         }
         
         # Load each icon
