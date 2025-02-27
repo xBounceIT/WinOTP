@@ -1,3 +1,13 @@
+# ALPHA19
+- Added hand cursor to all buttons to improve user experience
+- Buttons now visually indicate they are clickable when hovered over
+- Enhanced interface consistency with web-like interaction patterns
+
+# ALPHA18
+- Fixed copy button animation to show green background for the entire button
+- Restored proper blue color for copy buttons in normal state
+- Improved button focus behavior to prevent focus outlines from appearing after clicks
+
 # ALPHA17
 - Added copy confirmation animation with visual feedback on the copy button
 - Changed copy button to temporarily show a success state with confirmation icon

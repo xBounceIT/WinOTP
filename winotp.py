@@ -43,46 +43,27 @@ class TOTPFrame(ttk.Frame):
         
         # Update copy button to use icon if available - also use main_window
         if hasattr(main_window, 'copy_icon') and main_window.copy_icon:
-            # Create a custom style for the normal state
-            style = ttk.Style()
-            style.configure("Copy.TButton", padding=4)
-            
-            # Also create a success style for feedback that maintains green color even when disabled
-            style.configure("CopySuccess.TButton", padding=4, background="#28a745")
-            # Important: Map the disabled state to maintain green color
-            style.map("CopySuccess.TButton", 
-                background=[("disabled", "#28a745")],
-                foreground=[("disabled", "#ffffff")]
-            )
-            
+            # Use bootstyle instead of style for better color control
             self.copy_btn = ttk.Button(
                 self.code_frame, 
                 image=main_window.copy_icon, 
                 command=self.copy_totp,
-                style="Copy.TButton"
+                bootstyle="primary"  # Change from "secondary" to "primary" for blue color
             )
             # Store the confirmation icon for later use
             self.copy_confirm_icon = main_window.copy_confirm_icon if hasattr(main_window, 'copy_confirm_icon') else None
             self.original_copy_icon = main_window.copy_icon
         else:
-            style = ttk.Style()
-            style.configure("Copy.TButton", padding=4)
-            style.configure("CopySuccess.TButton", padding=4, background="#28a745")
-            # Same mapping for the text-based button
-            style.map("CopySuccess.TButton", 
-                background=[("disabled", "#28a745")],
-                foreground=[("disabled", "#ffffff")]
-            )
             self.copy_btn = ttk.Button(
                 self.code_frame, 
                 text="Copy", 
                 command=self.copy_totp,
-                style="Copy.TButton"
+                bootstyle="primary"  # Change from "secondary" to "primary" for blue color
             )
         self.copy_btn.pack(side="left", padx=10)
         
         # Store original style and initialize after_id for animation
-        self.original_style = "Copy.TButton"
+        self.original_style = "primary"  # Change from "secondary" to "primary" to match above
         self.after_id = None  # Use a single after_id instead of a list
 
         self.time_remaining_label = ttk.Label(self, textvariable=self.time_remaining, font="Calibri 16")
@@ -126,8 +107,8 @@ class TOTPFrame(ttk.Frame):
             self.original_command = self.copy_btn['command']
             self.copy_btn.configure(command=lambda: None)  # Empty command instead of disabling
             
-            # Change to success style
-            self.copy_btn.configure(style="CopySuccess.TButton")
+            # Change to success style using bootstyle instead of style
+            self.copy_btn.configure(bootstyle="success")
             
             # Change icon if available
             if hasattr(self, 'copy_confirm_icon') and self.copy_confirm_icon:
@@ -144,8 +125,8 @@ class TOTPFrame(ttk.Frame):
     
     def reset_copy_button(self):
         try:
-            # Restore original style
-            self.copy_btn.configure(style=self.original_style)
+            # Restore original style using bootstyle
+            self.copy_btn.configure(bootstyle=self.original_style)
             
             # Restore original icon or text
             if hasattr(self, 'original_copy_icon') and self.original_copy_icon:
@@ -298,6 +279,29 @@ class WinOTP(ttk.Window):
         
         # Load Icons
         self.load_icons()
+
+        # Configure focus highlighting to be invisible
+        style = ttk.Style()
+        style.configure('TButton', focuscolor=style.configure('TFrame', 'background'))
+        style.configure('TEntry', highlightthickness=0, bd=0)
+        style.map('TButton', 
+                  relief=[('focus', 'flat')],
+                  borderwidth=[('focus', 0)],
+                  highlightthickness=[('focus', 0)])
+                  
+        # Add takefocus=0 option to all button creation methods and set cursor to hand2
+        self.original_button_init = ttk.Button.__init__
+        
+        def button_init_wrapper(instance, master=None, **kw):
+            # Add hand cursor for all buttons
+            if 'cursor' not in kw:
+                kw['cursor'] = 'hand2'
+            # Prevent focus outline
+            if 'takefocus' not in kw:
+                kw['takefocus'] = 0
+            self.original_button_init(instance, master, **kw)
+            
+        ttk.Button.__init__ = button_init_wrapper
 
         self.columnconfigure(0, weight=1)
         self.rowconfigure(1, weight=1)
