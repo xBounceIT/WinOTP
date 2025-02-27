@@ -1,5 +1,5 @@
 import ttkbootstrap as ttk
-from tkinter import filedialog, Canvas, Scrollbar
+from tkinter import filedialog, Canvas, Scrollbar, Toplevel, Label, Entry, Button, messagebox, PhotoImage
 import json
 import pyotp
 from datetime import datetime
@@ -7,9 +7,11 @@ from PIL import Image, ImageTk
 from pyzbar.pyzbar import decode
 import re
 from urllib.parse import unquote
+import os
+import tkinter.font as tkFont  # Add this import at the top
 
 class TOTPFrame(ttk.Frame):
-    def __init__(self, master, issuer, secret, delete_token_callback):
+    def __init__(self, master, issuer, secret, token_name, delete_token_callback):
         super().__init__(master, width=400, height=100)
         self.issuer = issuer
         self.secret = secret
@@ -17,18 +19,36 @@ class TOTPFrame(ttk.Frame):
         self.code = ttk.StringVar(value=self.totp.now())
         self.time_remaining = ttk.StringVar(value=self.get_time_remaining())
 
-        self.issuer_label = ttk.Label(self, text=self.issuer)
-        self.delete_btn = ttk.Button(self, text="x", command=delete_token_callback)
-        self.code_label = ttk.Label(self, textvariable=self.code, font="Calibri 24")
-        self.time_remaining_label = ttk.Label(self, textvariable=self.time_remaining, font="Calibri 16")
-        self.copy_btn = ttk.Button(self, text="Copy", command=self.copy_totp)
+        # Update issuer label with a larger font
+        self.issuer_label = ttk.Label(self, text=self.issuer, font="Calibri 16 bold")
+        self.delete_btn = ttk.Button(self, text="×", command=delete_token_callback)
 
-        self.grid_columnconfigure((0, 1, 2), weight=1)
-        self.issuer_label.grid(row=0, column=0, sticky='w')
-        self.delete_btn.grid(row=0, column=2, sticky='e', padx=20)
-        self.code_label.grid(row=1, column=0, sticky='ew')
-        self.copy_btn.grid(row=1, column=1, sticky='w')
-        self.time_remaining_label.grid(row=1, column=2, sticky='e', padx=20)
+        # New: Add token name label with truncation and dark grey foreground
+        self.full_name = token_name
+        self.name_label = ttk.Label(self, text="", font="Calibri 12", foreground="#A9A9A9")
+        self.name_font = tkFont.Font(family="Calibri", size=12)  # Create a Font object
+
+        # Create a container frame for the code and copy button to ensure constant distance
+        self.code_frame = ttk.Frame(self)
+        self.code_label = ttk.Label(self.code_frame, textvariable=self.code, font="Calibri 24")
+        self.code_label.pack(side="left", fill="x", expand=True)
+        self.copy_btn = ttk.Button(self.code_frame, text="Copy", command=self.copy_totp)
+        self.copy_btn.pack(side="left", padx=10)
+
+        self.time_remaining_label = ttk.Label(self, textvariable=self.time_remaining, font="Calibri 16")
+        
+        # Update layout: row0 for issuer and delete; row1 for token name; row2 for totp data.
+        self.issuer_label.grid(row=0, column=0, sticky='w', padx=20)
+        self.delete_btn.grid(row=0, column=1, sticky='e', padx=20)
+        self.name_label.grid(row=1, column=0, columnspan=2, sticky="w", padx=20)
+        self.code_frame.grid(row=2, column=0, sticky="ew", padx=20)
+        self.time_remaining_label.grid(row=2, column=1, sticky='e', padx=20)
+        self.columnconfigure(0, weight=1)
+        self.columnconfigure(1, weight=0)
+
+        # Bind to configure event to handle resizing
+        self.bind('<Configure>', self.on_resize)
+        self.update_name_truncation()
 
     def update(self):
         self.code.set(self.totp.now())
@@ -41,40 +61,133 @@ class TOTPFrame(ttk.Frame):
         self.master.master.clipboard_clear()
         self.master.master.clipboard_append(self.code.get())
 
+    def update_name_truncation(self):
+        # Always set text content first to ensure it's displayed
+        self.name_label.configure(text=self.full_name)
+        
+        # Make sure the widget is actually visible before trying truncation
+        if not self.winfo_ismapped() or self.winfo_width() <= 1:
+            # Schedule another attempt after initial layout
+            self.after(200, self.update_name_truncation)
+            return
+        
+        # Hard-code a simple truncation approach - show up to 30 chars + ellipsis
+        if len(self.full_name) > 30:
+            truncated = self.full_name[:30] + "..."
+            self.name_label.configure(text=truncated)
+        else:
+            self.name_label.configure(text=self.full_name)
+
+    def on_resize(self, event):
+        self.after(50, self.update_name_truncation)  # Debounce the resize event
+
 class SearchBar(ttk.Frame):
-    def __init__(self, master, add_token_callback):
+    def __init__(self, master, add_token_callback, search_callback, sort_callback):
         super().__init__(master, width=master.width)
         self.grid(row=0, column=0, pady=20, padx=20, sticky="ew")
-        self.grid_columnconfigure((0, 1, 2, 3), weight=1)
+        self.grid_columnconfigure((0, 1, 2, 3, 4), weight=1)  # Added one more column for sort button
+
+        # Create custom button style with padding - remove borderradius
+        self.button_style = ttk.Style()
+        self.button_style.configure("Custom.TButton", padding=6)
+        # These are standard ttk style options that should work
+        self.button_style.configure("Custom.TButton", relief="flat")
 
         self.search_input = ttk.Entry(self)
         self.search_input.grid(row=0, column=0, sticky='ew')
+        self.search_input.bind("<KeyRelease>", lambda event: search_callback(self.search_input.get()))
 
-        search_button_icon = ImageTk.PhotoImage(Image.open(r"C:\Users\dange\Desktop\Projects\WinOTP\static\images\search.png").resize((16,16), Image.LANCZOS))
-        self.search_button = ttk.Button(self, image=search_button_icon, compound=ttk.CENTER)
-        self.search_button.image = search_button_icon
-        self.search_button.grid(row=0, column=1, sticky='w')
+        # Create search button with icon or fallback text
+        if hasattr(master, 'search_icon') and master.search_icon:
+            self.search_button = ttk.Button(
+                self, 
+                image=master.search_icon,
+                command=lambda: search_callback(self.search_input.get()),
+                style="Custom.TButton"  # Apply our custom style
+            )
+            self.search_button.image = master.search_icon  # Keep reference to prevent GC
+        else:
+            self.search_button = ttk.Button(
+                self, 
+                text="🔍",
+                command=lambda: search_callback(self.search_input.get()),
+                style="Custom.TButton"  # Apply our custom style
+            )
+        self.search_button.grid(row=0, column=1, sticky='w', padx=5)  # Add padding between buttons
 
-        self.add_btn = ttk.Button(self, command=add_token_callback, text="+")
-        self.add_btn.grid(row=0, column=2, sticky='e')
+        # Add sort button
+        self.sort_btn = ttk.Button(
+            self, 
+            text="↑↓",  # Default to up/down arrows as icon
+            command=sort_callback,
+            style="Custom.TButton"
+        )
+        self.sort_btn.grid(row=0, column=2, sticky='w', padx=5)
+        
+        # Create add button with icon or fallback text
+        if hasattr(master, 'plus_icon') and master.plus_icon:
+            self.add_btn = ttk.Button(
+                self, 
+                image=master.plus_icon,
+                command=add_token_callback,
+                style="Custom.TButton"  # Apply our custom style
+            )
+            self.add_btn.image = master.plus_icon  # Keep reference to prevent GC
+        else:
+            self.add_btn = ttk.Button(
+                self, 
+                text="+",
+                command=add_token_callback,
+                style="Custom.TButton"  # Apply our custom style
+            )
+        self.add_btn.grid(row=0, column=3, sticky='e', padx=5)  # Add padding between buttons
 
-        self.settings_btn = ttk.Button(self, text="S")
-        self.settings_btn.grid(row=0, column=3, sticky='e')
+        # Create settings button with icon or fallback text
+        if hasattr(master, 'settings_icon') and master.settings_icon:
+            self.settings_btn = ttk.Button(
+                self, 
+                image=master.settings_icon,
+                style="Custom.TButton"  # Apply our custom style
+            )
+            self.settings_btn.image = master.settings_icon  # Keep reference to prevent GC
+        else:
+            self.settings_btn = ttk.Button(
+                self, 
+                text="⚙",
+                style="Custom.TButton"  # Apply our custom style
+            )
+        self.settings_btn.grid(row=0, column=4, sticky='e', padx=5)  # Changed column to 4
+
+    # Add a method to update the sort button text based on current sort order
+    def update_sort_button(self, ascending):
+        self.sort_btn.configure(text="A→Z" if ascending else "Z→A")
 
 class WinOTP(ttk.Window):
     def __init__(self, tokens_path):
-        super().__init__(themename='journal')
+        # Set dark mode theme.
+        super().__init__(themename='darkly')
+        
+        # Remove the problematic line that was causing the error
+        # style = ttk.Style()
+        # style.configure("Round.TButton", borderradius=20)
+        
         self.title("WinOTP")
         self.width = 500
         self.height = 600
         self.center_window()
         self.resizable(False, False)
         self.tokens_path = tokens_path
+        
+        # Add sort order state variable
+        self.sort_ascending = True
+        
+        # Load Icons
+        self.load_icons()
 
         self.columnconfigure(0, weight=1)
         self.rowconfigure(1, weight=1)
 
-        self.search_bar = SearchBar(self, self.add_token)
+        self.search_bar = SearchBar(self, self.add_token, self.search_tokens, self.sort_tokens)
         self.canvas = Canvas(self, width=self.width)
         self.canvas.grid(row=1, column=0, sticky="nsew")
 
@@ -92,13 +205,82 @@ class WinOTP(ttk.Window):
         self.canvas.itemconfig(self.canvas_window, width=self.width)
 
         self.frames = {}
+        self.filtered_frames = {} #keep track of the filtered frames
         self.init_frames()
+        
+        # Update sort button text
+        self.search_bar.update_sort_button(self.sort_ascending)
 
         self.canvas.bind_all("<MouseWheel>", self.on_mouse_wheel)
         self.canvas.bind_all("<Button-4>", self.on_mouse_wheel)
         self.canvas.bind_all("<Button-5>", self.on_mouse_wheel)
 
         self.after(1000, self.update_frames)
+    
+    def load_icons(self):
+        """Loads icons for the application."""
+        icon_dir = "static/images/"
+        
+        # Check if the directory exists
+        if not os.path.exists(icon_dir):
+            os.makedirs(icon_dir)
+            print(f"Directory '{icon_dir}' created.")
+
+        # Load all needed icons
+        icons = {
+            "qr_icon": "qr_code.png", 
+            "manual_icon": "manual_entry.png",
+            "back_icon": "back_arrow.png", 
+            "plus_icon": "plus.png",
+            "settings_icon": "settings.png", 
+            "search_icon": "search.png"
+        }
+        
+        # Define icon sizes
+        sizes = {
+            "qr_icon": (32, 32),
+            "manual_icon": (32, 32),
+            "back_icon": (24, 24),
+            "plus_icon": (16, 16),
+            "settings_icon": (16, 16),
+            "search_icon": (16, 16)
+        }
+        
+        # Load each icon
+        for icon_name, file_name in icons.items():
+            full_path = os.path.join(icon_dir, file_name)
+            setattr(self, icon_name, self.load_icon(full_path, sizes[icon_name]))
+            if getattr(self, icon_name) is None:
+                print(f"Failed to load {icon_name} from {full_path}")
+
+    def load_icon(self, path, size):
+        """Loads an icon from the given path and resizes it."""
+        try:
+            # Check if file exists
+            if not os.path.isfile(path):
+                print(f"Icon file not found: {path}")
+                return None
+
+            # Open and process the image
+            img = Image.open(path)
+            
+            # Convert to RGBA mode to ensure transparency support
+            if img.mode != 'RGBA':
+                img = img.convert('RGBA')
+            
+            # Resize with high-quality resampling
+            img = img.resize(size, Image.LANCZOS)
+            
+            # Create PhotoImage from the processed image
+            photo = ImageTk.PhotoImage(img)
+            return photo
+        
+        except FileNotFoundError:
+            print(f"Icon not found: {path}")
+            return None
+        except Exception as e:
+            print(f"Error loading icon {path}: {str(e)}")
+            return None
 
     def center_window(self):
         ws = self.winfo_screenwidth()
@@ -112,42 +294,183 @@ class WinOTP(ttk.Window):
 
     def init_frames(self):
         config = self.read_json(self.tokens_path)
+        
+        # Create frames but don't add them to grid yet
         for issuer, data in config.items():
-            self.frames[issuer] = TOTPFrame(self.scrollable_frame, issuer, data["secret"], lambda i=issuer: self.delete_token(i))
-            self.frames[issuer].grid(row=len(self.frames), column=0, pady=20, padx=20, sticky='ew')
+            self.frames[issuer] = TOTPFrame(self.scrollable_frame, issuer, data["secret"], data["name"], lambda i=issuer: self.delete_token(i))
+            self.filtered_frames[issuer] = self.frames[issuer]
+        
+        # Sort issuers and add frames to the grid in sorted order
+        sorted_issuers = sorted(self.frames.keys(), reverse=not self.sort_ascending)
+        
+        for i, issuer in enumerate(sorted_issuers):
+            self.frames[issuer].grid(row=i, column=0, pady=20, padx=20, sticky='ew')
 
     def update_frames(self):
         for frame in self.frames.values():
             frame.update()
         self.after(1000, self.update_frames)
+    
+    def sort_tokens(self):
+        """Sort tokens by issuer name and toggle between ascending and descending order"""
+        self.sort_ascending = not self.sort_ascending
+        self.search_bar.update_sort_button(self.sort_ascending)
+        
+        # Apply the new sorting order
+        self._apply_current_sorting()
+    
+    def _apply_current_sorting(self):
+        """Apply the current sorting order to the filtered frames"""
+        # Apply sorting to filtered frames (the ones currently displayed)
+        sorted_issuers = sorted(self.filtered_frames.keys(), reverse=not self.sort_ascending)
+        
+        # Update the UI - hide all frames first
+        for frame in self.frames.values():
+            frame.grid_forget()
+        
+        # Show them in the sorted order
+        for i, issuer in enumerate(sorted_issuers):
+            self.filtered_frames[issuer].grid(row=i, column=0, pady=20, padx=20, sticky='ew')
+    
+    def search_tokens(self, query):
+        query = query.lower()
+        self.filtered_frames = {}  # Clear the current filtered frames
+        
+        # Filter frames by search query
+        for issuer, frame in self.frames.items():
+            if query in issuer.lower():
+                self.filtered_frames[issuer] = frame
+        
+        # Apply sort order to the filtered results
+        self._apply_current_sorting()
 
     def add_token(self):
+        for widget in self.winfo_children():
+            widget.grid_forget()
+
+        self.add_token_frame = ttk.Frame(self)
+        self.add_token_frame.grid(row=0, column=0, pady=20, padx=20, sticky="nsew")
+        self.add_token_frame.columnconfigure(0, weight=1)
+
+        # Add back button at the top left
+        if self.back_icon:
+            back_btn = ttk.Button(self.add_token_frame, image=self.back_icon, compound=ttk.LEFT, command=self.show_main_view, style='Link.TButton')
+        else:
+            back_btn = ttk.Button(self.add_token_frame, text="←", command=self.show_main_view, style='Link.TButton')
+        back_btn.grid(row=0, column=0, sticky="nw", pady=5)
+
+        ttk.Label(self.add_token_frame, text="Add Token", font="Calibri 16 bold").grid(row=1, column=0, pady=10)
+
+        if self.qr_icon:
+            ttk.Button(self.add_token_frame, text="Add from QR Code", image=self.qr_icon, compound=ttk.LEFT, command=self.add_token_from_qr).grid(row=2, column=0, pady=10, padx=20, sticky="ew")
+        else:
+            ttk.Button(self.add_token_frame, text="Add from QR Code", command=self.add_token_from_qr).grid(row=2, column=0, pady=10, padx=20, sticky="ew")
+
+        if self.manual_icon:
+            ttk.Button(self.add_token_frame, text="Add Manually", image=self.manual_icon, compound=ttk.LEFT, command=self.add_token_manually).grid(row=3, column=0, pady=10, padx=20, sticky="ew")
+        else:
+            ttk.Button(self.add_token_frame, text="Add Manually", command=self.add_token_manually).grid(row=3, column=0, pady=10, padx=20, sticky="ew")
+
+        # The old back button at row 3 has been removed
+
+    def show_main_view(self):
+        for widget in self.winfo_children():
+            widget.grid_forget()
+        self.search_bar.grid(row=0, column=0, pady=20, padx=20, sticky="ew")
+        self.canvas.grid(row=1, column=0, sticky="nsew")
+        self.v_scrollbar.grid(row=1, column=1, sticky="ns")
+        self.search_tokens(self.search_bar.search_input.get())
+        # Update sort button text when returning to main view
+        self.search_bar.update_sort_button(self.sort_ascending)
+
+    def add_token_manually(self):
+        for widget in self.add_token_frame.winfo_children():
+            widget.grid_forget()
+
+        ttk.Label(self.add_token_frame, text="Add Token Manually", font="Calibri 16 bold").grid(row=0, column=0, pady=10)
+
+        ttk.Label(self.add_token_frame, text="Issuer:").grid(row=1, column=0, padx=20, pady=10, sticky="w")
+        self.issuer_entry = ttk.Entry(self.add_token_frame)
+        self.issuer_entry.grid(row=1, column=1, padx=20, pady=10, sticky="ew")
+
+        ttk.Label(self.add_token_frame, text="Secret Key:").grid(row=2, column=0, padx=20, pady=10, sticky="w")
+        self.secret_entry = ttk.Entry(self.add_token_frame)
+        self.secret_entry.grid(row=2, column=1, padx=20, pady=10, sticky="ew")
+
+        ttk.Label(self.add_token_frame, text="Name:").grid(row=3, column=0, padx=20, pady=10, sticky="w")
+        self.name_entry = ttk.Entry(self.add_token_frame)
+        self.name_entry.grid(row=3, column=1, padx=20, pady=10, sticky="ew")
+
+        ttk.Button(self.add_token_frame, text="Add", command=self.add_manual_token).grid(row=4, column=0, columnspan=2, pady=20, padx=20, sticky="ew")
+        
+        # Also update this back button to match the style of the main add token page
+        if hasattr(self, 'back_icon') and self.back_icon:
+            back_btn = ttk.Button(self.add_token_frame, text="Back", image=self.back_icon, compound=ttk.LEFT, command=self.add_token)
+        else:
+            back_btn = ttk.Button(self.add_token_frame, text="← Back", command=self.add_token)
+        back_btn.grid(row=5, column=0, columnspan=2, pady=10, padx=20, sticky="ew")
+        
+        self.add_token_frame.columnconfigure(1, weight=1)
+
+    def add_token_from_qr(self):
         filename = filedialog.askopenfilename()
         if filename:
             qr_data = decode(Image.open(filename))
+            if not qr_data:
+                messagebox.showerror("Error", "No QR code found in the image.")
+                return
             uri = qr_data[0].data.decode("utf-8")
-            print(uri)
             pattern = r'otpauth://totp/(?P<name>[^?]+)\?secret=(?P<secret>[^&]+)&issuer=(?P<issuer>[^&]+)'
             match = re.search(pattern, uri)
-            
             if match:
                 name = unquote(match.group('name'))
                 secret = match.group('secret')
                 issuer = unquote(match.group('issuer'))
-                config = self.read_json(self.tokens_path)
-                config[issuer] = {"name": name, "secret": secret}
-                self.write_json(self.tokens_path, config)
-                
-                new_frame = TOTPFrame(self.scrollable_frame, issuer, secret, lambda i=issuer: self.delete_token(i))
-                new_frame.grid(row=len(self.frames), column=0, pady=20, padx=20, sticky='ew')
-                self.frames[issuer] = new_frame
+                self.add_new_token(issuer, secret, name)
+            else:
+                 messagebox.showerror("Error", "Invalid QR code format.")
+    
+    def add_manual_token(self):
+        issuer = self.issuer_entry.get()
+        secret = self.secret_entry.get()
+        name = self.name_entry.get()
+
+        if not issuer or not secret or not name:
+            messagebox.showerror("Error", "Please fill in all fields.")
+            return
+        
+        self.add_new_token(issuer, secret, name)
+
+        self.add_token_frame.grid_forget()
+        self.show_main_view()
+        
+
+    def add_new_token(self, issuer, secret, name):
+        config = self.read_json(self.tokens_path)
+        if issuer in config:
+             messagebox.showerror("Error", "Token with the same issuer already exists")
+             return
+        config[issuer] = {"name": name, "secret": secret}
+        self.write_json(self.tokens_path, config)
+        new_frame = TOTPFrame(self.scrollable_frame, issuer, secret, name, lambda i=issuer: self.delete_token(i))
+        self.frames[issuer] = new_frame
+        self.filtered_frames[issuer] = new_frame #add the frame to the filtered frames as well
+        
+        # Apply sorting after adding a new token
+        self.search_tokens(self.search_bar.search_input.get())
+        
+        if hasattr(self, 'add_token_window'):
+            self.add_token_window.destroy()
 
     def delete_token(self, issuer):
         self.frames[issuer].grid_forget()
         self.frames.pop(issuer)
+        if issuer in self.filtered_frames:
+          self.filtered_frames.pop(issuer)
         config = self.read_json(self.tokens_path)
         config.pop(str(issuer))
         self.write_json(self.tokens_path, config)
+        self.search_tokens(self.search_bar.search_input.get()) #update the search after deleting a token
 
     @staticmethod
     def read_json(file_path):
@@ -163,10 +486,28 @@ class WinOTP(ttk.Window):
             json.dump(data, file, indent=4)
 
     def on_mouse_wheel(self, event):
+        # Handle different mouse wheel event formats across platforms
+        delta = 0
+        
+        # Windows mouse wheel (event.delta)
+        if hasattr(event, 'delta'):
+            delta = event.delta
+        # Linux (Button-4/Button-5)
+        elif event.num == 4:
+            delta = 120
+        elif event.num == 5:
+            delta = -120
+        # macOS (event.x, event.y)
+        elif hasattr(event, 'x') and hasattr(event, 'y'):
+            delta = event.y * 10
+            
+        # Check if we've hit the top or bottom of the scrollable area
         current_view = self.canvas.yview()
-        if (event.delta > 0 and current_view[0] <= 0) or (event.delta < 0 and current_view[1] >= 1):
+        if (delta > 0 and current_view[0] <= 0) or (delta < 0 and current_view[1] >= 1):
             return
-        self.canvas.yview_scroll(-int(event.delta / 120), "units")
+            
+        # Adjust the scroll amount (units vs pixels may need tuning per platform)
+        self.canvas.yview_scroll(int(-1 * (delta / 120)), "units")
 
 if __name__ == "__main__":
     tokens_path = "tokens.json.dev"

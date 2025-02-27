@@ -1,3 +1,17 @@
+# ALPHA14
+- Added sort button to arrange TOTPs alphabetically by issuer name
+- Added toggle functionality to switch between ascending and descending sort order
+- Visual indicators (A→Z/Z→A) show current sort direction
+- Fixed sorting to apply immediately when application loads
+- Refactored code to make sorting more consistent across app
+
+# ALPHA13
+- Added proper icon support for search, plus, and settings buttons
+- Improved icon loading with better error handling
+- Added fallback to text buttons when icons aren't available
+- Added button padding for better visual appearance
+- Fixed styling compatibility issues with different ttkbootstrap versions
+
 # ALPHA12
 - Renamed conf_path to tokens_path for better code readabilty
 
