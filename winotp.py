@@ -43,10 +43,47 @@ class TOTPFrame(ttk.Frame):
         
         # Update copy button to use icon if available - also use main_window
         if hasattr(main_window, 'copy_icon') and main_window.copy_icon:
-            self.copy_btn = ttk.Button(self.code_frame, image=main_window.copy_icon, command=self.copy_totp)
+            # Create a custom style for the normal state
+            style = ttk.Style()
+            style.configure("Copy.TButton", padding=4)
+            
+            # Also create a success style for feedback that maintains green color even when disabled
+            style.configure("CopySuccess.TButton", padding=4, background="#28a745")
+            # Important: Map the disabled state to maintain green color
+            style.map("CopySuccess.TButton", 
+                background=[("disabled", "#28a745")],
+                foreground=[("disabled", "#ffffff")]
+            )
+            
+            self.copy_btn = ttk.Button(
+                self.code_frame, 
+                image=main_window.copy_icon, 
+                command=self.copy_totp,
+                style="Copy.TButton"
+            )
+            # Store the confirmation icon for later use
+            self.copy_confirm_icon = main_window.copy_confirm_icon if hasattr(main_window, 'copy_confirm_icon') else None
+            self.original_copy_icon = main_window.copy_icon
         else:
-            self.copy_btn = ttk.Button(self.code_frame, text="Copy", command=self.copy_totp)
+            style = ttk.Style()
+            style.configure("Copy.TButton", padding=4)
+            style.configure("CopySuccess.TButton", padding=4, background="#28a745")
+            # Same mapping for the text-based button
+            style.map("CopySuccess.TButton", 
+                background=[("disabled", "#28a745")],
+                foreground=[("disabled", "#ffffff")]
+            )
+            self.copy_btn = ttk.Button(
+                self.code_frame, 
+                text="Copy", 
+                command=self.copy_totp,
+                style="Copy.TButton"
+            )
         self.copy_btn.pack(side="left", padx=10)
+        
+        # Store original style and initialize after_id for animation
+        self.original_style = "Copy.TButton"
+        self.after_id = None  # Use a single after_id instead of a list
 
         self.time_remaining_label = ttk.Label(self, textvariable=self.time_remaining, font="Calibri 16")
         
@@ -71,8 +108,59 @@ class TOTPFrame(ttk.Frame):
         return int(self.totp.interval - datetime.now().timestamp() % self.totp.interval)
 
     def copy_totp(self):
+        # First copy to clipboard
         self.master.master.clipboard_clear()
         self.master.master.clipboard_append(self.code.get())
+        
+        # Then show visual feedback
+        self.animate_copy_confirmation()
+    
+    def animate_copy_confirmation(self):
+        # Cancel any pending reset operations to avoid timing conflicts
+        if hasattr(self, 'after_id') and self.after_id is not None:
+            self.after_cancel(self.after_id)
+            self.after_id = None
+        
+        try:
+            # Store the original command and temporarily prevent clicking by removing it
+            self.original_command = self.copy_btn['command']
+            self.copy_btn.configure(command=lambda: None)  # Empty command instead of disabling
+            
+            # Change to success style
+            self.copy_btn.configure(style="CopySuccess.TButton")
+            
+            # Change icon if available
+            if hasattr(self, 'copy_confirm_icon') and self.copy_confirm_icon:
+                self.copy_btn.configure(image=self.copy_confirm_icon)
+            elif not hasattr(self, 'original_copy_icon'):  # If using text instead of icon
+                self.copy_btn.configure(text="✓")
+            
+            # Store the after ID so we can cancel it if needed
+            self.after_id = self.after(1500, self.reset_copy_button)
+        except Exception as e:
+            print(f"Animation error: {e}")
+            # Ensure we reset the button even if animation fails
+            self.reset_copy_button()
+    
+    def reset_copy_button(self):
+        try:
+            # Restore original style
+            self.copy_btn.configure(style=self.original_style)
+            
+            # Restore original icon or text
+            if hasattr(self, 'original_copy_icon') and self.original_copy_icon:
+                self.copy_btn.configure(image=self.original_copy_icon)
+            elif not hasattr(self, 'original_copy_icon'):  # If using text instead of icon
+                self.copy_btn.configure(text="Copy")
+            
+            # Restore the original command
+            if hasattr(self, 'original_command'):
+                self.copy_btn.configure(command=self.original_command)
+        except Exception as e:
+            print(f"Reset button error: {e}")
+        
+        # Clear the after_id
+        self.after_id = None
 
     def update_name_truncation(self):
         # Always set text content first to ensure it's displayed
@@ -266,6 +354,7 @@ class WinOTP(ttk.Window):
             "search_icon": "search.png",
             # Add new icons for sort, copy, and delete buttons
             "copy_icon": "copy.png",
+            "copy_confirm_icon": "copy_confirm.png",  # Add the new confirmation icon
             "delete_icon": "delete.png",
             "sort_asc_icon": "sort_asc.png",
             "sort_desc_icon": "sort_desc.png"
@@ -281,6 +370,7 @@ class WinOTP(ttk.Window):
             "search_icon": (16, 16),
             # Define sizes for new icons
             "copy_icon": (16, 16),
+            "copy_confirm_icon": (16, 16),  # Add size for the new icon
             "delete_icon": (16, 16),
             "sort_asc_icon": (16, 16),
             "sort_desc_icon": (16, 16)

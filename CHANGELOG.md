@@ -1,3 +1,8 @@
+# ALPHA17
+- Added copy confirmation animation with visual feedback on the copy button
+- Changed copy button to temporarily show a success state with confirmation icon
+- Improved user experience with clear visual feedback when copying TOTP codes
+
 # ALPHA16
 - Added icons for sort, copy, and delete buttons
 - Improved sort button to display appropriate icon for current sort direction
