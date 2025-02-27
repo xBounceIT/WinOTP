@@ -1,3 +1,10 @@
+# ALPHA24
+- Added strict validation for manually entered TOTP tokens
+- Added base32 format validation for secret keys
+- Automatically normalize secret keys by removing spaces and converting to uppercase
+- Added functional validation to ensure TOTP codes can be generated
+- Improved error messages with specific details about validation failures
+
 # ALPHA23
 - Added welcome message with empty drawer image when no tokens exist
 - Added bulk import functionality in the settings page

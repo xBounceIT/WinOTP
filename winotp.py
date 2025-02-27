@@ -700,19 +700,59 @@ class WinOTP(ttk.Window):
                  messagebox.showerror("Error", "Invalid QR code format.")
     
     def add_manual_token(self):
-        issuer = self.issuer_entry.get()
-        secret = self.secret_entry.get()
-        name = self.name_entry.get()
+        issuer = self.issuer_entry.get().strip()
+        secret = self.secret_entry.get().strip().replace(" ", "").upper()
+        name = self.name_entry.get().strip()
 
-        if not issuer or not secret or not name:
-            messagebox.showerror("Error", "Please fill in all fields.")
+        # Validate fields
+        if not issuer:
+            messagebox.showerror("Error", "Please enter an issuer name.")
+            return
+            
+        if not name:
+            messagebox.showerror("Error", "Please enter an account name.")
+            return
+        
+        # Validate secret - must be valid base32 for TOTP
+        if not secret:
+            messagebox.showerror("Error", "Please enter a secret key.")
+            return
+            
+        if not self.validate_base32_secret(secret):
+            messagebox.showerror(
+                "Invalid Secret", 
+                "The secret key must be a valid base32 string containing only A-Z, 2-7 characters."
+            )
+            return
+            
+        try:
+            # Attempt to create a TOTP object to validate the secret works
+            test_totp = pyotp.TOTP(secret)
+            test_totp.now()  # This will fail if the secret is invalid
+        except Exception as e:
+            messagebox.showerror("Invalid Secret", f"The secret key is not valid: {str(e)}")
             return
         
         self.add_new_token(issuer, secret, name)
 
         self.add_token_frame.grid_forget()
         self.show_main_view()
+    
+    def validate_base32_secret(self, secret):
+        """Validate if the provided string is a valid base32 secret"""
+        # Base32 alphabet: A-Z and 2-7
+        import re
         
+        # Remove any padding characters
+        secret = secret.rstrip("=")
+        
+        # Check if the string only contains valid base32 characters
+        if not re.match(r'^[A-Z2-7]+$', secret):
+            return False
+            
+        # Base32 encoded data should have a length that's a multiple of 8
+        # But for TOTP secrets, we're slightly more lenient
+        return len(secret) >= 16  # Most TOTP secrets are at least 16 chars
 
     def add_new_token(self, issuer, secret, name):
         config = self.read_json(self.tokens_path)
