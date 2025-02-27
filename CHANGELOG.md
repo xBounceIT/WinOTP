@@ -1,3 +1,10 @@
+# ALPHA21
+- Changed token storage format to use unique IDs instead of issuer names as keys
+- Added support for multiple tokens from the same issuer (e.g., multiple Instagram accounts)
+- Updated duplicate checking to only prevent tokens with the same secret rather than same issuer
+- Improved error handling for JSON file loading and parsing
+- Added debug logging of loaded tokens to help troubleshoot issues
+
 # ALPHA20
 - Added hover animation that turns delete buttons red when hovering
 - Added confirmation dialog before deleting TOTP tokens

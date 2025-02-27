@@ -469,24 +469,39 @@ class WinOTP(ttk.Window):
         config = self.read_json(self.tokens_path)
         
         # Create frames but don't add them to grid yet
-        for issuer, data in config.items():
-            self.frames[issuer] = TOTPFrame(self.scrollable_frame, issuer, data["secret"], data["name"], lambda i=issuer: self.delete_token(i))
-            self.filtered_frames[issuer] = self.frames[issuer]
-        
-        # Sort issuers and add frames to the grid in sorted order
-        sorted_issuers = sorted(self.frames.keys(), reverse=not self.sort_ascending)
-        
-        for i, issuer in enumerate(sorted_issuers):
-            self.frames[issuer].grid(row=i, column=0, pady=20, padx=20, sticky='ew')
+        for token_id, data in config.items():
+            # Make sure we have the required fields, handle old format gracefully
+            if "issuer" not in data:
+                # Handle old format where issuer was the key
+                issuer = token_id
+            else:
+                issuer = data["issuer"]
+                
+            secret = data["secret"]
+            name = data["name"]
             
+            # Create a frame
+            frame = TOTPFrame(self.scrollable_frame, issuer, secret, name, lambda i=token_id: self.delete_token(i))
+            self.frames[token_id] = {"frame": frame, "issuer": issuer}
+            self.filtered_frames[token_id] = {"frame": frame, "issuer": issuer}
+        
+        # Sort by issuer and add frames to the grid
+        self._apply_current_sorting()
+        
         # Update scrollbar visibility after adding frames
         self.after(100, self.update_scrollbar_visibility)
+        
+        # Print loaded tokens for debugging
+        print(f"Loaded {len(self.frames)} tokens:")
+        for token_id, data in self.frames.items():
+            frame = data["frame"]
+            print(f"  {frame.issuer}: {frame.secret[:3]}...{frame.secret[-3:]} ({token_id})")
 
     def update_frames(self):
-        for frame in self.frames.values():
-            frame.update()
+        for data in self.frames.values():
+            data["frame"].update()
         self.after(1000, self.update_frames)
-    
+
     def sort_tokens(self):
         """Sort tokens by issuer name and toggle between ascending and descending order"""
         self.sort_ascending = not self.sort_ascending
@@ -497,16 +512,20 @@ class WinOTP(ttk.Window):
     
     def _apply_current_sorting(self):
         """Apply the current sorting order to the filtered frames"""
-        # Apply sorting to filtered frames (the ones currently displayed)
-        sorted_issuers = sorted(self.filtered_frames.keys(), reverse=not self.sort_ascending)
+        # Get issuers from filtered frames
+        sorted_tokens = sorted(
+            self.filtered_frames.items(),
+            key=lambda item: item[1]["issuer"],
+            reverse=not self.sort_ascending
+        )
         
         # Update the UI - hide all frames first
-        for frame in self.frames.values():
-            frame.grid_forget()
+        for data in self.frames.values():
+            data["frame"].grid_forget()
         
         # Show them in the sorted order
-        for i, issuer in enumerate(sorted_issuers):
-            self.filtered_frames[issuer].grid(row=i, column=0, pady=20, padx=20, sticky='ew')
+        for i, (token_id, data) in enumerate(sorted_tokens):
+            data["frame"].grid(row=i, column=0, pady=20, padx=20, sticky='ew')
         
         # Update scrollbar visibility after re-arranging frames
         self.update_scrollbar_visibility()
@@ -516,9 +535,9 @@ class WinOTP(ttk.Window):
         self.filtered_frames = {}  # Clear the current filtered frames
         
         # Filter frames by search query
-        for issuer, frame in self.frames.items():
-            if query in issuer.lower():
-                self.filtered_frames[issuer] = frame
+        for token_id, data in self.frames.items():
+            if query in data["issuer"].lower():
+                self.filtered_frames[token_id] = data
         
         # Apply sort order to the filtered results
         self._apply_current_sorting()
@@ -629,14 +648,32 @@ class WinOTP(ttk.Window):
 
     def add_new_token(self, issuer, secret, name):
         config = self.read_json(self.tokens_path)
-        if issuer in config:
-             messagebox.showerror("Error", "Token with the same issuer already exists")
-             return
-        config[issuer] = {"name": name, "secret": secret}
+        
+        # Check for duplicate secrets
+        for token_id, data in config.items():
+            # Handle both old and new format
+            token_secret = data["secret"]
+            if token_secret == secret:
+                messagebox.showerror("Error", "Token with the same secret already exists")
+                return
+        
+        # Create a new unique token ID
+        import uuid
+        token_id = f"token_{uuid.uuid4().hex[:8]}"
+        
+        # Store in new format
+        config[token_id] = {
+            "issuer": issuer,
+            "name": name,
+            "secret": secret
+        }
+        
         self.write_json(self.tokens_path, config)
-        new_frame = TOTPFrame(self.scrollable_frame, issuer, secret, name, lambda i=issuer: self.delete_token(i))
-        self.frames[issuer] = new_frame
-        self.filtered_frames[issuer] = new_frame #add the frame to the filtered frames as well
+        
+        # Create the new frame
+        new_frame = TOTPFrame(self.scrollable_frame, issuer, secret, name, lambda i=token_id: self.delete_token(i))
+        self.frames[token_id] = {"frame": new_frame, "issuer": issuer}
+        self.filtered_frames[token_id] = {"frame": new_frame, "issuer": issuer} 
         
         # Apply sorting after adding a new token
         self.search_tokens(self.search_bar.search_input.get())
@@ -644,23 +681,36 @@ class WinOTP(ttk.Window):
         if hasattr(self, 'add_token_window'):
             self.add_token_window.destroy()
 
-    def delete_token(self, issuer):
-        self.frames[issuer].grid_forget()
-        self.frames.pop(issuer)
-        if issuer in self.filtered_frames:
-          self.filtered_frames.pop(issuer)
+    def delete_token(self, token_id):
+        # Get the frame from our data structure
+        if token_id in self.frames:
+            self.frames[token_id]["frame"].grid_forget()
+            self.frames.pop(token_id)
+            
+        if token_id in self.filtered_frames:
+            self.filtered_frames.pop(token_id)
+        
+        # Remove from config file
         config = self.read_json(self.tokens_path)
-        config.pop(str(issuer))
-        self.write_json(self.tokens_path, config)
-        self.search_tokens(self.search_bar.search_input.get()) #update the search after deleting a token
-        # Update scrollbar visibility will be called by search_tokens > _apply_current_sorting
+        if token_id in config:
+            config.pop(token_id)
+            self.write_json(self.tokens_path, config)
+        
+        # Update the search/display
+        self.search_tokens(self.search_bar.search_input.get())
 
     @staticmethod
     def read_json(file_path):
         try:
             with open(file_path, 'r') as file:
-                return json.load(file)
+                data = json.load(file)
+                print(f"Successfully loaded {len(data)} tokens from {file_path}")
+                return data
         except FileNotFoundError:
+            print(f"File not found: {file_path}, creating empty token storage")
+            return {}
+        except json.JSONDecodeError as e:
+            print(f"Error parsing JSON from {file_path}: {e}")
             return {}
 
     @staticmethod
