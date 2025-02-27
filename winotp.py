@@ -1,5 +1,5 @@
 import ttkbootstrap as ttk
-from tkinter import filedialog, Canvas, Scrollbar, Toplevel, Label, Entry, Button, messagebox, PhotoImage
+from tkinter import filedialog, Canvas, Toplevel, Label, Entry, Button, messagebox, PhotoImage
 import json
 import pyotp
 from datetime import datetime
@@ -191,9 +191,9 @@ class WinOTP(ttk.Window):
         self.canvas = Canvas(self, width=self.width)
         self.canvas.grid(row=1, column=0, sticky="nsew")
 
-        self.v_scrollbar = Scrollbar(self, orient="vertical", command=self.canvas.yview)
-        self.v_scrollbar.grid(row=1, column=1, sticky="ns")
-
+        self.v_scrollbar = ttk.Scrollbar(self, orient="vertical", command=self.canvas.yview)
+        # Don't grid the scrollbar here - we'll manage it with update_scrollbar_visibility()
+        
         self.canvas.configure(yscrollcommand=self.v_scrollbar.set)
 
         self.scrollable_frame = ttk.Frame(self.canvas)
@@ -210,6 +210,9 @@ class WinOTP(ttk.Window):
         
         # Update sort button text
         self.search_bar.update_sort_button(self.sort_ascending)
+        
+        # Check if scrollbar is needed
+        self.update_scrollbar_visibility()
 
         self.canvas.bind_all("<MouseWheel>", self.on_mouse_wheel)
         self.canvas.bind_all("<Button-4>", self.on_mouse_wheel)
@@ -291,6 +294,8 @@ class WinOTP(ttk.Window):
 
     def configure_scroll_region(self, event):
         self.canvas.configure(scrollregion=self.canvas.bbox("all"))
+        # Check scrollbar visibility after scroll region is configured
+        self.update_scrollbar_visibility()
 
     def init_frames(self):
         config = self.read_json(self.tokens_path)
@@ -305,6 +310,9 @@ class WinOTP(ttk.Window):
         
         for i, issuer in enumerate(sorted_issuers):
             self.frames[issuer].grid(row=i, column=0, pady=20, padx=20, sticky='ew')
+            
+        # Update scrollbar visibility after adding frames
+        self.after(100, self.update_scrollbar_visibility)
 
     def update_frames(self):
         for frame in self.frames.values():
@@ -331,6 +339,9 @@ class WinOTP(ttk.Window):
         # Show them in the sorted order
         for i, issuer in enumerate(sorted_issuers):
             self.filtered_frames[issuer].grid(row=i, column=0, pady=20, padx=20, sticky='ew')
+        
+        # Update scrollbar visibility after re-arranging frames
+        self.update_scrollbar_visibility()
     
     def search_tokens(self, query):
         query = query.lower()
@@ -378,10 +389,13 @@ class WinOTP(ttk.Window):
             widget.grid_forget()
         self.search_bar.grid(row=0, column=0, pady=20, padx=20, sticky="ew")
         self.canvas.grid(row=1, column=0, sticky="nsew")
-        self.v_scrollbar.grid(row=1, column=1, sticky="ns")
+        # Don't grid the scrollbar here, let update_scrollbar_visibility handle it
+        
         self.search_tokens(self.search_bar.search_input.get())
         # Update sort button text when returning to main view
         self.search_bar.update_sort_button(self.sort_ascending)
+        
+        # Update scrollbar visibility will be called by search_tokens > _apply_current_sorting
 
     def add_token_manually(self):
         for widget in self.add_token_frame.winfo_children():
@@ -471,6 +485,7 @@ class WinOTP(ttk.Window):
         config.pop(str(issuer))
         self.write_json(self.tokens_path, config)
         self.search_tokens(self.search_bar.search_input.get()) #update the search after deleting a token
+        # Update scrollbar visibility will be called by search_tokens > _apply_current_sorting
 
     @staticmethod
     def read_json(file_path):
@@ -508,6 +523,19 @@ class WinOTP(ttk.Window):
             
         # Adjust the scroll amount (units vs pixels may need tuning per platform)
         self.canvas.yview_scroll(int(-1 * (delta / 120)), "units")
+    
+    def update_scrollbar_visibility(self):
+        """Show or hide scrollbar depending on if it's needed"""
+        # Get the height of the scrollable content
+        self.update_idletasks()  # Ensure geometry is updated
+        content_height = self.scrollable_frame.winfo_reqheight()
+        canvas_height = self.canvas.winfo_height()
+        
+        # Show scrollbar only if content height exceeds the canvas height
+        if content_height > canvas_height:
+            self.v_scrollbar.grid(row=1, column=1, sticky="ns")
+        else:
+            self.v_scrollbar.grid_forget()
 
 if __name__ == "__main__":
     tokens_path = "tokens.json.dev"

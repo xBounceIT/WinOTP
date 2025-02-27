@@ -1,3 +1,8 @@
+# ALPHA15
+- Fixed scrollbar display to match app theme using ttk.Scrollbar
+- Added smart scrollbar that hides when content doesn't exceed window height
+- Improved layout consistency when scrollbar appears/disappears
+
 # ALPHA14
 - Added sort button to arrange TOTPs alphabetically by issuer name
 - Added toggle functionality to switch between ascending and descending sort order
