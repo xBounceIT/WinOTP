@@ -9,6 +9,7 @@ import re
 from urllib.parse import unquote
 import os
 import tkinter.font as tkFont  # Add this import at the top
+import sys  # Added import for checking command line arguments
 
 class TOTPFrame(ttk.Frame):
     def __init__(self, master, issuer, secret, token_name, delete_token_callback):
@@ -756,6 +757,16 @@ class WinOTP(ttk.Window):
             self.v_scrollbar.grid_forget()
 
 if __name__ == "__main__":
-    tokens_path = "tokens.json.dev"
+    # Check if debug mode is enabled via command line arguments
+    debug_mode = "--debug" in sys.argv or "-d" in sys.argv
+    
+    # Select the appropriate tokens file
+    if debug_mode:
+        tokens_path = "tokens.json.dev"
+        print("Running in DEBUG mode with tokens.json.dev")
+    else:
+        tokens_path = "tokens.json"
+        print("Running in PRODUCTION mode with tokens.json")
+    
     app = WinOTP(tokens_path)
     app.mainloop()

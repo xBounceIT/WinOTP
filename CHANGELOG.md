@@ -1,3 +1,9 @@
+# ALPHA22
+- Added command-line argument support to switch between production and development token files
+- Added `--debug` or `-d` flag to use the development token file (tokens.json.dev)
+- Default behavior uses production token file (tokens.json) for normal execution
+- Added console output to indicate which mode (DEBUG/PRODUCTION) the application is running in
+
 # ALPHA21
 - Changed token storage format to use unique IDs instead of issuer names as keys
 - Added support for multiple tokens from the same issuer (e.g., multiple Instagram accounts)
