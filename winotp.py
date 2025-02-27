@@ -25,11 +25,28 @@ class TOTPFrame(ttk.Frame):
         # Fix: The correct way to access the main window from TOTPFrame
         main_window = self.winfo_toplevel()
         
+        # Store the original delete callback
+        self.original_delete_callback = delete_token_callback
+        
         # Update delete button to use icon if available
         if hasattr(main_window, 'delete_icon') and main_window.delete_icon:
-            self.delete_btn = ttk.Button(self, image=main_window.delete_icon, command=delete_token_callback)
+            self.delete_btn = ttk.Button(
+                self, 
+                image=main_window.delete_icon, 
+                command=self.confirm_delete,  # Changed to confirm_delete method
+                bootstyle="primary"  # Changed from "light" to "primary" for blue color
+            )
         else:
-            self.delete_btn = ttk.Button(self, text="×", command=delete_token_callback)
+            self.delete_btn = ttk.Button(
+                self, 
+                text="×", 
+                command=self.confirm_delete,  # Changed to confirm_delete method
+                bootstyle="primary"  # Changed from "light" to "primary" for blue color
+            )
+        
+        # Add hover bindings for the delete button
+        self.delete_btn.bind("<Enter>", self.on_delete_hover_enter)
+        self.delete_btn.bind("<Leave>", self.on_delete_hover_leave)
 
         # New: Add token name label with truncation and dark grey foreground
         self.full_name = token_name
@@ -162,6 +179,26 @@ class TOTPFrame(ttk.Frame):
 
     def on_resize(self, event):
         self.after(50, self.update_name_truncation)  # Debounce the resize event
+
+    def on_delete_hover_enter(self, event):
+        """Change delete button style to red on hover"""
+        self.delete_btn.configure(bootstyle="danger")
+    
+    def on_delete_hover_leave(self, event):
+        """Restore delete button style when mouse leaves"""
+        self.delete_btn.configure(bootstyle="primary")  # Changed from "light" to "primary"
+    
+    def confirm_delete(self):
+        """Show a confirmation dialog before deleting the token"""
+        issuer_name = self.issuer
+        result = messagebox.askyesno(
+            "Confirm Deletion", 
+            f"Are you sure you want to delete the token for '{issuer_name}'?",
+            icon=messagebox.WARNING
+        )
+        if result:
+            # User confirmed deletion, proceed with original callback
+            self.original_delete_callback()
 
 class SearchBar(ttk.Frame):
     def __init__(self, master, add_token_callback, search_callback, sort_callback):

@@ -1,3 +1,8 @@
+# ALPHA20
+- Added hover animation that turns delete buttons red when hovering
+- Added confirmation dialog before deleting TOTP tokens
+- Standardized button colors: all action buttons are now blue in normal state
+
 # ALPHA19
 - Added hand cursor to all buttons to improve user experience
 - Buttons now visually indicate they are clickable when hovered over
