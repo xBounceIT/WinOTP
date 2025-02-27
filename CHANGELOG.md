@@ -1,3 +1,11 @@
+# ALPHA23
+- Added welcome message with empty drawer image when no tokens exist
+- Added bulk import functionality in the settings page
+- Implemented settings page with JSON format information for bulk imports
+- Added guidance about settings/bulk import in the welcome screen
+- Added automatic welcome message display when all tokens are deleted
+- Made welcome message automatically disappear when tokens are added
+
 # ALPHA22
 - Added command-line argument support to switch between production and development token files
 - Added `--debug` or `-d` flag to use the development token file (tokens.json.dev)
