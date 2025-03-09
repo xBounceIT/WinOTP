@@ -451,9 +451,10 @@ class WinOTP(ttk.Window):
             # Validate the secret
             if Token.validate_base32_secret(secret):
                 # Add the token
-                self.add_new_token(issuer, secret, name)
-                # Go back to the main view
-                page.go_back()
+                success = self.add_new_token(issuer, secret, name)
+                # Go back to the main view only if successful
+                if success:
+                    page.go_back()
             else:
                 messagebox.showerror(
                     "Invalid Secret",
@@ -481,7 +482,7 @@ class WinOTP(ttk.Window):
                 "Missing Information",
                 "Please fill in all fields."
             )
-            return
+            return False
         
         # Validate the secret
         if not Token.validate_base32_secret(secret):
@@ -489,10 +490,11 @@ class WinOTP(ttk.Window):
                 "Invalid Secret",
                 "The secret key must be a valid Base32 encoded string."
             )
-            return
+            return False
         
         # Add the token
         self.add_new_token(issuer, secret, name)
+        return True
 
     def add_new_token(self, issuer, secret, name):
         """Add a new token to the database and UI"""
@@ -509,7 +511,7 @@ class WinOTP(ttk.Window):
                     "Duplicate Token",
                     "A token with this secret already exists."
                 )
-                return
+                return False
         
         # Add the new token
         tokens[token_id] = {
@@ -545,6 +547,8 @@ class WinOTP(ttk.Window):
         
         # Update scrollbar visibility
         self.update_scrollbar_visibility()
+        
+        return True
 
     def delete_token(self, token_id):
         """Delete a token from the database and UI"""

@@ -55,14 +55,15 @@ class ManualEntryPage(Frame):
         
     def add_token(self):
         """Add the token with the entered information"""
-        self.app.add_manual_token(
+        result = self.app.add_manual_token(
             None,  # No window to destroy
             self.issuer_entry.get(),
             self.secret_entry.get(),
             self.name_entry.get()
         )
-        # Go back to the add token page after adding
-        self.go_back()
+        # Only go back if token was successfully added
+        if result:
+            self.go_back()
         
     def go_back(self):
         """Go back to the add token page"""
