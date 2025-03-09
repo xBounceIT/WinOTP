@@ -1,0 +1,123 @@
+2025-03-09 23:34:45,035 - WinOTP - INFO - Logging configured: DEBUG mode
+2025-03-09 23:34:45,035 - WinOTP - INFO - Running in DEBUG mode with tokens.json.dev
+2025-03-09 23:34:45,037 - WinOTP - INFO - Initializing WinOTP application
+2025-03-09 23:34:45,037 - WinOTP - INFO - Initializing WinOTP application
+2025-03-09 23:34:45,095 - WinOTP - DEBUG - Theme 'darkly' applied
+2025-03-09 23:34:45,095 - WinOTP - DEBUG - Debug mode enabled with token path: tokens.json.dev
+2025-03-09 23:34:45,116 - PIL.PngImagePlugin - DEBUG - STREAM b'IHDR' 16 13
+2025-03-09 23:34:45,116 - PIL.PngImagePlugin - DEBUG - STREAM b'pHYs' 41 9
+2025-03-09 23:34:45,117 - PIL.PngImagePlugin - DEBUG - STREAM b'tEXt' 62 25
+2025-03-09 23:34:45,117 - PIL.PngImagePlugin - DEBUG - STREAM b'IDAT' 99 8192
+2025-03-09 23:34:45,128 - PIL.PngImagePlugin - DEBUG - STREAM b'IHDR' 16 13
+2025-03-09 23:34:45,128 - PIL.PngImagePlugin - DEBUG - STREAM b'pHYs' 41 9
+2025-03-09 23:34:45,129 - PIL.PngImagePlugin - DEBUG - STREAM b'tEXt' 62 25
+2025-03-09 23:34:45,129 - PIL.PngImagePlugin - DEBUG - STREAM b'IDAT' 99 8192
+2025-03-09 23:34:45,134 - PIL.PngImagePlugin - DEBUG - STREAM b'IHDR' 16 13
+2025-03-09 23:34:45,134 - PIL.PngImagePlugin - DEBUG - STREAM b'pHYs' 41 9
+2025-03-09 23:34:45,134 - PIL.PngImagePlugin - DEBUG - STREAM b'tEXt' 62 25
+2025-03-09 23:34:45,135 - PIL.PngImagePlugin - DEBUG - STREAM b'IDAT' 99 8192
+2025-03-09 23:34:45,139 - PIL.PngImagePlugin - DEBUG - STREAM b'IHDR' 16 13
+2025-03-09 23:34:45,139 - PIL.PngImagePlugin - DEBUG - STREAM b'pHYs' 41 9
+2025-03-09 23:34:45,139 - PIL.PngImagePlugin - DEBUG - STREAM b'tEXt' 62 25
+2025-03-09 23:34:45,140 - PIL.PngImagePlugin - DEBUG - STREAM b'IDAT' 99 8192
+2025-03-09 23:34:45,145 - PIL.PngImagePlugin - DEBUG - STREAM b'IHDR' 16 13
+2025-03-09 23:34:45,146 - PIL.PngImagePlugin - DEBUG - STREAM b'bKGD' 41 2
+2025-03-09 23:34:45,146 - PIL.PngImagePlugin - DEBUG - b'bKGD' 41 2 (unknown)
+2025-03-09 23:34:45,146 - PIL.PngImagePlugin - DEBUG - STREAM b'IDAT' 55 8248
+2025-03-09 23:34:45,149 - PIL.PngImagePlugin - DEBUG - STREAM b'IHDR' 16 13
+2025-03-09 23:34:45,149 - PIL.PngImagePlugin - DEBUG - STREAM b'bKGD' 41 2
+2025-03-09 23:34:45,150 - PIL.PngImagePlugin - DEBUG - b'bKGD' 41 2 (unknown)
+2025-03-09 23:34:45,150 - PIL.PngImagePlugin - DEBUG - STREAM b'IDAT' 55 8103
+2025-03-09 23:34:45,153 - PIL.PngImagePlugin - DEBUG - STREAM b'IHDR' 16 13
+2025-03-09 23:34:45,153 - PIL.PngImagePlugin - DEBUG - STREAM b'pHYs' 41 9
+2025-03-09 23:34:45,154 - PIL.PngImagePlugin - DEBUG - STREAM b'tEXt' 62 25
+2025-03-09 23:34:45,154 - PIL.PngImagePlugin - DEBUG - STREAM b'IDAT' 99 8192
+2025-03-09 23:34:45,159 - PIL.PngImagePlugin - DEBUG - STREAM b'IHDR' 16 13
+2025-03-09 23:34:45,159 - PIL.PngImagePlugin - DEBUG - STREAM b'pHYs' 41 9
+2025-03-09 23:34:45,159 - PIL.PngImagePlugin - DEBUG - STREAM b'tEXt' 62 25
+2025-03-09 23:34:45,159 - PIL.PngImagePlugin - DEBUG - STREAM b'IDAT' 99 8192
+2025-03-09 23:34:45,165 - PIL.PngImagePlugin - DEBUG - STREAM b'IHDR' 16 13
+2025-03-09 23:34:45,165 - PIL.PngImagePlugin - DEBUG - STREAM b'sBIT' 41 4
+2025-03-09 23:34:45,165 - PIL.PngImagePlugin - DEBUG - b'sBIT' 41 4 (unknown)
+2025-03-09 23:34:45,166 - PIL.PngImagePlugin - DEBUG - STREAM b'pHYs' 57 9
+2025-03-09 23:34:45,166 - PIL.PngImagePlugin - DEBUG - STREAM b'tEXt' 78 25
+2025-03-09 23:34:45,166 - PIL.PngImagePlugin - DEBUG - STREAM b'IDAT' 115 3779
+2025-03-09 23:34:45,174 - PIL.PngImagePlugin - DEBUG - STREAM b'IHDR' 16 13
+2025-03-09 23:34:45,175 - PIL.PngImagePlugin - DEBUG - STREAM b'pHYs' 41 9
+2025-03-09 23:34:45,175 - PIL.PngImagePlugin - DEBUG - STREAM b'tEXt' 62 25
+2025-03-09 23:34:45,175 - PIL.PngImagePlugin - DEBUG - STREAM b'IDAT' 99 8192
+2025-03-09 23:34:45,180 - PIL.PngImagePlugin - DEBUG - STREAM b'IHDR' 16 13
+2025-03-09 23:34:45,180 - PIL.PngImagePlugin - DEBUG - STREAM b'pHYs' 41 9
+2025-03-09 23:34:45,180 - PIL.PngImagePlugin - DEBUG - STREAM b'tEXt' 62 25
+2025-03-09 23:34:45,181 - PIL.PngImagePlugin - DEBUG - STREAM b'IDAT' 99 8192
+2025-03-09 23:34:45,185 - PIL.PngImagePlugin - DEBUG - STREAM b'IHDR' 16 13
+2025-03-09 23:34:45,185 - PIL.PngImagePlugin - DEBUG - STREAM b'pHYs' 41 9
+2025-03-09 23:34:45,185 - PIL.PngImagePlugin - DEBUG - STREAM b'tEXt' 62 25
+2025-03-09 23:34:45,186 - PIL.PngImagePlugin - DEBUG - STREAM b'IDAT' 99 8192
+2025-03-09 23:34:45,224 - WinOTP - DEBUG - Initializing frames in DEBUG mode
+2025-03-09 23:34:45,224 - WinOTP.file_io - DEBUG - Raw content of tokens.json.dev:
+2025-03-09 23:34:45,224 - WinOTP.file_io - DEBUG - {
+    "token_870e40f1": {
+        "issuer": "Test Service",
+        "secret": "JBSWY3DPEHPK3PXP",
+        "name": "debug@example.com"
+    }
+}
+2025-03-09 23:34:45,224 - WinOTP.file_io - INFO - Successfully loaded 1 tokens from tokens.json.dev
+2025-03-09 23:34:45,225 - WinOTP.file_io - DEBUG - Token keys: ['token_870e40f1']
+2025-03-09 23:34:45,225 - WinOTP - INFO - Loaded 1 tokens from tokens.json.dev
+2025-03-09 23:34:45,225 - WinOTP - DEBUG - Tokens loaded: True
+2025-03-09 23:34:45,225 - WinOTP - DEBUG - Token keys: ['token_870e40f1']
+2025-03-09 23:34:45,226 - WinOTP - DEBUG - Creating frame for token: token_870e40f1 - Test Service
+2025-03-09 23:34:45,226 - WinOTP - DEBUG - Initializing TOTPFrame for issuer: Test Service
+2025-03-09 23:34:45,228 - WinOTP - DEBUG - Generated TOTP code for Test Service: 073634
+2025-03-09 23:34:45,234 - WinOTP - DEBUG - TOTPFrame for Test Service initialized successfully
+2025-03-09 23:34:45,234 - WinOTP - DEBUG - Successfully created frame for token_870e40f1
+2025-03-09 23:34:45,234 - WinOTP - INFO - Created 1 token frames
+2025-03-09 23:34:45,234 - WinOTP - DEBUG - Applying sorting to 1 frames, ascending: True
+2025-03-09 23:34:45,234 - WinOTP - DEBUG - Using default width: 460
+2025-03-09 23:34:45,235 - WinOTP - DEBUG - Packed frame for Test Service, width: 440
+2025-03-09 23:34:45,235 - WinOTP - DEBUG - Frame for Test Service is NOT VISIBLE
+2025-03-09 23:34:45,258 - WinOTP - DEBUG - Updated 1 TOTP frames
+2025-03-09 23:34:45,259 - WinOTP - DEBUG - Scheduling delayed force update for debug mode
+2025-03-09 23:34:45,259 - WinOTP - INFO - Starting application mainloop
+2025-03-09 23:34:45,290 - WinOTP - DEBUG - Updated name truncation for Test Service: debug@example.com
+2025-03-09 23:34:45,339 - WinOTP - INFO - Forcing UI update
+2025-03-09 23:34:45,340 - WinOTP - DEBUG - Applying sorting to 1 frames, ascending: True
+2025-03-09 23:34:45,341 - WinOTP - DEBUG - Packed frame for Test Service, width: 460
+2025-03-09 23:34:45,341 - WinOTP - DEBUG - Frame for Test Service is NOT VISIBLE
+2025-03-09 23:34:45,342 - WinOTP - DEBUG - Performing aggressive UI updates in debug mode
+2025-03-09 23:34:45,402 - WinOTP - DEBUG - Updated name truncation for Test Service: debug@example.com
+2025-03-09 23:34:45,442 - WinOTP - DEBUG - Updated name truncation for Test Service: debug@example.com
+2025-03-09 23:34:45,442 - WinOTP - DEBUG - Refreshing frame display
+2025-03-09 23:34:45,445 - WinOTP - DEBUG - Applying sorting to 1 frames, ascending: True
+2025-03-09 23:34:45,445 - WinOTP - DEBUG - Packed frame for Test Service, width: 21
+2025-03-09 23:34:45,446 - WinOTP - DEBUG - Frame for Test Service is NOT VISIBLE
+2025-03-09 23:34:45,505 - WinOTP - DEBUG - Updated name truncation for Test Service: debug@example.com
+2025-03-09 23:34:45,769 - WinOTP - INFO - Forcing UI update
+2025-03-09 23:34:45,769 - WinOTP - DEBUG - Applying sorting to 1 frames, ascending: True
+2025-03-09 23:34:45,770 - WinOTP - DEBUG - Packed frame for Test Service, width: 41
+2025-03-09 23:34:45,770 - WinOTP - DEBUG - Frame for Test Service is NOT VISIBLE
+2025-03-09 23:34:45,771 - WinOTP - DEBUG - Performing aggressive UI updates in debug mode
+2025-03-09 23:34:45,842 - WinOTP - DEBUG - Updated name truncation for Test Service: debug@example.com
+2025-03-09 23:34:45,842 - WinOTP - DEBUG - Executing final UI update
+2025-03-09 23:34:45,854 - WinOTP - DEBUG - Visible frames: 1/1
+2025-03-09 23:34:45,877 - WinOTP - DEBUG - Refreshing frame display
+2025-03-09 23:34:45,883 - WinOTP - DEBUG - Applying sorting to 1 frames, ascending: True
+2025-03-09 23:34:45,884 - WinOTP - DEBUG - Packed frame for Test Service, width: 21
+2025-03-09 23:34:45,884 - WinOTP - DEBUG - Frame for Test Service is NOT VISIBLE
+2025-03-09 23:34:45,939 - WinOTP - DEBUG - Updated name truncation for Test Service: debug@example.com
+2025-03-09 23:34:46,266 - WinOTP - DEBUG - Updating TOTP for Test Service: Code=073634, Time=13
+2025-03-09 23:34:46,266 - WinOTP - DEBUG - Updated 1 TOTP frames
+2025-03-09 23:34:46,282 - WinOTP - DEBUG - Executing final UI update
+2025-03-09 23:34:46,282 - WinOTP - DEBUG - Visible frames: 1/1
+2025-03-09 23:34:47,276 - WinOTP - DEBUG - Updating TOTP for Test Service: Code=073634, Time=12
+2025-03-09 23:34:47,276 - WinOTP - DEBUG - Updated 1 TOTP frames
+2025-03-09 23:34:48,279 - WinOTP - DEBUG - Updating TOTP for Test Service: Code=073634, Time=11
+2025-03-09 23:34:48,279 - WinOTP - DEBUG - Updated 1 TOTP frames
+2025-03-09 23:34:48,297 - WinOTP - DEBUG - Updated name truncation for Test Service: debug@example.com
+2025-03-09 23:34:48,406 - WinOTP - DEBUG - Updated name truncation for Test Service: debug@example.com
+2025-03-09 23:34:48,506 - WinOTP - DEBUG - Updated name truncation for Test Service: debug@example.com
+2025-03-09 23:34:48,840 - WinOTP - DEBUG - Updated name truncation for Test Service: debug@example.com
+2025-03-09 23:34:49,291 - WinOTP - DEBUG - Updating TOTP for Test Service: Code=073634, Time=10
+2025-03-09 23:34:49,291 - WinOTP - DEBUG - Updated 1 TOTP frames

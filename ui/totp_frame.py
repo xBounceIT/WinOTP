@@ -7,7 +7,12 @@ from models.token import Token
 
 class TOTPFrame(ttk.Frame):
     def __init__(self, master, issuer, secret, token_name, delete_token_callback):
-        super().__init__(master, width=400, height=100)
+        # Use normal Frame without height constraint
+        super().__init__(master)
+        
+        # Make sure the frame spans the full width of its container
+        self.configure(width=500)
+        
         self.issuer = issuer
         self.secret = secret
         self.totp = pyotp.TOTP(self.secret)
@@ -50,7 +55,7 @@ class TOTPFrame(ttk.Frame):
 
         # Create a container frame for the code and copy button to ensure constant distance
         self.code_frame = ttk.Frame(self)
-        self.code_label = ttk.Label(self.code_frame, textvariable=self.code, font="Calibri 24")
+        self.code_label = ttk.Label(self.code_frame, textvariable=self.code, font="Calibri 30 bold", width=8)  # Added fixed width to ensure code is fully visible
         self.code_label.pack(side="left", fill="x", expand=True)
         
         # Update copy button to use icon if available - also use main_window
@@ -80,14 +85,36 @@ class TOTPFrame(ttk.Frame):
 
         self.time_remaining_label = ttk.Label(self, textvariable=self.time_remaining, font="Calibri 16")
         
-        # Update layout: row0 for issuer and delete; row1 for token name; row2 for totp data.
-        self.issuer_label.grid(row=0, column=0, sticky='w', padx=20)
-        self.delete_btn.grid(row=0, column=1, sticky='e', padx=20)
-        self.name_label.grid(row=1, column=0, columnspan=2, sticky="w", padx=20)
-        self.code_frame.grid(row=2, column=0, sticky="ew", padx=20)
-        self.time_remaining_label.grid(row=2, column=1, sticky='e', padx=20)
-        self.columnconfigure(0, weight=1)
-        self.columnconfigure(1, weight=0)
+        # COMPLETELY REDESIGNED LAYOUT
+        # Use a 3-column grid for maximum width utilization
+        # Column 0: Main content (issuer, name, code) - expandable
+        # Column 1: Center spacer - expandable
+        # Column 2: Right content (delete button, countdown) - fixed width
+        
+        # Row 0: Issuer and delete button
+        self.issuer_label.grid(row=0, column=0, sticky='w', padx=20, pady=(10, 0))
+        self.delete_btn.grid(row=0, column=2, sticky='e', padx=20, pady=(10, 0))
+        
+        # Row 1: Name label
+        self.name_label.grid(row=1, column=0, columnspan=3, sticky="w", padx=20, pady=(0, 5))
+        
+        # Row 2: TOTP code and countdown
+        self.code_frame.grid(row=2, column=0, sticky="w", padx=20, pady=(5, 15))
+        self.time_remaining_label.grid(row=2, column=2, sticky='e', padx=20, pady=(0, 10))
+        
+        # Configure columns for proper expansion
+        # First column takes minimal space needed for content
+        self.columnconfigure(0, weight=0, minsize=250)
+        # Middle column expands to fill available space
+        self.columnconfigure(1, weight=1)
+        # Right column takes minimal space needed for content
+        self.columnconfigure(2, weight=0, minsize=50)
+        
+        # Disable grid propagation to ensure the frame maintains its size
+        self.grid_propagate(False)
+        
+        # Set a minimum height
+        self.configure(height=130)  # Increased from 100 to 130
 
         # Bind to configure event to handle resizing
         self.bind('<Configure>', self.on_resize)
@@ -174,6 +201,16 @@ class TOTPFrame(ttk.Frame):
 
     def on_resize(self, event):
         self.after(50, self.update_name_truncation)  # Debounce the resize event
+        # Also update frame width to match parent
+        self.update_frame_width()
+
+    def update_frame_width(self):
+        """Update frame width to match parent container width"""
+        if self.master and self.master.winfo_exists():
+            parent_width = self.master.winfo_width()
+            if parent_width > 10:  # Only adjust if parent has a meaningful width
+                # Set width while preserving other dimensions
+                self.configure(width=parent_width - 20)  # Account for padx
 
     def on_delete_hover_enter(self, event):
         """Change delete button style to red on hover"""

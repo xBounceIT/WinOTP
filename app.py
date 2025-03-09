@@ -22,7 +22,10 @@ class WinOTP(ttk.Window):
         super().__init__(themename="darkly")
         
         self.title("WinOTP")
-        self.minsize(500, 400)
+        # Set fixed window dimensions (width x height)
+        self.geometry("500x600")
+        # Prevent the window from being resized
+        self.resizable(False, False)
         self.tokens_path = tokens_path
         
         # Initialize variables
@@ -138,8 +141,9 @@ class WinOTP(ttk.Window):
     def center_window(self):
         """Center the window on the screen"""
         self.update_idletasks()
-        width = self.winfo_width()
-        height = self.winfo_height()
+        # Use fixed dimensions (500x600)
+        width = 500
+        height = 600
         x = (self.winfo_screenwidth() // 2) - (width // 2)
         y = (self.winfo_screenheight() // 2) - (height // 2)
         self.geometry(f"{width}x{height}+{x}+{y}")
@@ -230,6 +234,16 @@ class WinOTP(ttk.Window):
         
         # Update the width of the scrollable frame window
         self.canvas.itemconfig(self.canvas_window, width=canvas_width)
+        
+        # Force the scrollable frame to use the full width of the canvas
+        # This is crucial for ensuring child frames fill the entire width
+        self.scrollable_frame.configure(width=canvas_width - 20)  # Subtract padding
+        
+        # Update all existing token frames to match the new width
+        if hasattr(self, 'frames'):
+            current_frames = self.filtered_frames if self.filtered_frames else self.frames
+            for frame in current_frames.values():
+                frame.configure(width=canvas_width - 40)  # Account for padding
 
     def show_welcome_message(self):
         """Show a welcome message when no tokens are present"""
@@ -322,7 +336,12 @@ class WinOTP(ttk.Window):
         
         # Pack frames in sorted order
         for token_id, frame in sorted_items:
-            frame.pack(fill="x", padx=10, pady=5)
+            # Configure the frame to use the full width available
+            current_width = self.scrollable_frame.winfo_width()
+            if current_width > 1:  # Only set if we have a valid width
+                frame.configure(width=current_width - 20)  # Account for padding
+            # Pack with fill="x" and expand=True to use full width
+            frame.pack(fill="x", expand=True, padx=10, pady=5)
 
     def search_tokens(self, query):
         """Filter tokens based on search query"""
@@ -456,9 +475,17 @@ class WinOTP(ttk.Window):
             if Token.validate_base32_secret(secret):
                 # Add the token
                 success = self.add_new_token(issuer, secret, name)
-                # Go back to the main view only if successful
+                # If successful, show confirmation and go to main view
                 if success:
-                    page.go_back()
+                    messagebox.showinfo(
+                        "Token Added",
+                        f"Token for {issuer} ({name}) was successfully added."
+                    )
+                    # Destroy the QR scan page
+                    page.pack_forget()
+                    page.destroy()
+                    # Show the main view directly
+                    self.show_main_view()
             else:
                 messagebox.showerror(
                     "Invalid Secret",
@@ -497,8 +524,24 @@ class WinOTP(ttk.Window):
             return False
         
         # Add the token
-        self.add_new_token(issuer, secret, name)
-        return True
+        success = self.add_new_token(issuer, secret, name)
+        
+        if success:
+            # Show confirmation message
+            messagebox.showinfo(
+                "Token Added",
+                f"Token for {issuer} ({name}) was successfully added."
+            )
+            
+            # If we came from the manual entry page, destroy it and go to main view
+            if hasattr(self, 'manual_entry_page'):
+                self.manual_entry_page.pack_forget()
+                self.manual_entry_page.destroy()
+            
+            # Show the main view directly
+            self.show_main_view()
+            
+        return success
 
     def add_new_token(self, issuer, secret, name):
         """Add a new token to the database and UI"""
