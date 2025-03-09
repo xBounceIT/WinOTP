@@ -254,8 +254,9 @@ class WinOTP(ttk.Window):
             widget.destroy()
         
         # Create a single frame for the welcome message with a fixed width
-        welcome_frame = ttk.Frame(self.scrollable_frame)
+        welcome_frame = ttk.Frame(self.scrollable_frame, width=500)
         welcome_frame.pack(fill="x", padx=20, pady=20)
+        welcome_frame.pack_propagate(False)  # Prevent the frame from shrinking to fit contents
         
         # Welcome title - center-aligned label
         title_label = ttk.Label(
@@ -272,7 +273,7 @@ class WinOTP(ttk.Window):
             welcome_frame,
             text="Add your first TOTP token to get started.",
             font="Calibri 14",
-            wraplength=400,
+            wraplength=460,  # Updated to fit within the 500px frame
             justify=CENTER,
             anchor=CENTER
         )
