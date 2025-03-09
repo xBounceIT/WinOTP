@@ -2,3 +2,7 @@ pyotp
 ttkbootstrap
 pyzbar
 cryptography
+pytest
+pytest-cov
+qrcode
+coverage 
