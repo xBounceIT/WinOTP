@@ -11,7 +11,7 @@ class TOTPFrame(ttk.Frame):
         super().__init__(master)
         
         # Make sure the frame spans the full width of its container
-        self.configure(width=500)
+        self.configure(width=480)
         
         self.issuer = issuer
         self.secret = secret

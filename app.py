@@ -243,7 +243,7 @@ class WinOTP(ttk.Window):
         if hasattr(self, 'frames'):
             current_frames = self.filtered_frames if self.filtered_frames else self.frames
             for frame in current_frames.values():
-                frame.configure(width=canvas_width - 40)  # Account for padding
+                frame.configure(width=canvas_width - 60)  # Account for padding
 
     def show_welcome_message(self):
         """Show a welcome message when no tokens are present"""
