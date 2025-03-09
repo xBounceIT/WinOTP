@@ -40,6 +40,10 @@ class WinOTP(ttk.Window):
             # Add hand cursor for all buttons
             original_button_init(instance, master, **kw)
             instance.configure(cursor="hand2")
+            
+            # Remove focus outline when button is clicked
+            instance.bind("<FocusIn>", lambda event: instance.focus_set())
+            instance.configure(takefocus=0)
         
         # Apply the wrapper
         ttk.Button.__init__ = button_init_wrapper
