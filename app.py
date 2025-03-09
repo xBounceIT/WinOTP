@@ -1,5 +1,5 @@
 import ttkbootstrap as ttk
-from tkinter import filedialog, Canvas, Toplevel, Label, Entry, Button, messagebox, PhotoImage
+from tkinter import filedialog, Canvas, Toplevel, Label, Entry, Button, messagebox, PhotoImage, TclError
 import json
 import os
 import sys
@@ -67,16 +67,34 @@ class WinOTP(ttk.Window):
         # Set up initial main view components
         self.setup_main_view()
         
-        # Initialize token frames
-        self.init_frames()
-        
         # Center window on screen
         self.center_window()
         
-        # Show welcome message if no tokens
-        if not self.frames:
-            self.show_welcome_message()
+        # Load tokens from file before initializing frames
+        tokens = read_json(self.tokens_path)
+        print(f"Loaded {len(tokens)} tokens from {self.tokens_path}")
         
+        # Determine if we need to show tokens or welcome message
+        if tokens:
+            # Initialize token frames if we have tokens
+            self.init_frames()
+            print(f"Initialized {len(self.frames)} token frames")
+        else:
+            # Create empty frames dict
+            self.frames = {}
+            self.filtered_frames = {}
+            print("No tokens found, will show welcome message")
+            
+            # Hide the canvas frame since we don't need it for the welcome message
+            if hasattr(self, 'canvas_frame'):
+                self.canvas_frame.pack_forget()
+                
+            # Show welcome message
+            self.show_welcome_message()
+            
+            # Special hint for verification that welcome message should be visible
+            print("*** WELCOME MESSAGE SHOULD NOW BE VISIBLE ***")
+            
         # Start updating frames
         self.update_frames()
 
@@ -150,6 +168,13 @@ class WinOTP(ttk.Window):
 
     def configure_scroll_region(self, event):
         """Update the scroll region when the canvas is resized"""
+        print(f"Configuring scroll region, event width: {event.width}")
+        # First update the scrollable frame to match canvas width
+        canvas_width = event.width
+        if hasattr(self, 'scrollable_frame') and self.scrollable_frame.winfo_exists():
+            self.scrollable_frame.configure(width=canvas_width - 20)  # Account for padding
+            
+        # Then update the scroll region
         self.canvas.configure(scrollregion=self.canvas.bbox("all"))
         # Also update scrollbar visibility
         self.update_scrollbar_visibility()
@@ -164,43 +189,16 @@ class WinOTP(ttk.Window):
         if hasattr(self, 'scrollable_frame'):
             for widget in self.scrollable_frame.winfo_children():
                 widget.destroy()
-        else:
-            # Create canvas with scrollbar for tokens
-            self.canvas_frame = ttk.Frame(self.main_container)
-            self.canvas_frame.pack(fill="both", expand=True)
-            
-            self.canvas = Canvas(self.canvas_frame, bg="#212529", highlightthickness=0)
-            self.scrollbar = ttk.Scrollbar(self.canvas_frame, orient="vertical", command=self.canvas.yview)
-            self.scrollable_frame = ttk.Frame(self.canvas)
-            
-            self.scrollable_frame.bind(
-                "<Configure>",
-                lambda e: self.canvas.configure(
-                    scrollregion=self.canvas.bbox("all")
-                )
-            )
-            
-            # Create the window anchored at the top-center (north)
-            self.canvas_window = self.canvas.create_window(
-                (200, 0),  # Initial x position (will be updated in update_scrollable_frame_width)
-                window=self.scrollable_frame,
-                anchor="n"  # Critical change: north anchor for centering
-            )
-            
-            # Update the canvas window when the canvas is resized
-            self.canvas.bind("<Configure>", self.update_scrollable_frame_width)
-            
-            self.canvas.configure(yscrollcommand=self.scrollbar.set)
-            
-            # Pack canvas and scrollbar
-            self.canvas.pack(side="left", fill="both", expand=True)
-            self.scrollbar.pack(side="right", fill="y")
-            
-            # Bind mousewheel for scrolling
-            self.bind_all("<MouseWheel>", self.on_mouse_wheel)
-        
+                
         # Load tokens from file
         tokens = read_json(self.tokens_path)
+        print(f"init_frames: Loaded {len(tokens)} tokens")
+        
+        # If no tokens, we'll still update scroll regions and visibility
+        if not tokens:
+            # Update scrollbar visibility
+            self.update_scrollbar_visibility()
+            return
         
         # Create a frame for each token
         for token_id, token_data in tokens.items():
@@ -249,16 +247,41 @@ class WinOTP(ttk.Window):
         """Show a welcome message when no tokens are present"""
         from tkinter import CENTER, TOP
         
-        # Clear any existing children first
-        for widget in self.scrollable_frame.winfo_children():
-            widget.destroy()
+        print("Attempting to show welcome message")
         
-        # Create a single frame for the welcome message with a fixed width
-        welcome_frame = ttk.Frame(self.scrollable_frame, width=500)
-        welcome_frame.pack(fill="x", padx=20, pady=20)
-        welcome_frame.pack_propagate(False)  # Prevent the frame from shrinking to fit contents
+        # Safely check if canvas frame exists and is mapped
+        try:
+            if hasattr(self, 'canvas_frame') and self.canvas_frame.winfo_exists():
+                print(f"Canvas frame exists and visibility: {self.canvas_frame.winfo_ismapped()}")
+            else:
+                print("Canvas frame doesn't exist or has been destroyed")
+        except (AttributeError, TclError) as e:
+            print(f"Error checking canvas frame: {e}")
+            # If canvas_frame is causing errors, remove the reference
+            if hasattr(self, 'canvas_frame'):
+                delattr(self, 'canvas_frame')
         
-        # Welcome title - center-aligned label
+        # APPROACH: Create a completely new welcome frame in the main container
+        # This bypasses potential issues with the canvas and scrollable frame
+        
+        # First, clear any previous welcome message
+        for widget in self.main_container.winfo_children():
+            if widget != self.search_bar and widget != self.canvas_frame:
+                if hasattr(widget, 'welcome_tag') and widget.welcome_tag:
+                    print("Removing previous welcome message")
+                    widget.destroy()
+        
+        # Create a prominent welcome frame directly in the main container, below search bar
+        welcome_container = ttk.Frame(self.main_container)
+        welcome_container.welcome_tag = True  # Mark this as a welcome message for later identification
+        welcome_container.pack(fill="both", expand=True, padx=20, pady=20)
+        
+        # Create an inner frame with transparent background
+        welcome_frame = ttk.Frame(welcome_container, width=500, height=300)
+        welcome_frame.pack(pady=50)
+        welcome_frame.pack_propagate(False)  # Keep fixed size
+        
+        # Welcome title with default styling
         title_label = ttk.Label(
             welcome_frame,
             text="Welcome to WinOTP!",
@@ -266,42 +289,47 @@ class WinOTP(ttk.Window):
             justify=CENTER,
             anchor=CENTER
         )
-        title_label.pack(fill="x", pady=(0, 10))
+        title_label.pack(fill="x", pady=(30, 20))
         
-        # Welcome message - center-aligned label
+        # Welcome message
         message_label = ttk.Label(
             welcome_frame,
             text="Add your first TOTP token to get started.",
             font="Calibri 14",
-            wraplength=460,  # Updated to fit within the 500px frame
+            wraplength=460,
             justify=CENTER,
             anchor=CENTER
         )
-        message_label.pack(fill="x", pady=(0, 20))
+        message_label.pack(fill="x", pady=(0, 30))
         
-        # Add token button
-        button_frame = ttk.Frame(welcome_frame)
-        button_frame.pack(fill="x")
-        
+        # Add token button - using standard primary style to match other buttons
         if hasattr(self, 'plus_icon') and self.plus_icon:
             add_btn = ttk.Button(
-                button_frame,
+                welcome_frame,
                 text="Add Token",
                 image=self.plus_icon,
                 compound="left",
                 command=self.add_token,
-                bootstyle="primary"
+                bootstyle="primary",
+                width=15
             )
         else:
             add_btn = ttk.Button(
-                button_frame,
+                welcome_frame,
                 text="Add Token",
                 command=self.add_token,
-                bootstyle="primary"
+                bootstyle="primary",
+                width=15
             )
         
         # Center the button
-        add_btn.pack(anchor=CENTER)
+        add_btn.pack(pady=(0, 30))
+        
+        print("Welcome message created as direct child of main container")
+        
+        # Force update to ensure visibility
+        welcome_container.update()
+        welcome_frame.update()
 
     def update_frames(self):
         """Update all token frames"""
@@ -365,15 +393,38 @@ class WinOTP(ttk.Window):
 
     def add_token(self):
         """Switch to add token page instead of showing a popup"""
-        # Hide main view components but keep the search bar
+        print("Adding token - transitioning to add token page")
+        
+        # Clear ALL content from the main container except the search bar
+        for widget in self.main_container.winfo_children():
+            if widget != self.search_bar:
+                print(f"Removing widget: {widget}")
+                widget.pack_forget()  # First unpack it
+                widget.destroy()      # Then destroy it
+        
+        # Hide canvas frame if it exists
         if hasattr(self, 'canvas_frame') and self.canvas_frame.winfo_exists():
             self.canvas_frame.pack_forget()
-            
+        
+        # Also check for any remaining welcome containers and remove them
+        for widget in self.main_container.winfo_children():
+            if widget != self.search_bar:
+                if hasattr(widget, 'welcome_tag') and widget.welcome_tag:
+                    print(f"Removing welcome container: {widget}")
+                    widget.pack_forget()
+                    widget.destroy()
+        
         # Hide search bar functionality (but keep the frame)
         self.search_bar.container.pack_forget()
         
+        # Explicitly update the UI before adding the new page
+        self.main_container.update()
+        
         # Create and show the add token page
         self.add_token_page = AddTokenPage(self.main_container, self)
+        
+        # Make sure it fills the available space
+        self.add_token_page.pack(fill="both", expand=True)
 
     def setup_main_view(self):
         """Set up the main view components"""
@@ -392,7 +443,15 @@ class WinOTP(ttk.Window):
             )
         )
         
-        self.canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
+        # Create the window anchored at the top-left with proper width
+        self.canvas_window = self.canvas.create_window(
+            (0, 0), 
+            window=self.scrollable_frame, 
+            anchor="nw",
+            width=self.canvas.winfo_width()
+        )
+        
+        # Configure the canvas
         self.canvas.configure(yscrollcommand=self.scrollbar.set)
         
         # Pack canvas and scrollbar
@@ -404,43 +463,88 @@ class WinOTP(ttk.Window):
         
         # Bind canvas configure event to update scroll region
         self.canvas.bind("<Configure>", self.configure_scroll_region)
+        
+        # Also bind to update the width of the scrollable frame
+        self.canvas.bind("<Configure>", self.update_scrollable_frame_width)
 
     def show_main_view(self):
         """Show the main view with tokens"""
+        print("Showing main view")
+        
         # Clear current views except the search bar
-        for widget in self.main_container.winfo_children():
-            if widget != self.search_bar:  # Keep the search bar
-                widget.destroy()
+        try:
+            for widget in self.main_container.winfo_children():
+                if widget != self.search_bar:  # Keep the search bar
+                    print(f"Removing widget from main view: {widget}")
+                    try:
+                        widget.pack_forget()  # First unpack
+                        widget.destroy()      # Then destroy
+                    except Exception as e:
+                        print(f"Error removing widget: {e}")
+        except Exception as e:
+            print(f"Error cleaning main container: {e}")
         
         # Make sure search bar is visible and its container is repacked
-        self.search_bar.pack(fill="x", padx=20, pady=20)
-        self.search_bar.container.pack(fill="x")
+        try:
+            self.search_bar.pack(fill="x", padx=20, pady=20)
+            self.search_bar.container.pack(fill="x")
+        except Exception as e:
+            print(f"Error showing search bar: {e}")
+        
+        # Explicitly update the UI
+        self.main_container.update()
         
         # Ensure the search bar is properly configured
         if hasattr(self.search_bar, 'update_buttons_with_icons'):
             self.search_bar.update_buttons_with_icons()
         
-        # Set up main view components if they don't exist or were hidden
-        if not hasattr(self, 'canvas_frame') or not self.canvas_frame.winfo_exists():
-            self.setup_main_view()
-        else:
-            # Make sure canvas frame is visible
-            self.canvas_frame.pack(fill="both", expand=True)
+        # Load tokens to check if we have any
+        tokens = read_json(self.tokens_path)
+        print(f"show_main_view: Found {len(tokens)} tokens")
+        
+        # Reset canvas frame reference if it doesn't exist
+        if hasattr(self, 'canvas_frame') and not hasattr(self.canvas_frame, 'winfo_exists'):
+            delattr(self, 'canvas_frame')
             
-            # Make sure canvas and scrollbar are packed correctly
-            if hasattr(self, 'canvas') and hasattr(self, 'scrollbar'):
-                self.canvas.pack(side="left", fill="both", expand=True)
-                self.scrollbar.pack(side="right", fill="y")
-        
-        # Reinitialize the main UI components
-        self.init_frames()
-        
-        # Show welcome message if no tokens
-        if not self.frames:
+        if tokens:
+            # Set up main view components for tokens display
+            if not hasattr(self, 'canvas_frame') or not self.canvas_frame.winfo_exists():
+                print("Setting up new main view for tokens")
+                self.setup_main_view()
+            else:
+                # Make sure canvas frame is visible
+                try:
+                    self.canvas_frame.pack(fill="both", expand=True)
+                    
+                    # Make sure canvas and scrollbar are packed correctly
+                    if hasattr(self, 'canvas') and hasattr(self, 'scrollbar'):
+                        self.canvas.pack(side="left", fill="both", expand=True)
+                        self.scrollbar.pack(side="right", fill="y")
+                except Exception as e:
+                    print(f"Error showing canvas frame: {e}")
+                    # If failed, recreate the main view
+                    self.setup_main_view()
+            
+            # Reinitialize the token frames
+            self.init_frames()
+            
+            # Start updating frames
+            self.update_frames()
+        else:
+            # No tokens, show welcome message directly
+            print("No tokens found in show_main_view, showing welcome message")
+            self.frames = {}
+            self.filtered_frames = {}
+            
+            # Make sure we have no leftover canvas frame
+            if hasattr(self, 'canvas_frame') and self.canvas_frame.winfo_exists():
+                try:
+                    self.canvas_frame.pack_forget()
+                except Exception as e:
+                    print(f"Error hiding canvas frame: {e}")
+            
+            # Show the welcome message
             self.show_welcome_message()
-        
-        # Start updating frames
-        self.update_frames()
 
     def add_token_manually(self):
         """Show the manual entry page"""
