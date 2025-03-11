@@ -370,7 +370,7 @@ class WinOTP(ttk.Window):
             if current_width > 1:  # Only set if we have a valid width
                 frame.configure(width=current_width - 20)  # Account for padding
             # Pack with fill="x" and expand=True to use full width
-            frame.pack(fill="x", expand=True, padx=10, pady=5)
+            frame.pack(fill="x", expand=True, padx=10, pady=10)
 
     def search_tokens(self, query):
         """Filter tokens based on search query"""

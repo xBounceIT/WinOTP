@@ -4,6 +4,8 @@ import tkinter.font as tkFont
 import pyotp
 from datetime import datetime
 from models.token import Token
+from PIL import Image, ImageTk
+import os
 
 class TOTPFrame(ttk.Frame):
     def __init__(self, master, issuer, secret, token_name, delete_token_callback):
@@ -12,6 +14,17 @@ class TOTPFrame(ttk.Frame):
         
         # Make sure the frame spans the full width of its container
         self.configure(width=480)
+        
+        # Add a dark gray border with rounded corners
+        self.configure(bootstyle="primary-borderless", padding=4)
+        self["relief"] = "solid"
+        self["borderwidth"] = 1
+        
+        # Apply rounded corners and dark gray border using custom styling
+        style = ttk.Style()
+        frame_style = f"CustomTOTP{str(id(self))}.TFrame"
+        style.configure(frame_style, corner_radius=15, bordercolor="#444444")
+        self.configure(style=frame_style)
         
         self.issuer = issuer
         self.secret = secret
@@ -28,20 +41,60 @@ class TOTPFrame(ttk.Frame):
         # Store the original delete callback
         self.original_delete_callback = delete_token_callback
         
-        # Update delete button to use icon if available
-        if hasattr(main_window, 'delete_icon') and main_window.delete_icon:
-            self.delete_btn = ttk.Button(
-                self, 
-                image=main_window.delete_icon, 
-                command=self.confirm_delete,
-                bootstyle="primary"
-            )
-        else:
+        # Load the remove icon directly from the icons folder
+        try:
+            icon_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "icons", "remove.png")
+            if os.path.exists(icon_path):
+                remove_image = Image.open(icon_path)
+                # Resize the image to 16x16 pixels
+                remove_image = remove_image.resize((16, 16), Image.LANCZOS)
+                self.remove_icon = ImageTk.PhotoImage(remove_image)
+                
+                # Create a style for a fixed-size button with dark grey color
+                btn_style_name = f"DeleteBtn{str(id(self))}"
+                self.btn_style = f"{btn_style_name}.TButton"
+                style.configure(self.btn_style, width=20, height=20, padding=2)
+                
+                # Create button without bootstyle to avoid conflicts
+                self.delete_btn = ttk.Button(
+                    self, 
+                    image=self.remove_icon, 
+                    command=self.confirm_delete,
+                    style=self.btn_style
+                )
+                
+                # Apply dark grey color to the button (after creation to avoid conflicts)
+                style.configure(self.btn_style, background="#555555", borderwidth=0, relief="flat")
+            else:
+                # Fallback if image not found
+                # Create a style for a fixed-size button with dark grey color
+                btn_style_name = f"DeleteBtn{str(id(self))}"
+                self.btn_style = f"{btn_style_name}.TButton"
+                style.configure(self.btn_style, width=20, height=20, padding=2)
+                
+                # Create button without bootstyle to avoid conflicts
+                self.delete_btn = ttk.Button(
+                    self, 
+                    text="×", 
+                    command=self.confirm_delete,
+                    style=self.btn_style
+                )
+                
+                # Apply dark grey color to the button (after creation to avoid conflicts)
+                style.configure(self.btn_style, background="#555555", borderwidth=0, relief="flat")
+        except Exception as e:
+            print(f"Error loading remove icon: {e}")
+            # Fallback to text if any error occurs
+            # Use a unique style name for this button too
+            btn_style_name = f"DeleteBtn{str(id(self))}"
+            self.btn_style = f"{btn_style_name}.TButton"
+            style.configure(self.btn_style, width=20, height=20, padding=2, background="#555555", borderwidth=0, relief="flat")
+            
             self.delete_btn = ttk.Button(
                 self, 
                 text="×", 
                 command=self.confirm_delete,
-                bootstyle="primary"
+                style=self.btn_style
             )
         
         # Add hover bindings for the delete button
@@ -55,7 +108,7 @@ class TOTPFrame(ttk.Frame):
 
         # Create a container frame for the code and copy button to ensure constant distance
         self.code_frame = ttk.Frame(self)
-        self.code_label = ttk.Label(self.code_frame, textvariable=self.code, font="Calibri 30 bold", width=8)  # Added fixed width to ensure code is fully visible
+        self.code_label = ttk.Label(self.code_frame, textvariable=self.code, font="Calibri 24 bold", width=8)  # Reduced font size from 30 to 24
         self.code_label.pack(side="left", fill="x", expand=True)
         
         # Update copy button to use icon if available - also use main_window
@@ -214,11 +267,15 @@ class TOTPFrame(ttk.Frame):
 
     def on_delete_hover_enter(self, event):
         """Change delete button style to red on hover"""
-        self.delete_btn.configure(bootstyle="danger")
+        # Keep the same button style (size) but change the background color to red
+        style = ttk.Style()
+        style.configure(self.btn_style, background="#FF5555")
     
     def on_delete_hover_leave(self, event):
         """Restore delete button style when mouse leaves"""
-        self.delete_btn.configure(bootstyle="primary")
+        # Keep the same button style (size) but change the background color back to dark grey
+        style = ttk.Style()
+        style.configure(self.btn_style, background="#555555")
     
     def confirm_delete(self):
         """Show a confirmation dialog before deleting the token"""
