@@ -1,5 +1,6 @@
 import ttkbootstrap as ttk
-from tkinter import Frame, Label
+from tkinter import Frame, Label, filedialog
+from utils.file_io import read_json, write_json
 
 class SettingsPage(Frame):
     def __init__(self, parent, app_reference):
@@ -48,6 +49,15 @@ class SettingsPage(Frame):
         )
         self.import_btn.pack(fill="x", pady=10)
         
+        # Add export button
+        self.export_btn = ttk.Button(
+            self.settings_frame,
+            text="Export Tokens",
+            command=self.export_tokens,
+            width=20
+        )
+        self.export_btn.pack(fill="x", pady=10)
+        
         # Bind configure event to update about button position
         self.bind("<Configure>", self.update_about_button_position)
         
@@ -82,4 +92,37 @@ class SettingsPage(Frame):
     def update_about_button_position(self, event=None):
         """Update the about button position when the window is resized"""
         # Place the about button 50 pixels from the right edge
-        self.about_button.place(x=self.winfo_width() - 50, y=20) 
+        self.about_button.place(x=self.winfo_width() - 50, y=20)
+        
+    def export_tokens(self):
+        """Export tokens to a custom location"""
+        # Open file dialog to select save location
+        file_path = filedialog.asksaveasfilename(
+            title="Export Tokens",
+            defaultextension=".json",
+            filetypes=[
+                ("JSON files", "*.json"),
+                ("All files", "*.*")
+            ]
+        )
+        
+        if file_path:
+            try:
+                # Read current tokens
+                tokens = read_json(self.app.tokens_path)
+                
+                # Write tokens to the selected location
+                write_json(file_path, tokens)
+                
+                # Show success message
+                from tkinter import messagebox
+                messagebox.showinfo(
+                    "Export Successful",
+                    f"Tokens have been exported to {file_path}"
+                )
+            except Exception as e:
+                from tkinter import messagebox
+                messagebox.showerror(
+                    "Export Error",
+                    f"An error occurred while exporting tokens: {str(e)}"
+                ) 
