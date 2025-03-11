@@ -402,6 +402,11 @@ class WinOTP(ttk.Window):
         """Switch to add token page instead of showing a popup"""
         print("Adding token - transitioning to add token page")
         
+        # Cancel any pending frame updates
+        if hasattr(self, 'after_id'):
+            self.after_cancel(self.after_id)
+            self.after_id = None
+        
         # Clear ALL content from the main container except the search bar
         for widget in self.main_container.winfo_children():
             if widget != self.search_bar:
@@ -412,6 +417,7 @@ class WinOTP(ttk.Window):
         # Hide canvas frame if it exists
         if hasattr(self, 'canvas_frame') and self.canvas_frame.winfo_exists():
             self.canvas_frame.pack_forget()
+            self.canvas_frame.destroy()  # Also destroy the canvas frame
         
         # Also check for any remaining welcome containers and remove them
         for widget in self.main_container.winfo_children():
@@ -423,6 +429,10 @@ class WinOTP(ttk.Window):
         
         # Hide search bar functionality (but keep the frame)
         self.search_bar.container.pack_forget()
+        
+        # Clear frame references
+        self.frames = {}
+        self.filtered_frames = {}
         
         # Explicitly update the UI before adding the new page
         self.main_container.update()
@@ -787,10 +797,6 @@ class WinOTP(ttk.Window):
 
     def bulk_import_tokens(self):
         """Import multiple tokens from a JSON file"""
-        # Hide the add token page if it exists
-        if hasattr(self, 'add_token_page'):
-            self.add_token_page.pack_forget()
-            
         # Open file dialog to select an image
         file_path = filedialog.askopenfilename(
             title="Select Tokens JSON File",
@@ -801,8 +807,7 @@ class WinOTP(ttk.Window):
         )
         
         if not file_path:
-            # If cancelled, show the add token page again
-            self.add_token()
+            # If cancelled, just return (stay on current page)
             return
         
         try:
@@ -816,7 +821,6 @@ class WinOTP(ttk.Window):
                     "Invalid Format",
                     "The import file should contain a JSON object with token IDs as keys."
                 )
-                self.add_token()
                 return
             
             # Load existing tokens
@@ -882,11 +886,9 @@ class WinOTP(ttk.Window):
                     "No Tokens Imported",
                     "No valid tokens were found in the import file."
                 )
-                self.add_token()
                 
         except Exception as e:
             messagebox.showerror(
                 "Import Error",
                 f"An error occurred while importing tokens: {str(e)}"
-            )
-            self.add_token() 
+            ) 

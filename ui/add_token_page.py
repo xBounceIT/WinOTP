@@ -46,11 +46,11 @@ class AddTokenPage(Frame):
         )
         self.qr_btn.pack(pady=10)
         
-        # Import from file button
+        # Import tokens button
         self.import_btn = ttk.Button(
             self.button_frame,
-            text="Import from File",
-            command=self.app.bulk_import_tokens,
+            text="Import Tokens",
+            command=self.show_import_page,
             width=20
         )
         self.import_btn.pack(pady=10)
@@ -70,4 +70,15 @@ class AddTokenPage(Frame):
         
         # Then destroy this page
         self.pack_forget()
-        self.destroy() 
+        self.destroy()
+        
+    def show_import_page(self):
+        """Show the import tokens page"""
+        # Hide this page
+        self.pack_forget()
+        
+        # Import the ImportTokensPage class here to avoid circular imports
+        from ui.import_tokens_page import ImportTokensPage
+        
+        # Create and show import tokens page
+        self.import_page = ImportTokensPage(self.app.main_container, self.app) 
