@@ -13,7 +13,7 @@ class SettingsPage(Frame):
         self.title_label = ttk.Label(self, text="Settings", font="Calibri 16 bold")
         self.title_label.pack(pady=20)
         
-        # Add back button at the top
+        # Add back button at the top left
         self.back_button = ttk.Button(
             self,
             image=self.app.back_icon if hasattr(self.app, 'back_icon') else None,
@@ -23,6 +23,17 @@ class SettingsPage(Frame):
             style="primary.TButton"
         )
         self.back_button.place(x=20, y=20)
+        
+        # Add about button at the top right
+        self.about_button = ttk.Button(
+            self,
+            image=self.app.question_icon if hasattr(self.app, 'question_icon') else None,
+            text="About" if not hasattr(self.app, 'question_icon') else None,
+            command=self.show_about,
+            width=10 if not hasattr(self.app, 'question_icon') else None,
+            style="primary.TButton"
+        )
+        self.about_button.place(x=self.winfo_width() - 50, y=20)
         
         # Add settings content
         self.settings_frame = ttk.Frame(self)
@@ -37,19 +48,8 @@ class SettingsPage(Frame):
         )
         self.import_btn.pack(fill="x", pady=10)
         
-        # Add about section
-        self.about_frame = ttk.LabelFrame(self.settings_frame, text="About")
-        self.about_frame.pack(fill="both", expand=True, pady=20)
-        
-        self.about_text = Label(
-            self.about_frame,
-            text="WinOTP - A Windows TOTP Authenticator\n"
-                 "Version 1.0.0\n\n"
-                 "Created by Daniel D'Angeli\n"
-                 "Icons by Feather Icons",
-            justify="left"
-        )
-        self.about_text.pack(padx=10, pady=10, anchor="w")
+        # Bind configure event to update about button position
+        self.bind("<Configure>", self.update_about_button_position)
         
     def go_back(self):
         """Go back to the main view"""
@@ -66,4 +66,20 @@ class SettingsPage(Frame):
         
         # Then destroy this page
         self.pack_forget()
-        self.destroy() 
+        self.destroy()
+        
+    def show_about(self):
+        """Show the about page"""
+        # Hide the settings page
+        self.pack_forget()
+        
+        # Import the AboutPage class here to avoid circular imports
+        from ui.about_page import AboutPage
+        
+        # Create and show about page
+        self.about_page = AboutPage(self.app, self.app)
+        
+    def update_about_button_position(self, event=None):
+        """Update the about button position when the window is resized"""
+        # Place the about button 50 pixels from the right edge
+        self.about_button.place(x=self.winfo_width() - 50, y=20) 

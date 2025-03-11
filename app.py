@@ -117,8 +117,9 @@ class WinOTP(ttk.Window):
                 ("settings_icon", "icons/settings.png", 20),
                 ("sort_asc_icon", "icons/sort_asc.png", 20),
                 ("sort_desc_icon", "icons/sort_desc.png", 20),
-                ("back_icon", "icons/back_arrow.png", 20),
+                ("back_icon", "icons/back_arrow.png", 16),
                 ("empty_icon", "icons/drawer-empty.png", 20),
+                ("question_icon", "icons/question.png", 16),
             ]
             
             # Create icons directory if it doesn't exist
@@ -772,6 +773,17 @@ class WinOTP(ttk.Window):
         
         # Position settings page
         self.settings_page.pack(fill="both", expand=True)
+
+    def show_about(self):
+        """Navigate to about page"""
+        # Import the AboutPage class here to avoid circular imports
+        from ui.about_page import AboutPage
+        
+        # Create and show about page
+        self.about_page = AboutPage(self, self)
+        
+        # Position about page
+        self.about_page.pack(fill="both", expand=True)
 
     def bulk_import_tokens(self):
         """Import multiple tokens from a JSON file"""
