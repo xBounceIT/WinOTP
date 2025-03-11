@@ -47,13 +47,13 @@ class TOTPFrame(ttk.Frame):
             if os.path.exists(icon_path):
                 remove_image = Image.open(icon_path)
                 # Resize the image to 16x16 pixels
-                remove_image = remove_image.resize((16, 16), Image.LANCZOS)
+                remove_image = remove_image.resize((20, 20), Image.LANCZOS)
                 self.remove_icon = ImageTk.PhotoImage(remove_image)
                 
                 # Create a style for a fixed-size button with dark grey color
                 btn_style_name = f"DeleteBtn{str(id(self))}"
                 self.btn_style = f"{btn_style_name}.TButton"
-                style.configure(self.btn_style, width=20, height=20, padding=2)
+                style.configure(self.btn_style, width=24, height=24, padding=3)
                 # Configure hover state to prevent default hover effects
                 style.map(self.btn_style,
                     background=[('active', '#555555')],  # Default state
@@ -76,7 +76,7 @@ class TOTPFrame(ttk.Frame):
                 # Create a style for a fixed-size button with dark grey color
                 btn_style_name = f"DeleteBtn{str(id(self))}"
                 self.btn_style = f"{btn_style_name}.TButton"
-                style.configure(self.btn_style, width=20, height=20, padding=2)
+                style.configure(self.btn_style, width=24, height=24, padding=3)
                 
                 # Create button without bootstyle to avoid conflicts
                 self.delete_btn = ttk.Button(
@@ -94,7 +94,7 @@ class TOTPFrame(ttk.Frame):
             # Use a unique style name for this button too
             btn_style_name = f"DeleteBtn{str(id(self))}"
             self.btn_style = f"{btn_style_name}.TButton"
-            style.configure(self.btn_style, width=20, height=20, padding=2, background="#555555", borderwidth=0, relief="flat")
+            style.configure(self.btn_style, width=24, height=24, padding=3, background="#555555", borderwidth=0, relief="flat")
             
             self.delete_btn = ttk.Button(
                 self, 
@@ -152,14 +152,14 @@ class TOTPFrame(ttk.Frame):
         
         # Row 0: Issuer and delete button
         self.issuer_label.grid(row=0, column=0, sticky='w', padx=20, pady=(10, 0))
-        self.delete_btn.grid(row=0, column=2, sticky='e', padx=20, pady=(10, 0))
+        self.delete_btn.grid(row=0, column=2, sticky='e', padx=(0, 20), pady=(10, 0))
         
         # Row 1: Name label
         self.name_label.grid(row=1, column=0, columnspan=3, sticky="w", padx=20, pady=(0, 5))
         
         # Row 2: TOTP code and countdown
         self.code_frame.grid(row=2, column=0, sticky="w", padx=20, pady=(5, 15))
-        self.time_remaining_label.grid(row=2, column=2, sticky='e', padx=20, pady=(0, 10))
+        self.time_remaining_label.grid(row=2, column=2, sticky='e', padx=(0, 20), pady=(5, 15))
         
         # Configure columns for proper expansion
         # First column takes minimal space needed for content
