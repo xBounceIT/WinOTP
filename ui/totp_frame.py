@@ -17,13 +17,12 @@ class TOTPFrame(ttk.Frame):
         
         # Add a dark gray border with rounded corners
         self.configure(bootstyle="primary-borderless", padding=4)
-        self["relief"] = "solid"
-        self["borderwidth"] = 1
+        self["borderwidth"] = 0
         
         # Apply rounded corners and dark gray border using custom styling
         style = ttk.Style()
         frame_style = f"CustomTOTP{str(id(self))}.TFrame"
-        style.configure(frame_style, corner_radius=15, bordercolor="#444444")
+        style.configure(frame_style, corner_radius=15)
         self.configure(style=frame_style)
         
         self.issuer = issuer
@@ -142,6 +141,28 @@ class TOTPFrame(ttk.Frame):
         self.original_style = "primary"
         self.after_id = None  # Use a single after_id instead of a list
 
+        # Create progress bar for countdown
+        self.progress_bar = ttk.Progressbar(
+            self,
+            bootstyle="primary",
+            orient="horizontal",
+            mode="determinate",
+            length=480,  # Will be adjusted to match frame width
+            value=100    # Start at 100%
+        )
+        
+        # Create a custom style for the progress bar with minimal height
+        progress_style_name = f"CustomProgress{str(id(self))}.Horizontal.TProgressbar"
+        style = ttk.Style()
+        style.configure(progress_style_name, thickness=2)  # Set very small thickness
+        style.layout(progress_style_name, [
+            ('Horizontal.Progressbar.trough', {
+                'sticky': 'nswe',
+                'children': [('Horizontal.Progressbar.pbar', {'sticky': 'nswe'})],
+            })
+        ])
+        self.progress_bar.configure(style=progress_style_name)
+
         self.time_remaining_label = ttk.Label(self, textvariable=self.time_remaining, font="Calibri 16")
         
         # COMPLETELY REDESIGNED LAYOUT
@@ -151,37 +172,45 @@ class TOTPFrame(ttk.Frame):
         # Column 2: Right content (delete button, countdown) - fixed width
         
         # Row 0: Issuer and delete button
-        self.issuer_label.grid(row=0, column=0, sticky='w', padx=20, pady=(10, 0))
-        self.delete_btn.grid(row=0, column=2, sticky='e', padx=(0, 20), pady=(10, 0))
+        self.issuer_label.grid(row=0, column=0, columnspan=2, sticky='w', padx=(5, 0), pady=(10, 0))
+        
+        # Position delete button in the absolute top right corner with no padding
+        self.delete_btn.grid(row=0, column=2, sticky='ne', padx=0, pady=0)
         
         # Row 1: Name label
-        self.name_label.grid(row=1, column=0, columnspan=3, sticky="w", padx=20, pady=(0, 5))
+        self.name_label.grid(row=1, column=0, columnspan=2, sticky="w", padx=(5, 0), pady=(0, 5))
         
-        # Row 2: TOTP code and countdown
-        self.code_frame.grid(row=2, column=0, sticky="w", padx=20, pady=(5, 15))
-        self.time_remaining_label.grid(row=2, column=2, sticky='e', padx=(0, 20), pady=(5, 15))
+        # Row 2: TOTP code
+        self.code_frame.grid(row=2, column=0, columnspan=2, sticky="w", padx=(5, 0), pady=(5, 10))
+        
+        # Row 3: Progress bar at the bottom, spanning all columns
+        self.progress_bar.grid(row=3, column=0, columnspan=3, sticky="sew", padx=0, pady=0)
         
         # Configure columns for proper expansion
-        # First column takes minimal space needed for content
-        self.columnconfigure(0, weight=0, minsize=250)
-        # Middle column expands to fill available space
+        # First column contains all content, no minimum width constraint
+        self.columnconfigure(0, weight=0)
+        # Middle column takes all extra space
         self.columnconfigure(1, weight=1)
-        # Right column takes minimal space needed for content
-        self.columnconfigure(2, weight=0, minsize=50)
+        # Right column only for delete button
+        self.columnconfigure(2, weight=0, minsize=30)
         
         # Disable grid propagation to ensure the frame maintains its size
         self.grid_propagate(False)
         
         # Set a minimum height
-        self.configure(height=130)  # Increased from 100 to 130
+        self.configure(height=140)  # Increased from 130 to 140 to accommodate the progress bar
 
         # Bind to configure event to handle resizing
         self.bind('<Configure>', self.on_resize)
         self.update_name_truncation()
+        
+        # Start progress bar update
+        self.update_progress_bar()
 
     def update(self):
         self.code.set(self.totp.now())
         self.time_remaining.set(self.get_time_remaining())
+        self.update_progress_bar()
 
     def get_time_remaining(self):
         return int(self.totp.interval - datetime.now().timestamp() % self.totp.interval)
@@ -270,6 +299,8 @@ class TOTPFrame(ttk.Frame):
             if parent_width > 10:  # Only adjust if parent has a meaningful width
                 # Set width while preserving other dimensions
                 self.configure(width=parent_width - 20)  # Account for padx
+                # Also update progress bar length to match frame width
+                self.progress_bar.configure(length=parent_width - 20)
 
     def on_delete_hover_enter(self, event):
         """Change delete button style to red on hover"""
@@ -301,4 +332,21 @@ class TOTPFrame(ttk.Frame):
         )
         if result:
             # User confirmed deletion, proceed with original callback
-            self.original_delete_callback() 
+            self.original_delete_callback()
+
+    def update_progress_bar(self):
+        """Update the progress bar based on remaining time"""
+        remaining_seconds = self.get_time_remaining()
+        percentage = (remaining_seconds / self.totp.interval) * 100
+        
+        # Update progress bar value
+        self.progress_bar["value"] = percentage
+        
+        # Change color to red when less than 5 seconds remain
+        if remaining_seconds <= 5:
+            self.progress_bar.configure(bootstyle="danger")
+        else:
+            self.progress_bar.configure(bootstyle="primary")
+            
+        # Schedule next update
+        self.after(100, self.update_progress_bar) 

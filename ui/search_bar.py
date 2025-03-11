@@ -114,8 +114,22 @@ class SearchBar(ttk.Frame):
             self.sort_asc_icon = None
             self.sort_desc_icon = None
             
-        # We'll keep the settings icon as a text symbol instead of loading the image
-        # This avoids the black square issue
+        # Load settings icon
+        try:
+            path = "icons/settings.png"
+            if os.path.exists(path):
+                # Open and convert to RGBA to ensure transparency is handled
+                img = Image.open(path).convert("RGBA")
+                img = img.resize((icon_size, icon_size), Image.LANCZOS)
+                # Create a PhotoImage with transparency
+                self.settings_icon = ImageTk.PhotoImage(img)
+                print(f"Loaded settings icon at {icon_size}px")
+            else:
+                print(f"Settings icon file not found: {path}")
+                self.settings_icon = None
+        except Exception as e:
+            print(f"Failed to load settings icon: {e}")
+            self.settings_icon = None
 
     def update_buttons_with_icons(self):
         """Update buttons with the loaded icons"""
@@ -129,9 +143,10 @@ class SearchBar(ttk.Frame):
             self.sort_btn.configure(image=self.sort_asc_icon)
             print("Updated sort button with sort_asc icon")
         
-        # We're keeping the settings button as a text symbol (⚙)
-        # No need to update it with an icon
-        print("Using text symbol for settings button instead of icon")
+        # Update settings button
+        if hasattr(self, 'settings_icon') and self.settings_icon:
+            self.settings_btn.configure(image=self.settings_icon)
+            print("Updated settings button with settings icon")
 
     # Method to delegate to the app's show_settings method
     def show_settings(self):
