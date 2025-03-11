@@ -16,9 +16,10 @@ class SettingsPage(Frame):
         # Add back button at the top
         self.back_button = ttk.Button(
             self,
-            text="← Back",
+            image=self.app.back_icon if hasattr(self.app, 'back_icon') else None,
+            text="Back" if not hasattr(self.app, 'back_icon') else None,
             command=self.go_back,
-            width=10,
+            width=10 if not hasattr(self.app, 'back_icon') else None,
             style="primary.TButton"
         )
         self.back_button.place(x=20, y=20)
@@ -52,12 +53,17 @@ class SettingsPage(Frame):
         
     def go_back(self):
         """Go back to the main view"""
-        # Destroy this page
-        self.pack_forget()
-        self.destroy()
-        
+        # Cancel any pending after callbacks in the app
+        if hasattr(self.app, 'after_id'):
+            self.app.after_cancel(self.app.after_id)
+            self.app.after_id = None
+            
         # Make main container visible again
         self.app.main_container.pack(fill="both", expand=True)
         
-        # Show the main view
-        self.app.show_main_view() 
+        # Show the main view first
+        self.app.show_main_view()
+        
+        # Then destroy this page
+        self.pack_forget()
+        self.destroy() 

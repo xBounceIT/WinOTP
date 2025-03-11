@@ -16,9 +16,10 @@ class ManualEntryPage(Frame):
         # Add back button at the top
         self.back_button = ttk.Button(
             self,
-            text="← Back",
+            image=self.app.back_icon if hasattr(self.app, 'back_icon') else None,
+            text="Back" if not hasattr(self.app, 'back_icon') else None,
             command=self.go_back,
-            width=10,
+            width=10 if not hasattr(self.app, 'back_icon') else None,
             style="primary.TButton"
         )
         self.back_button.place(x=20, y=20)
@@ -65,9 +66,14 @@ class ManualEntryPage(Frame):
         
     def go_back(self):
         """Go back to the add token page"""
-        # Destroy this page
-        self.pack_forget()
-        self.destroy()
+        # Cancel any pending after callbacks in the app
+        if hasattr(self.app, 'after_id'):
+            self.app.after_cancel(self.app.after_id)
+            self.app.after_id = None
+            
+        # Show the add token page first
+        self.app.add_token()
         
-        # Show the add token page
-        self.app.add_token() 
+        # Then destroy this page
+        self.pack_forget()
+        self.destroy() 
