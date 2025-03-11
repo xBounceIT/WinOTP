@@ -54,6 +54,12 @@ class TOTPFrame(ttk.Frame):
                 btn_style_name = f"DeleteBtn{str(id(self))}"
                 self.btn_style = f"{btn_style_name}.TButton"
                 style.configure(self.btn_style, width=20, height=20, padding=2)
+                # Configure hover state to prevent default hover effects
+                style.map(self.btn_style,
+                    background=[('active', '#555555')],  # Default state
+                    relief=[('active', 'flat')],
+                    borderwidth=[('active', '0')]
+                )
                 
                 # Create button without bootstyle to avoid conflicts
                 self.delete_btn = ttk.Button(
@@ -267,15 +273,23 @@ class TOTPFrame(ttk.Frame):
 
     def on_delete_hover_enter(self, event):
         """Change delete button style to red on hover"""
-        # Keep the same button style (size) but change the background color to red
         style = ttk.Style()
-        style.configure(self.btn_style, background="#FF5555")
+        style.configure(self.btn_style, background="#FF0000")
+        style.map(self.btn_style,
+            background=[('active', '#FF0000')],  # Keep red on active state
+            relief=[('active', 'flat')],
+            borderwidth=[('active', '0')]
+        )
     
     def on_delete_hover_leave(self, event):
         """Restore delete button style when mouse leaves"""
-        # Keep the same button style (size) but change the background color back to dark grey
         style = ttk.Style()
         style.configure(self.btn_style, background="#555555")
+        style.map(self.btn_style,
+            background=[('active', '#555555')],  # Restore grey on active state
+            relief=[('active', 'flat')],
+            borderwidth=[('active', '0')]
+        )
     
     def confirm_delete(self):
         """Show a confirmation dialog before deleting the token"""
