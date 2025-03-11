@@ -13,5 +13,6 @@ if __name__ == "__main__":
         tokens_path = "tokens.json"
         print("Running in PRODUCTION mode with tokens.json")
     
+    # Create and run the application
     app = WinOTP(tokens_path)
     app.mainloop() 

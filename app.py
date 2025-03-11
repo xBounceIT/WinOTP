@@ -18,8 +18,11 @@ from models.token import Token
 
 class WinOTP(ttk.Window):
     def __init__(self, tokens_path):
-        # Set dark mode theme.
+        # Initialize with dark theme
         super().__init__(themename="darkly")
+        
+        # Withdraw the window temporarily while setting up
+        self.withdraw()
         
         self.title("WinOTP")
         # Set fixed window dimensions (width x height)
@@ -33,7 +36,7 @@ class WinOTP(ttk.Window):
         self.filtered_frames = {}  # Store filtered token frames
         self.sort_ascending = True  # Default sort order
         
-        # Load icons
+        # Load icons first
         self.load_icons()
         
         # Override button initialization to add hand cursor
@@ -97,6 +100,9 @@ class WinOTP(ttk.Window):
             
         # Start updating frames
         self.update_frames()
+        
+        # Finally, show the window
+        self.deiconify()
 
     def load_icons(self):
         """Load all icons used in the application"""
