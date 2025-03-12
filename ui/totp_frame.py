@@ -22,7 +22,7 @@ class TOTPFrame(ttk.Frame):
         # Apply rounded corners and dark gray border using custom styling
         style = ttk.Style()
         frame_style = f"CustomTOTP{str(id(self))}.TFrame"
-        style.configure(frame_style, corner_radius=15)
+        style.configure(frame_style)
         self.configure(style=frame_style)
         
         self.issuer = issuer

@@ -467,7 +467,7 @@ class WinOTP(ttk.Window):
             self.canvas_frame,
             orient="vertical",
             command=self.canvas.yview,
-            bootstyle="primary-round"  # Use primary theme color with rounded corners
+            bootstyle="primary"  # Remove rounded corners
         )
         
         # Create the frame that will hold the tokens
