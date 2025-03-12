@@ -30,6 +30,7 @@ class TOTPFrame(ttk.Frame):
         self.totp = pyotp.TOTP(self.secret)
         self.code = ttk.StringVar(value=self.totp.now())
         self.time_remaining = ttk.StringVar(value=self.get_time_remaining())
+        self.last_update = datetime.now().timestamp()
 
         # Update issuer label with a larger font
         self.issuer_label = ttk.Label(self, text=self.issuer, font="Calibri 16 bold")
@@ -208,14 +209,36 @@ class TOTPFrame(ttk.Frame):
         self.update_progress_bar()
 
     def update(self):
-        self.code.set(self.totp.now())
-        self.time_remaining.set(self.get_time_remaining())
-        self.update_progress_bar()
+        """Update the TOTP code and progress bar"""
+        current_time = datetime.now().timestamp()
+        
+        # Only update the code if we've crossed a 30-second boundary
+        if int(current_time / self.totp.interval) > int(self.last_update / self.totp.interval):
+            self.code.set(self.totp.now())
+            
+        # Update time remaining and progress
+        remaining_seconds = self.get_time_remaining()
+        self.time_remaining.set(remaining_seconds)
+        
+        # Update progress bar
+        percentage = (remaining_seconds / self.totp.interval) * 100
+        self.progress_bar["value"] = percentage
+        
+        # Change color to red when less than 5 seconds remain
+        if remaining_seconds <= 5:
+            self.progress_bar.configure(bootstyle="danger")
+        else:
+            self.progress_bar.configure(bootstyle="primary")
+            
+        # Store last update time
+        self.last_update = current_time
 
     def get_time_remaining(self):
+        """Calculate the time remaining until the next code refresh"""
         return int(self.totp.interval - datetime.now().timestamp() % self.totp.interval)
 
     def copy_totp(self):
+        """Copy the current TOTP code to clipboard with visual feedback"""
         # First copy to clipboard
         self.master.master.clipboard_clear()
         self.master.master.clipboard_append(self.code.get())

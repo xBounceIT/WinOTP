@@ -35,6 +35,7 @@ class WinOTP(ttk.Window):
         self.frames = {}  # Store token frames by ID
         self.filtered_frames = {}  # Store filtered token frames
         self.sort_ascending = True  # Default sort order
+        self.after_ids = set()  # Track all after callbacks
         
         # Load icons first
         self.load_icons()
@@ -345,12 +346,34 @@ class WinOTP(ttk.Window):
         welcome_frame.update()
 
     def update_frames(self):
-        """Update all token frames"""
-        for frame in self.frames.values():
-            frame.update()
-        
-        # Schedule the next update
-        self.after(1000, self.update_frames)
+        """Update all token frames efficiently"""
+        try:
+            # Get the current frames to update (either filtered or all)
+            current_frames = self.filtered_frames if self.filtered_frames else self.frames
+            
+            # Update each frame
+            for frame in current_frames.values():
+                frame.update()
+            
+            # Schedule the next update with a longer interval
+            # We'll update every 100ms for smooth progress bar updates
+            after_id = self.after(100, self.update_frames)
+            self.after_ids.add(after_id)
+            
+        except Exception as e:
+            print(f"Error updating frames: {e}")
+            # Ensure we keep updating even if there's an error
+            after_id = self.after(100, self.update_frames)
+            self.after_ids.add(after_id)
+
+    def cleanup_after_callbacks(self):
+        """Clean up all pending after callbacks"""
+        for after_id in self.after_ids:
+            try:
+                self.after_cancel(after_id)
+            except Exception:
+                pass
+        self.after_ids.clear()
 
     def sort_tokens(self):
         """Toggle sort order and apply sorting"""
@@ -408,10 +431,8 @@ class WinOTP(ttk.Window):
         """Switch to add token page instead of showing a popup"""
         print("Adding token - transitioning to add token page")
         
-        # Cancel any pending frame updates
-        if hasattr(self, 'after_id'):
-            self.after_cancel(self.after_id)
-            self.after_id = None
+        # Clean up any pending callbacks
+        self.cleanup_after_callbacks()
         
         # Clear ALL content from the main container except the search bar
         for widget in self.main_container.winfo_children():
@@ -518,6 +539,9 @@ class WinOTP(ttk.Window):
     def show_main_view(self):
         """Show the main view with tokens"""
         print("Showing main view")
+        
+        # Clean up any pending callbacks first
+        self.cleanup_after_callbacks()
         
         # Clear current views except the search bar
         try:

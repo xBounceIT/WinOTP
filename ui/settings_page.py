@@ -63,11 +63,9 @@ class SettingsPage(Frame):
         
     def go_back(self):
         """Go back to the main view"""
-        # Cancel any pending after callbacks in the app
-        if hasattr(self.app, 'after_id'):
-            self.app.after_cancel(self.app.after_id)
-            self.app.after_id = None
-            
+        # Clean up any pending callbacks in the app
+        self.app.cleanup_after_callbacks()
+        
         # Make main container visible again
         self.app.main_container.pack(fill="both", expand=True)
         
