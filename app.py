@@ -624,19 +624,12 @@ class WinOTP(ttk.Window):
             page.status_label.config(text="Error: Invalid QR code")
 
     def add_manual_token(self, manual_window, issuer, secret, name):
-        """Add a token with manually entered information"""
-        # Close the manual window if it exists
-        if manual_window:
-            manual_window.destroy()
-        
-        # Check that all fields are filled
-        if not issuer or not secret or not name:
-            messagebox.showerror(
-                "Missing Information",
-                "Please fill in all fields."
-            )
-            return False
-        
+        """Add a token manually with the given details"""
+        # If we came from the manual entry page, destroy it and go to main view first
+        if hasattr(self, 'manual_entry_page'):
+            self.manual_entry_page.pack_forget()
+            self.show_main_view()
+            
         # Validate the secret
         if not Token.validate_base32_secret(secret):
             messagebox.showerror(
@@ -655,13 +648,9 @@ class WinOTP(ttk.Window):
                 f"Token for {issuer} ({name}) was successfully added."
             )
             
-            # If we came from the manual entry page, destroy it and go to main view
-            if hasattr(self, 'manual_entry_page'):
-                self.manual_entry_page.pack_forget()
-                self.manual_entry_page.destroy()
-            
-            # Show the main view directly
-            self.show_main_view()
+            # Update the UI
+            self.update_frames()
+            self.configure_scroll_region(None)
             
         return success
 
