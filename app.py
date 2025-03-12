@@ -173,17 +173,23 @@ class WinOTP(ttk.Window):
         y = (self.winfo_screenheight() // 2) - (height // 2)
         self.geometry(f"{width}x{height}+{x}+{y}")
 
-    def configure_scroll_region(self, event):
+    def configure_scroll_region(self, event=None):
         """Update the scroll region when the canvas is resized"""
-        print(f"Configuring scroll region, event width: {event.width}")
-        # First update the scrollable frame to match canvas width
-        canvas_width = event.width
+        if not hasattr(self, 'canvas') or not self.canvas.winfo_exists():
+            return
+            
+        # Get canvas width, either from event or current width
+        canvas_width = event.width if event else self.canvas.winfo_width()
+        print(f"Configuring scroll region, width: {canvas_width}")
+        
+        # Update the scrollable frame width
         if hasattr(self, 'scrollable_frame') and self.scrollable_frame.winfo_exists():
             self.scrollable_frame.configure(width=canvas_width - 20)  # Account for padding
             
-        # Then update the scroll region
+        # Update the scroll region to encompass all content
         self.canvas.configure(scrollregion=self.canvas.bbox("all"))
-        # Also update scrollbar visibility
+        
+        # Update scrollbar visibility
         self.update_scrollbar_visibility()
 
     def init_frames(self):
@@ -449,40 +455,65 @@ class WinOTP(ttk.Window):
         self.canvas_frame = ttk.Frame(self.main_container)
         self.canvas_frame.pack(fill="both", expand=True)
         
-        self.canvas = Canvas(self.canvas_frame, bg="#212529", highlightthickness=0)
-        self.scrollbar = ttk.Scrollbar(self.canvas_frame, orient="vertical", command=self.canvas.yview)
+        # Create canvas with proper background and no highlight
+        self.canvas = Canvas(
+            self.canvas_frame,
+            bg="#212529",
+            highlightthickness=0
+        )
+        
+        # Create scrollbar with primary theme color for visibility
+        self.scrollbar = ttk.Scrollbar(
+            self.canvas_frame,
+            orient="vertical",
+            command=self.canvas.yview,
+            bootstyle="primary-round"  # Use primary theme color with rounded corners
+        )
+        
+        # Create the frame that will hold the tokens
         self.scrollable_frame = ttk.Frame(self.canvas)
         
-        self.scrollable_frame.bind(
-            "<Configure>",
-            lambda e: self.canvas.configure(
-                scrollregion=self.canvas.bbox("all")
-            )
-        )
-        
-        # Create the window anchored at the top-left with proper width
-        self.canvas_window = self.canvas.create_window(
-            (0, 0), 
-            window=self.scrollable_frame, 
-            anchor="nw",
-            width=self.canvas.winfo_width()
-        )
-        
-        # Configure the canvas
+        # Configure the canvas scrolling
         self.canvas.configure(yscrollcommand=self.scrollbar.set)
         
         # Pack canvas and scrollbar
         self.canvas.pack(side="left", fill="both", expand=True)
-        self.scrollbar.pack(side="right", fill="y")
+        self.scrollbar.pack(side="right", fill="y", padx=(2, 4))  # Add more padding
+        
+        # Create the window in the canvas that will hold the frame
+        self.canvas_window = self.canvas.create_window(
+            (0, 0),
+            window=self.scrollable_frame,
+            anchor="nw",
+            width=self.canvas.winfo_width() - 4  # Account for scrollbar width
+        )
+        
+        # Bind frame configuration to update scroll region
+        def _on_frame_configure(event):
+            # Update the scroll region to encompass the inner frame
+            self.canvas.configure(scrollregion=self.canvas.bbox("all"))
+            # Update the frame width to match canvas
+            self.canvas.itemconfig(self.canvas_window, width=self.canvas.winfo_width())
+        
+        self.scrollable_frame.bind("<Configure>", _on_frame_configure)
+        
+        # Bind canvas resize to update frame width
+        def _on_canvas_configure(event):
+            # Update the frame width when canvas changes size
+            self.canvas.itemconfig(self.canvas_window, width=event.width)
+        
+        self.canvas.bind("<Configure>", _on_canvas_configure)
         
         # Bind mousewheel for scrolling
-        self.bind_all("<MouseWheel>", self.on_mouse_wheel)
+        def _on_mousewheel(event):
+            # Windows standard: Negative delta = scroll down, Positive delta = scroll up
+            if event.delta < 0:
+                self.canvas.yview_scroll(1, "units")  # Scroll down
+            else:
+                self.canvas.yview_scroll(-1, "units")  # Scroll up
         
-        # Bind canvas configure event to update scroll region
-        self.canvas.bind("<Configure>", self.configure_scroll_region)
-        
-        # Also bind to update the width of the scrollable frame
-        self.canvas.bind("<Configure>", self.update_scrollable_frame_width)
+        # Bind mousewheel to both canvas and scrollable frame
+        self.canvas.bind_all("<MouseWheel>", _on_mousewheel)
 
     def show_main_view(self):
         """Show the main view with tokens"""
@@ -648,9 +679,10 @@ class WinOTP(ttk.Window):
                 f"Token for {issuer} ({name}) was successfully added."
             )
             
-            # Update the UI
+            # Update the UI - let the canvas update itself first
             self.update_frames()
-            self.configure_scroll_region(None)
+            self.update()  # Process any pending events
+            self.configure_scroll_region()  # Now update scroll region without event
             
         return success
 
@@ -740,27 +772,28 @@ class WinOTP(ttk.Window):
         # Update scrollbar visibility
         self.update_scrollbar_visibility()
 
-    def on_mouse_wheel(self, event):
-        """Handle different mouse wheel event formats across platforms"""
-        # Handle different mouse wheel event formats across platforms
-        if event.num == 5 or event.delta < 0:
-            self.canvas.yview_scroll(1, "units")
-        elif event.num == 4 or event.delta > 0:
-            self.canvas.yview_scroll(-1, "units")
-
     def update_scrollbar_visibility(self):
         """Show or hide scrollbar based on content height"""
+        if not hasattr(self, 'scrollable_frame') or not hasattr(self, 'canvas'):
+            return
+            
         # Get the height of all content
         content_height = self.scrollable_frame.winfo_reqheight()
         
         # Get the height of the canvas
         canvas_height = self.canvas.winfo_height()
         
-        # Show or hide scrollbar
+        # Show or hide scrollbar and enable/disable scrolling
         if content_height > canvas_height:
-            self.scrollbar.pack(side="right", fill="y")
+            self.scrollbar.pack(side="right", fill="y", padx=(2, 4))  # Add more padding
+            self.canvas.configure(yscrollcommand=self.scrollbar.set)
+            # Update the canvas window width to account for scrollbar
+            self.canvas.itemconfig(self.canvas_window, width=self.canvas.winfo_width() - 4)
         else:
             self.scrollbar.pack_forget()
+            self.canvas.configure(yscrollcommand=None)
+            # Restore full width when scrollbar is hidden
+            self.canvas.itemconfig(self.canvas_window, width=self.canvas.winfo_width())
 
     def show_settings(self):
         """Navigate to settings page"""
