@@ -104,12 +104,17 @@ class WinOTP(ttk.Window):
         
         # Finally, show the window
         self.deiconify()
+        
+        # Set the app icon for both title bar and taskbar
+        if hasattr(self, 'app_icon') and self.app_icon:
+            self.iconphoto(True, self.app_icon)
 
     def load_icons(self):
         """Load all icons used in the application"""
         try:
             # Define icon paths and sizes
             icon_data = [
+                ("app_icon", "icons/app.png", 32),  # App icon with larger size for better quality
                 ("copy_icon", "icons/copy.png", 20),
                 ("copy_confirm_icon", "icons/copy_confirm.png", 20),
                 ("delete_icon", "icons/delete.png", 20),
