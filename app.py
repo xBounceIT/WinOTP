@@ -489,11 +489,25 @@ class WinOTP(ttk.Window):
         )
         
         # Create scrollbar with primary theme color for visibility
+        # Create a custom style for a minimal scrollbar
+        scrollbar_style = ttk.Style()
+        scrollbar_style.layout('Custom.Vertical.TScrollbar', 
+            [('Vertical.Scrollbar.trough',
+                {'children': [('Vertical.Scrollbar.thumb',
+                    {'expand': '1', 'sticky': 'nswe'})],
+                'sticky': 'ns'})])
+        scrollbar_style.configure('Custom.Vertical.TScrollbar',
+            troughcolor='#212529',  # Match canvas background
+            borderwidth=0,
+            relief="flat",
+            width=4  # Very thin scrollbar
+        )
+        
         self.scrollbar = ttk.Scrollbar(
             self.canvas_frame,
             orient="vertical",
             command=self.canvas.yview,
-            bootstyle="primary"  # Remove rounded corners
+            style="Custom.Vertical.TScrollbar"  # Apply custom style
         )
         
         # Create the frame that will hold the tokens
