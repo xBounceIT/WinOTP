@@ -806,23 +806,71 @@ class WinOTP(ttk.Window):
         if not hasattr(self, 'scrollable_frame') or not hasattr(self, 'canvas'):
             return
             
-        # Get the height of all content
-        content_height = self.scrollable_frame.winfo_reqheight()
+        # Get the height of all visible frames
+        current_frames = self.filtered_frames if self.filtered_frames else self.frames
+        frame_height = 140  # Fixed height of each TOTP frame
+        total_frame_height = len(current_frames) * frame_height
         
-        # Get the height of the canvas
-        canvas_height = self.canvas.winfo_height()
+        # Add padding between frames (20px top + 20px bottom)
+        total_padding = len(current_frames) * 40 if current_frames else 0
         
-        # Show or hide scrollbar and enable/disable scrolling
-        if content_height > canvas_height:
-            self.scrollbar.pack(side="right", fill="y", padx=(2, 4))  # Add more padding
+        # Calculate total content height
+        total_height = total_frame_height + total_padding
+        
+        # Get available height (window height minus search bar and its padding)
+        available_height = 600  # Fixed window height
+        if hasattr(self, 'search_bar'):
+            available_height -= (self.search_bar.winfo_height() + 40)  # Search bar height + padding
+            
+        # Debug print
+        print(f"Total frame height: {total_frame_height}")
+        print(f"Total padding: {total_padding}")
+        print(f"Total height: {total_height}")
+        print(f"Available height: {available_height}")
+        
+        # Configure scrolling based on content height
+        if total_height > available_height:
+            print("Content exceeds viewport - enabling scrollbar")
+            # Show scrollbar
+            self.scrollbar.pack(side="right", fill="y", padx=(2, 4))
             self.canvas.configure(yscrollcommand=self.scrollbar.set)
-            # Update the canvas window width to account for scrollbar
-            self.canvas.itemconfig(self.canvas_window, width=self.canvas.winfo_width() - 4)
+            
+            # Update scroll region to start at 0 and end at total_height
+            self.canvas.configure(scrollregion=(0, 0, self.canvas.winfo_width(), total_height))
+            
+            # Custom mousewheel handler to prevent scrolling past boundaries
+            def _on_mousewheel(event):
+                # Get current scroll position
+                current_pos = self.canvas.yview()[0]
+                
+                # Calculate scroll direction (-1 for up, 1 for down)
+                delta = -1 * (event.delta // 120)
+                
+                # Only scroll if:
+                # - Scrolling down (delta > 0) and not at bottom
+                # - Scrolling up (delta < 0) and not at top
+                if (delta > 0 and current_pos < 1) or (delta < 0 and current_pos > 0):
+                    self.canvas.yview_scroll(delta, "units")
+            
+            # Enable mouse wheel scrolling with boundary check
+            self.canvas.bind_all("<MouseWheel>", _on_mousewheel)
         else:
+            print("Content fits viewport - disabling scrollbar")
+            # Hide scrollbar and disable scrolling
             self.scrollbar.pack_forget()
             self.canvas.configure(yscrollcommand=None)
-            # Restore full width when scrollbar is hidden
-            self.canvas.itemconfig(self.canvas_window, width=self.canvas.winfo_width())
+            
+            # Reset scroll position
+            self.canvas.yview_moveto(0)
+            
+            # Disable mouse wheel scrolling
+            self.canvas.unbind_all("<MouseWheel>")
+            
+            # Set scroll region to match viewport
+            self.canvas.configure(scrollregion=(0, 0, self.canvas.winfo_width(), available_height))
+            
+        # Update canvas window width
+        self.canvas.itemconfig(self.canvas_window, width=self.canvas.winfo_width() - (4 if total_height > available_height else 0))
 
     def show_settings(self):
         """Navigate to settings page"""
