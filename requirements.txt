@@ -1,5 +1,5 @@
 pyotp
-pywebview==4.4.1
+pywebview==5.4
 pyzbar
 cryptography
 pytest

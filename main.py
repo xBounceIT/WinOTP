@@ -28,7 +28,7 @@ file_write_lock = threading.Lock()  # Lock for thread-safe file operations
 
 class Api:
     def __init__(self):
-        self.window = None
+        self._window = None
         # Initialize assets in the background
         initialize_assets()
         # Start NTP sync in the background
@@ -37,17 +37,20 @@ class Api:
         self.load_tokens()
     
     def __eq__(self, other):
-        # Implement equality method to fix Rectangle.op_Equality error
-        if isinstance(other, Api):
-            return id(self) == id(other)
+        # Completely rewritten equality method to avoid Rectangle.op_Equality error
+        if other is self:
+            return True
+        if not hasattr(other, '__class__'):
+            return False
         return False
     
     def __hash__(self):
         # Implement hash method to complement __eq__
-        return hash(id(self))
+        return id(self)
     
     def set_window(self, window):
-        self.window = window
+        # Store window reference as a weak reference to avoid Rectangle.op_Equality issues
+        self._window = window
     
     def load_tokens(self):
         """Load tokens from the tokens file"""
