@@ -1,0 +1,965 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WinOTP</title>
+    <style>
+        :root {
+            --primary-color: #0078d7;
+            --secondary-color: #005a9e;
+            --background-color: #f0f0f0;
+            --card-background: #ffffff;
+            --text-color: #333333;
+            --border-color: #d1d1d1;
+            --hover-color: #e5f1fb;
+            --error-color: #d83b01;
+            --success-color: #107c10;
+            --warning-color: #ffb900;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: var(--background-color);
+            color: var(--text-color);
+            overflow-x: hidden;
+        }
+
+        .container {
+            max-width: 500px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+            font-weight: 600;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: background-color 0.2s;
+        }
+
+        .btn:hover {
+            background-color: var(--secondary-color);
+        }
+
+        .btn-icon {
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+        }
+
+        .search-bar {
+            width: 100%;
+            margin-bottom: 20px;
+            position: relative;
+        }
+
+        .search-bar input {
+            width: 100%;
+            padding: 10px 15px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+
+        .token-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .token-card {
+            background-color: var(--card-background);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            transition: box-shadow 0.2s;
+        }
+
+        .token-card:hover {
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .token-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .token-info {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .token-issuer {
+            font-weight: 600;
+            font-size: 16px;
+        }
+
+        .token-name {
+            font-size: 14px;
+            color: #666;
+        }
+
+        .token-actions {
+            display: flex;
+            gap: 5px;
+        }
+
+        .token-code {
+            font-family: 'Consolas', monospace;
+            font-size: 24px;
+            font-weight: 600;
+            letter-spacing: 2px;
+            margin-bottom: 10px;
+        }
+
+        .token-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .progress-bar {
+            flex-grow: 1;
+            height: 4px;
+            background-color: var(--border-color);
+            border-radius: 2px;
+            overflow: hidden;
+            margin-right: 10px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background-color: var(--primary-color);
+            transition: width 1s linear;
+        }
+
+        .time-remaining {
+            font-size: 14px;
+            min-width: 30px;
+            text-align: right;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content {
+            background-color: var(--card-background);
+            border-radius: 4px;
+            padding: 20px;
+            width: 90%;
+            max-width: 450px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .modal-header h2 {
+            margin: 0;
+            font-size: 20px;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 20px;
+            cursor: pointer;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+        }
+
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+
+        .form-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .btn-secondary {
+            background-color: transparent;
+            color: var(--text-color);
+            border: 1px solid var(--border-color);
+        }
+
+        .btn-secondary:hover {
+            background-color: var(--hover-color);
+        }
+
+        .notification {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            padding: 15px 20px;
+            border-radius: 4px;
+            color: white;
+            font-weight: 500;
+            z-index: 1001;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .notification.success {
+            background-color: var(--success-color);
+        }
+
+        .notification.error {
+            background-color: var(--error-color);
+        }
+
+        .notification.warning {
+            background-color: var(--warning-color);
+            color: var(--text-color);
+        }
+
+        .notification.show {
+            opacity: 1;
+        }
+
+        .qr-scanner {
+            width: 100%;
+            height: 300px;
+            background-color: #000;
+            position: relative;
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+
+        .qr-scanner video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .qr-scanner canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+
+        .qr-scanner-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .qr-scanner-target {
+            width: 200px;
+            height: 200px;
+            border: 2px solid white;
+            border-radius: 10px;
+        }
+
+        .tabs {
+            display: flex;
+            margin-bottom: 20px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .tab {
+            padding: 10px 15px;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+        }
+
+        .tab.active {
+            border-bottom-color: var(--primary-color);
+            font-weight: 500;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .about-section {
+            margin-bottom: 30px;
+        }
+
+        .about-section h2 {
+            font-size: 18px;
+            margin-bottom: 10px;
+        }
+
+        .about-section p {
+            margin-bottom: 15px;
+            line-height: 1.5;
+        }
+
+        .settings-section {
+            margin-bottom: 20px;
+        }
+
+        .settings-section h2 {
+            font-size: 18px;
+            margin-bottom: 15px;
+        }
+
+        .setting-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .setting-item:last-child {
+            border-bottom: none;
+        }
+
+        .setting-label {
+            font-weight: 500;
+        }
+
+        .setting-description {
+            font-size: 14px;
+            color: #666;
+            margin-top: 5px;
+        }
+
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 40px;
+            height: 24px;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 24px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 16px;
+            width: 16px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        input:checked + .slider {
+            background-color: var(--primary-color);
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(16px);
+        }
+
+        .ntp-status {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 4px;
+            background-color: var(--background-color);
+        }
+
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+
+        .status-indicator.synced {
+            background-color: var(--success-color);
+        }
+
+        .status-indicator.syncing {
+            background-color: var(--warning-color);
+        }
+
+        .status-indicator.error {
+            background-color: var(--error-color);
+        }
+
+        .status-text {
+            font-size: 14px;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --primary-color: #0078d7;
+                --secondary-color: #2b88d8;
+                --background-color: #1f1f1f;
+                --card-background: #2d2d2d;
+                --text-color: #ffffff;
+                --border-color: #444444;
+                --hover-color: #3a3a3a;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>WinOTP</h1>
+            <div class="header-actions">
+                <button id="addTokenBtn" class="btn">Add Token</button>
+                <button id="settingsBtn" class="btn btn-icon">⚙️</button>
+                <button id="aboutBtn" class="btn btn-icon">ℹ️</button>
+            </div>
+        </div>
+
+        <div class="search-bar">
+            <input type="text" id="searchInput" placeholder="Search tokens...">
+        </div>
+
+        <div id="tokenList" class="token-list">
+            <!-- Tokens will be added here dynamically -->
+        </div>
+    </div>
+
+    <!-- Add Token Modal -->
+    <div id="addTokenModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Add Token</h2>
+                <button class="modal-close" onclick="closeModal('addTokenModal')">×</button>
+            </div>
+            <div class="tabs">
+                <div class="tab active" data-tab="scanQr">Scan QR</div>
+                <div class="tab" data-tab="manualEntry">Manual Entry</div>
+            </div>
+            <div id="scanQr" class="tab-content active">
+                <div class="qr-scanner">
+                    <video id="qrVideo" playsinline></video>
+                    <canvas id="qrCanvas"></canvas>
+                    <div class="qr-scanner-overlay">
+                        <div class="qr-scanner-target"></div>
+                    </div>
+                </div>
+                <div class="form-actions">
+                    <button class="btn btn-secondary" onclick="closeModal('addTokenModal')">Cancel</button>
+                    <button class="btn" id="uploadQrBtn">Upload QR Image</button>
+                    <input type="file" id="qrFileInput" accept="image/*" style="display: none;">
+                </div>
+            </div>
+            <div id="manualEntry" class="tab-content">
+                <div class="form-group">
+                    <label for="tokenIssuer">Issuer (Service Name)</label>
+                    <input type="text" id="tokenIssuer" placeholder="Google, Microsoft, etc.">
+                </div>
+                <div class="form-group">
+                    <label for="tokenName">Account Name</label>
+                    <input type="text" id="tokenName" placeholder="username@example.com">
+                </div>
+                <div class="form-group">
+                    <label for="tokenSecret">Secret Key</label>
+                    <input type="text" id="tokenSecret" placeholder="Base32 encoded secret">
+                </div>
+                <div class="form-actions">
+                    <button class="btn btn-secondary" onclick="closeModal('addTokenModal')">Cancel</button>
+                    <button class="btn" id="saveTokenBtn">Save Token</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settingsModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Settings</h2>
+                <button class="modal-close" onclick="closeModal('settingsModal')">×</button>
+            </div>
+            <div class="settings-section">
+                <h2>Display</h2>
+                <div class="setting-item">
+                    <div>
+                        <div class="setting-label">Sort Order</div>
+                        <div class="setting-description">Change the order of tokens in the list</div>
+                    </div>
+                    <button class="btn" id="toggleSortBtn">Toggle Sort</button>
+                </div>
+            </div>
+            <div class="settings-section">
+                <h2>Time Synchronization</h2>
+                <div class="setting-item">
+                    <div>
+                        <div class="setting-label">NTP Synchronization</div>
+                        <div class="setting-description">Status of time synchronization with NTP servers</div>
+                    </div>
+                    <div id="ntpStatus" class="ntp-status">
+                        <div class="status-indicator syncing"></div>
+                        <div class="status-text">Checking...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- About Modal -->
+    <div id="aboutModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>About WinOTP</h2>
+                <button class="modal-close" onclick="closeModal('aboutModal')">×</button>
+            </div>
+            <div class="about-section">
+                <h2>WinOTP Authenticator</h2>
+                <p>A simple, secure TOTP authenticator for Windows with Windows Hello integration.</p>
+                <p>Version: 1.0.0</p>
+            </div>
+            <div class="about-section">
+                <h2>Features</h2>
+                <ul>
+                    <li>Generate TOTP codes for two-factor authentication</li>
+                    <li>Scan QR codes to add tokens</li>
+                    <li>Manual entry of token details</li>
+                    <li>NTP time synchronization for accurate codes</li>
+                    <li>Windows Hello integration for secure access</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification -->
+    <div id="notification" class="notification"></div>
+
+    <script>
+        // Global variables
+        let tokens = [];
+        let searchTerm = '';
+        let sortAscending = true;
+        let updateInterval;
+        let apiCheckInterval;
+
+        // Initialize the application
+        document.addEventListener('DOMContentLoaded', function() {
+            // Set up event listeners
+            document.getElementById('addTokenBtn').addEventListener('click', () => openModal('addTokenModal'));
+            document.getElementById('settingsBtn').addEventListener('click', () => openModal('settingsModal'));
+            document.getElementById('aboutBtn').addEventListener('click', () => openModal('aboutModal'));
+            document.getElementById('uploadQrBtn').addEventListener('click', () => document.getElementById('qrFileInput').click());
+            document.getElementById('qrFileInput').addEventListener('change', handleQrFileUpload);
+            document.getElementById('saveTokenBtn').addEventListener('click', saveManualToken);
+            document.getElementById('toggleSortBtn').addEventListener('click', toggleSortOrder);
+            document.getElementById('searchInput').addEventListener('input', (e) => {
+                searchTerm = e.target.value.toLowerCase();
+                renderTokens();
+            });
+
+            // Set up tabs
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.addEventListener('click', () => {
+                    const tabId = tab.getAttribute('data-tab');
+                    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                    tab.classList.add('active');
+                    document.getElementById(tabId).classList.add('active');
+                });
+            });
+
+            // Check if API is available, if not, wait for it
+            checkAndInitializeApi();
+        });
+
+        // Check if the pywebview API is available and initialize the app
+        function checkAndInitializeApi() {
+            if (window.pywebview && window.pywebview.api) {
+                console.log("pywebview API is available, initializing app");
+                // Clear any existing interval
+                if (apiCheckInterval) {
+                    clearInterval(apiCheckInterval);
+                }
+                
+                // Load tokens and start update interval
+                loadTokens();
+                updateInterval = setInterval(updateTokens, 1000);
+
+                // Check NTP status
+                checkNtpStatus();
+            } else {
+                console.log("pywebview API not available yet, waiting...");
+                // If we haven't set up the interval yet, do so
+                if (!apiCheckInterval) {
+                    apiCheckInterval = setInterval(checkAndInitializeApi, 500);
+                }
+            }
+        }
+
+        // Load tokens from the backend
+        async function loadTokens() {
+            try {
+                if (!window.pywebview || !window.pywebview.api) {
+                    console.error("pywebview API not available");
+                    showNotification('Error: API not available', 'error');
+                    return;
+                }
+                
+                tokens = await window.pywebview.api.get_tokens();
+                renderTokens();
+            } catch (error) {
+                showNotification('Error loading tokens: ' + error, 'error');
+            }
+        }
+
+        // Update tokens (refresh codes and time remaining)
+        async function updateTokens() {
+            try {
+                if (!window.pywebview || !window.pywebview.api) {
+                    console.error("pywebview API not available");
+                    return;
+                }
+                
+                tokens = await window.pywebview.api.get_tokens();
+                renderTokens();
+            } catch (error) {
+                console.error('Error updating tokens:', error);
+            }
+        }
+
+        // Render tokens to the DOM
+        function renderTokens() {
+            const tokenList = document.getElementById('tokenList');
+            tokenList.innerHTML = '';
+
+            // Filter tokens by search term
+            const filteredTokens = tokens.filter(token => {
+                const issuer = token.issuer.toLowerCase();
+                const name = token.name.toLowerCase();
+                return issuer.includes(searchTerm) || name.includes(searchTerm);
+            });
+
+            // Render each token
+            filteredTokens.forEach(token => {
+                const tokenCard = document.createElement('div');
+                tokenCard.className = 'token-card';
+                tokenCard.innerHTML = `
+                    <div class="token-header">
+                        <div class="token-info">
+                            <div class="token-issuer">${escapeHtml(token.issuer)}</div>
+                            <div class="token-name">${escapeHtml(token.name)}</div>
+                        </div>
+                        <div class="token-actions">
+                            <button class="btn btn-icon" onclick="copyCode('${token.id}')">📋</button>
+                            <button class="btn btn-icon" onclick="deleteToken('${token.id}')">🗑️</button>
+                        </div>
+                    </div>
+                    <div class="token-code">${formatCode(token.code)}</div>
+                    <div class="token-footer">
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: ${(token.timeRemaining / 30) * 100}%"></div>
+                        </div>
+                        <div class="time-remaining">${token.timeRemaining}s</div>
+                    </div>
+                `;
+                tokenList.appendChild(tokenCard);
+            });
+        }
+
+        // Format TOTP code with spaces for readability
+        function formatCode(code) {
+            if (code.length === 6) {
+                return code.substring(0, 3) + ' ' + code.substring(3);
+            }
+            return code;
+        }
+
+        // Copy code to clipboard
+        async function copyCode(tokenId) {
+            const token = tokens.find(t => t.id === tokenId);
+            if (token) {
+                try {
+                    await navigator.clipboard.writeText(token.code);
+                    showNotification('Code copied to clipboard', 'success');
+                } catch (error) {
+                    showNotification('Failed to copy code', 'error');
+                }
+            }
+        }
+
+        // Delete token
+        async function deleteToken(tokenId) {
+            if (confirm('Are you sure you want to delete this token?')) {
+                try {
+                    if (!window.pywebview || !window.pywebview.api) {
+                        console.error("pywebview API not available");
+                        showNotification('Error: API not available', 'error');
+                        return;
+                    }
+                    
+                    const result = await window.pywebview.api.delete_token(tokenId);
+                    if (result.status === 'success') {
+                        showNotification(result.message, 'success');
+                        loadTokens();
+                    } else {
+                        showNotification(result.message, 'error');
+                    }
+                } catch (error) {
+                    showNotification('Error deleting token: ' + error, 'error');
+                }
+            }
+        }
+
+        // Save manually entered token
+        async function saveManualToken() {
+            const issuer = document.getElementById('tokenIssuer').value.trim();
+            const name = document.getElementById('tokenName').value.trim();
+            const secret = document.getElementById('tokenSecret').value.trim();
+
+            if (!secret) {
+                showNotification('Secret key is required', 'error');
+                return;
+            }
+
+            try {
+                if (!window.pywebview || !window.pywebview.api) {
+                    console.error("pywebview API not available");
+                    showNotification('Error: API not available', 'error');
+                    return;
+                }
+                
+                const result = await window.pywebview.api.add_token({
+                    issuer: issuer || 'Unknown',
+                    name: name || 'Unknown',
+                    secret: secret
+                });
+
+                if (result.status === 'success') {
+                    showNotification(result.message, 'success');
+                    closeModal('addTokenModal');
+                    clearTokenForm();
+                    loadTokens();
+                } else {
+                    showNotification(result.message, 'error');
+                }
+            } catch (error) {
+                showNotification('Error adding token: ' + error, 'error');
+            }
+        }
+
+        // Handle QR code file upload
+        async function handleQrFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = async function(e) {
+                try {
+                    if (!window.pywebview || !window.pywebview.api) {
+                        console.error("pywebview API not available");
+                        showNotification('Error: API not available', 'error');
+                        return;
+                    }
+                    
+                    const result = await window.pywebview.api.scan_qr_code(e.target.result);
+                    if (result.status === 'success') {
+                        const tokenData = result.data;
+                        const addResult = await window.pywebview.api.add_token(tokenData);
+                        
+                        if (addResult.status === 'success') {
+                            showNotification(addResult.message, 'success');
+                            closeModal('addTokenModal');
+                            loadTokens();
+                        } else {
+                            showNotification(addResult.message, 'error');
+                        }
+                    } else {
+                        showNotification(result.message, 'error');
+                    }
+                } catch (error) {
+                    showNotification('Error processing QR code: ' + error, 'error');
+                }
+                
+                // Reset file input
+                event.target.value = '';
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // Toggle sort order
+        async function toggleSortOrder() {
+            try {
+                if (!window.pywebview || !window.pywebview.api) {
+                    console.error("pywebview API not available");
+                    showNotification('Error: API not available', 'error');
+                    return;
+                }
+                
+                const result = await window.pywebview.api.toggle_sort_order();
+                if (result.status === 'success') {
+                    sortAscending = result.ascending;
+                    loadTokens();
+                }
+            } catch (error) {
+                showNotification('Error toggling sort order: ' + error, 'error');
+            }
+        }
+
+        // Check NTP synchronization status
+        async function checkNtpStatus() {
+            try {
+                if (!window.pywebview || !window.pywebview.api) {
+                    console.error("pywebview API not available");
+                    // Try again in 5 seconds
+                    setTimeout(checkNtpStatus, 5000);
+                    return;
+                }
+                
+                const result = await window.pywebview.api.get_ntp_status();
+                if (result.status === 'success') {
+                    const status = result.data;
+                    const statusIndicator = document.querySelector('#ntpStatus .status-indicator');
+                    const statusText = document.querySelector('#ntpStatus .status-text');
+                    
+                    if (status.synced) {
+                        statusIndicator.className = 'status-indicator synced';
+                        statusText.textContent = `Synced (${status.offset.toFixed(2)}ms offset)`;
+                    } else if (status.syncing) {
+                        statusIndicator.className = 'status-indicator syncing';
+                        statusText.textContent = 'Synchronizing...';
+                    } else {
+                        statusIndicator.className = 'status-indicator error';
+                        statusText.textContent = 'Not synchronized';
+                    }
+                }
+            } catch (error) {
+                console.error('Error checking NTP status:', error);
+            }
+            
+            // Check again in 30 seconds
+            setTimeout(checkNtpStatus, 30000);
+        }
+
+        // Open modal
+        function openModal(modalId) {
+            document.getElementById(modalId).style.display = 'flex';
+        }
+
+        // Close modal
+        function closeModal(modalId) {
+            document.getElementById(modalId).style.display = 'none';
+            if (modalId === 'addTokenModal') {
+                clearTokenForm();
+            }
+        }
+
+        // Clear token form
+        function clearTokenForm() {
+            document.getElementById('tokenIssuer').value = '';
+            document.getElementById('tokenName').value = '';
+            document.getElementById('tokenSecret').value = '';
+        }
+
+        // Show notification
+        function showNotification(message, type) {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.className = 'notification ' + type;
+            notification.classList.add('show');
+            
+            setTimeout(() => {
+                notification.classList.remove('show');
+            }, 3000);
+        }
+
+        // Escape HTML to prevent XSS
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Close modals when clicking outside
+        window.addEventListener('click', function(event) {
+            document.querySelectorAll('.modal').forEach(modal => {
+                if (event.target === modal) {
+                    modal.style.display = 'none';
+                }
+            });
+        });
+    </script>
+</body>
+</html> 

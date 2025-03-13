@@ -1,6 +1,5 @@
 pyotp
-pywebview
-flask
+pywebview==4.4.1
 pyzbar
 cryptography
 pytest

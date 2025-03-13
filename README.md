@@ -1,6 +1,6 @@
 # WinOTP
 
-A Windows TOTP Authenticator application built with Python and ttkbootstrap.
+A Windows TOTP Authenticator application built with Python and PyWebView.
 
 ## Features
 
@@ -9,96 +9,51 @@ A Windows TOTP Authenticator application built with Python and ttkbootstrap.
 - Search and sort tokens
 - Dark mode UI
 - Import/export tokens
-- HTTP/3 support for faster requests (optional)
+- NTP time synchronization for accurate TOTP codes
 
 ## Project Structure
 
-The project has been refactored into a modular structure:
+The project has a modular structure:
 
 ```
 WinOTP/
-├── main.py                 # Entry point
-├── app.py                  # Main application window
+├── main.py                 # Entry point and API implementation
+├── ui/                     # UI files
+│   └── index.html          # Main HTML interface
 ├── models/                 # Data models
-│   ├── __init__.py
-│   └── token.py            # Token model with validation
-├── ui/                     # UI components
-│   ├── __init__.py
-│   ├── totp_frame.py       # Individual token display
-│   └── search_bar.py       # Search and toolbar
+│   └── token.py            # Token model
 ├── utils/                  # Utility functions
-│   ├── __init__.py
-│   ├── file_io.py          # File operations
+│   ├── asset_manager.py    # Asset management
+│   ├── file_io.py          # File I/O operations
+│   ├── ntp_sync.py         # NTP time synchronization
 │   └── qr_scanner.py       # QR code scanning
-└── icons/                  # Application icons
+├── tokens.json             # Token storage (production)
+└── tokens.json.dev         # Token storage (development)
 ```
 
-## Requirements
+## How It Works
 
-- Python 3.6+
-- ttkbootstrap
-- pyotp
-- Pillow
-- pyzbar
+This application uses PyWebView to create a desktop application with a web-based UI:
+
+1. Python backend handles token management, TOTP generation, and file operations
+2. HTML/CSS/JavaScript frontend provides the user interface
+3. PyWebView bridges the gap between the two, allowing JavaScript to call Python functions directly
 
 ## Installation
 
 1. Clone the repository
-2. Install dependencies:
-   ```
-   pip install ttkbootstrap pyotp pillow pyzbar
-   ```
-3. Run the application:
-   ```
-   python main.py
-   ```
+2. Install the required packages: `pip install -r requirements.txt`
+3. Run the application: `python main.py`
 
-## Development Mode
+## Development
 
-Run the application in debug mode to use a separate tokens file:
+To run the application in debug mode:
 
 ```
 python main.py --debug
 ```
 
-This will use `tokens.json.dev` instead of `tokens.json` for storing tokens.
-
-## HTTP/3 Support
-
-WinOTP now supports HTTP/3 for faster requests. There are several ways to enable HTTP/3:
-
-### Option 1: HTTP/3 with fallback (recommended for most users)
-
-```
-python main.py --http3
-```
-
-This will attempt to use HTTP/3, but will automatically fall back to HTTP/1.1 if HTTP/3 cannot be initialized. This is the safest option.
-
-### Option 2: HTTP/3 only mode with webview
-
-```
-python main.py --http3-only
-```
-
-This runs the server with HTTP/3 support directly in the main thread and launches the webview in a separate process. This provides true HTTP/3 support but will not fall back to HTTP/1.1 if there's an issue.
-
-### Option 3: HTTP/3 only mode with browser
-
-```
-python main.py --http3-only --no-webview
-```
-
-This runs the server with HTTP/3 support and opens your default web browser instead of using a webview window. This is the most compatible option for HTTP/3 support.
-
-All options require the `hypercorn[h3]` package to be installed. HTTP/3 uses QUIC protocol which provides:
-
-- Faster connection establishment
-- Improved congestion control
-- Reduced latency
-- Better performance on unreliable networks
-
-When HTTP/3 is enabled, the application will use HTTPS with self-signed certificates.
+This will use the development token file (`tokens.json.dev`) and enable debug logging.
 
 ## License
 
