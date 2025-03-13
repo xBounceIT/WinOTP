@@ -236,7 +236,7 @@ class Api:
             return {"status": "error", "message": f"Failed to get NTP status: {str(e)}"}
     
     def toggle_sort_order(self):
-        """Toggle token sort order"""
+        """Toggle the sort order of tokens"""
         global sort_ascending
         sort_ascending = not sort_ascending
         return {"status": "success", "ascending": sort_ascending}

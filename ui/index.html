@@ -74,6 +74,7 @@
             align-items: center;
             justify-content: center;
             padding: 0;
+            font-family: 'Segoe UI Symbol', sans-serif;
         }
 
         .search-bar {
@@ -82,9 +83,18 @@
             position: relative;
         }
 
+        .search-bar::before {
+            content: '🔍';
+            position: absolute;
+            left: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 14px;
+        }
+
         .search-bar input {
             width: 100%;
-            padding: 10px 15px;
+            padding: 10px 15px 10px 35px;
             border: 1px solid var(--border-color);
             border-radius: 4px;
             font-size: 14px;
@@ -467,6 +477,41 @@
             font-size: 14px;
         }
 
+        .welcome-message {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 300px;
+            text-align: center;
+            background-color: var(--card-background);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 30px;
+            margin-top: 20px;
+        }
+
+        .welcome-content {
+            max-width: 400px;
+        }
+
+        .welcome-content h2 {
+            margin-top: 0;
+            margin-bottom: 20px;
+            color: var(--primary-color);
+        }
+
+        .welcome-content p {
+            margin-bottom: 15px;
+            line-height: 1.5;
+            color: var(--text-color);
+        }
+
+        .welcome-content .btn {
+            margin-top: 15px;
+            padding: 10px 20px;
+            font-size: 16px;
+        }
+
         @media (prefers-color-scheme: dark) {
             :root {
                 --primary-color: #0078d7;
@@ -485,7 +530,7 @@
         <div class="header">
             <h1>WinOTP</h1>
             <div class="header-actions">
-                <button id="addTokenBtn" class="btn">Add Token</button>
+                <button id="addTokenBtn" class="btn btn-icon"><img id="plusIcon" alt="Add Token" width="20" height="20"></button>
                 <button id="settingsBtn" class="btn btn-icon">⚙️</button>
                 <button id="aboutBtn" class="btn btn-icon">ℹ️</button>
             </div>
@@ -630,6 +675,29 @@
                 renderTokens();
             });
 
+            // Load plus icon
+            if (window.pywebview && window.pywebview.api) {
+                window.pywebview.api.get_icon_base64('plus.png').then(result => {
+                    if (result.status === 'success') {
+                        document.getElementById('plusIcon').src = 'data:image/png;base64,' + result.data;
+                    } else {
+                        console.error('Error loading plus icon:', result.message);
+                        // Fallback to emoji if icon loading fails
+                        const plusBtn = document.getElementById('addTokenBtn');
+                        plusBtn.innerHTML = '➕';
+                    }
+                }).catch(error => {
+                    console.error('Error loading plus icon:', error);
+                    // Fallback to emoji if icon loading fails
+                    const plusBtn = document.getElementById('addTokenBtn');
+                    plusBtn.innerHTML = '➕';
+                });
+            } else {
+                // Fallback to emoji if API not available
+                const plusBtn = document.getElementById('addTokenBtn');
+                plusBtn.innerHTML = '➕';
+            }
+
             // Set up tabs
             document.querySelectorAll('.tab').forEach(tab => {
                 tab.addEventListener('click', () => {
@@ -711,6 +779,22 @@
                 const name = token.name.toLowerCase();
                 return issuer.includes(searchTerm) || name.includes(searchTerm);
             });
+
+            // If no tokens found, show welcome message
+            if (filteredTokens.length === 0) {
+                const welcomeMessage = document.createElement('div');
+                welcomeMessage.className = 'welcome-message';
+                welcomeMessage.innerHTML = `
+                    <div class="welcome-content">
+                        <h2>Welcome to WinOTP!</h2>
+                        <p>You don't have any authentication tokens yet.</p>
+                        <p>Add your first token to get started.</p>
+                        <button class="btn" onclick="openModal('addTokenModal')">Add Token</button>
+                    </div>
+                `;
+                tokenList.appendChild(welcomeMessage);
+                return;
+            }
 
             // Render each token
             filteredTokens.forEach(token => {
