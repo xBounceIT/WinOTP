@@ -240,6 +240,28 @@ class Api:
         global sort_ascending
         sort_ascending = not sort_ascending
         return {"status": "success", "ascending": sort_ascending}
+    
+    def get_icon_base64(self, icon_name):
+        """Get base64 encoded icon data"""
+        try:
+            # Define the path to the icon
+            icon_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "icons", icon_name)
+            print(f"Looking for icon at: {icon_path}")
+            
+            # Check if the file exists
+            if not os.path.exists(icon_path):
+                print(f"Icon not found: {icon_path}")
+                return {"status": "error", "message": f"Icon not found: {icon_name}"}
+            
+            # Read the file and encode as base64
+            with open(icon_path, "rb") as f:
+                icon_data = base64.b64encode(f.read()).decode("utf-8")
+            
+            print(f"Successfully loaded icon: {icon_name}")
+            return {"status": "success", "data": icon_data}
+        except Exception as e:
+            print(f"Error loading icon {icon_name}: {str(e)}")
+            return {"status": "error", "message": f"Failed to load icon: {str(e)}"}
 
 def set_tokens_path(path):
     """Set the path to the tokens file"""

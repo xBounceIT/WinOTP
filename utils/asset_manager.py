@@ -7,6 +7,7 @@ import time
 def ensure_directories():
     os.makedirs('static/css', exist_ok=True)
     os.makedirs('static/js', exist_ok=True)
+    os.makedirs('static/icons', exist_ok=True)
 
 # Files to download
 files_to_download = [
