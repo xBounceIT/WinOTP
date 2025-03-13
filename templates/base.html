@@ -3,20 +3,44 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WinOTP</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap.min.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/icons.css') }}">
+    <title>{% block title %}WinOTP{% endblock %}</title>
+    
+    <!-- Service Worker Registration - Load first for faster caching -->
+    <script src="{{ url_for('serve_static', filename='js/register-sw.js') }}{% if cache_buster %}?v={{ cache_buster }}{% endif %}"></script>
+    
+    <!-- Resource hints for faster loading -->
+    <link rel="preconnect" href="https://cdn.jsdelivr.net">
+    <link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
+    
+    <!-- Optimization CSS (loads first) -->
+    <link rel="stylesheet" href="{{ url_for('serve_static', filename='css/optimize.css') }}{% if cache_buster %}?v={{ cache_buster }}{% endif %}">
+    
+    <!-- CSS with cache busting -->
+    <link rel="stylesheet" href="{{ url_for('serve_static', filename='css/bootstrap.min.css') }}">
+    <link rel="stylesheet" href="{{ url_for('serve_static', filename='css/style.css') }}{% if cache_buster %}?v={{ cache_buster }}{% endif %}">
+    <link rel="stylesheet" href="{{ url_for('serve_static', filename='css/icons.css') }}{% if cache_buster %}?v={{ cache_buster }}{% endif %}">
     {% block extra_css %}{% endblock %}
+    
+    <!-- Favicon -->
+    <link rel="icon" href="{{ url_for('serve_static', filename='icons/app.png') }}">
+    
+    <!-- Prefetch navigation pages for faster transitions -->
+    <link rel="prefetch" href="{{ url_for('index') }}">
+    <link rel="prefetch" href="{{ url_for('settings') }}">
+    <link rel="prefetch" href="{{ url_for('add_token_page') }}">
+    
+    <!-- Cache Manager - Load early to start caching resources -->
+    <script src="{{ url_for('serve_static', filename='js/cache-manager.js') }}{% if cache_buster %}?v={{ cache_buster }}{% endif %}"></script>
 </head>
 <body class="bg-dark text-light">
     <div class="container-fluid p-0 main-container">
         {% block content %}{% endblock %}
     </div>
-
-    <script src="{{ url_for('static', filename='js/jquery-3.6.0.min.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/bootstrap.bundle.min.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    
+    <!-- JavaScript with cache busting -->
+    <script src="{{ url_for('serve_static', filename='js/jquery-3.6.0.min.js') }}"></script>
+    <script src="{{ url_for('serve_static', filename='js/bootstrap.bundle.min.js') }}"></script>
+    <script src="{{ url_for('serve_static', filename='js/app.js') }}{% if cache_buster %}?v={{ cache_buster }}{% endif %}"></script>
     {% block extra_js %}{% endblock %}
 </body>
 </html> 

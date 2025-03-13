@@ -1,0 +1,31 @@
+/* Resource hints for browser optimization */
+
+/* Preload critical resources */
+@import url('preload.css');
+
+/* Font display optimization */
+@font-face {
+  font-family: 'System';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap; /* Ensures text is visible during font loading */
+  src: local('System-UI'), local('Segoe UI'), local('Roboto'), local('Helvetica'), local('Arial'), local('sans-serif');
+}
+
+/* Critical CSS for initial render */
+body {
+  font-family: 'System', sans-serif;
+  display: block;
+  visibility: visible;
+}
+
+/* Reduce layout shifts */
+.main-container {
+  min-height: 100vh;
+  width: 100%;
+}
+
+/* Optimize images */
+img {
+  content-visibility: auto;
+} 

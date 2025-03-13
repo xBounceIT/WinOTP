@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify, redirect, url_for, session, Response
+from flask import Flask, render_template, request, jsonify, redirect, url_for, session, Response, send_from_directory
 import json
 import os
 import sys
@@ -41,9 +41,44 @@ file_write_lock = threading.Lock()  # Lock for thread-safe file operations
 CACHE_TTL = 2  # Reduced from 30 to 2 seconds for more real-time updates
 CACHE_SIZE = 512  # Increased from 256 to 512 for better caching
 
+# Cache control constants
+STATIC_CACHE_MAX_AGE = 3600 * 24 * 7  # 7 days for static resources
+HTML_CACHE_MAX_AGE = 3600  # 1 hour for HTML templates
+API_CACHE_MAX_AGE = 30  # 30 seconds for API responses (except tokens)
+
+# Override static file serving to add cache headers
+@app.route('/static/<path:filename>')
+def serve_static(filename):
+    """Serve static files with proper cache headers"""
+    response = send_from_directory('static', filename)
+    
+    # Add cache control headers for static resources
+    response.headers['Cache-Control'] = f'public, max-age={STATIC_CACHE_MAX_AGE}'
+    response.headers['Expires'] = datetime.utcfromtimestamp(time.time() + STATIC_CACHE_MAX_AGE).strftime('%a, %d %b %Y %H:%M:%S GMT')
+    
+    return response
+
 # Enable gzip compression for responses, but only for API endpoints
 @app.after_request
 def after_request(response):
+    # Add cache control headers based on content type and path
+    if request.path.startswith('/static/'):
+        # Static files already handled by serve_static
+        pass
+    elif request.path.startswith('/api/'):
+        if request.path == '/api/tokens' or 'time_remaining' in str(response.data):
+            # No caching for real-time data
+            response.headers['Cache-Control'] = 'no-store, must-revalidate'
+            response.headers['Pragma'] = 'no-cache'
+            response.headers['Expires'] = '0'
+        else:
+            # Short cache for other API responses
+            response.headers['Cache-Control'] = f'private, max-age={API_CACHE_MAX_AGE}'
+    else:
+        # HTML templates - use a moderate cache time
+        response.headers['Cache-Control'] = f'private, max-age={HTML_CACHE_MAX_AGE}'
+        response.headers['Varies'] = 'Accept-Encoding'
+    
     # Only compress JSON API responses, not static files or HTML
     if not request.path.startswith('/api/'):
         return response
@@ -71,14 +106,6 @@ def after_request(response):
     response.headers['Content-Length'] = len(response.data)
     response.headers['Vary'] = 'Accept-Encoding'
     
-    # Add cache control headers for better client-side caching
-    if request.path == '/api/tokens':
-        # Short cache for token data (30 seconds)
-        response.headers['Cache-Control'] = 'private, max-age=30'
-    else:
-        # Longer cache for other API responses
-        response.headers['Cache-Control'] = 'private, max-age=3600'
-    
     return response
 
 @app.route('/')
@@ -92,32 +119,43 @@ def index():
     # Render the template with the tokens data
     return render_template('index.html', 
                           has_tokens=len(tokens) > 0,
-                          sort_ascending=sort_ascending)
+                          sort_ascending=sort_ascending,
+                          cache_buster=int(time.time() / HTML_CACHE_MAX_AGE))  # Cache buster that changes hourly
 
 @app.route('/add_token')
 def add_token_page():
     """Page for adding a new token"""
-    return render_template('add_token.html')
+    return render_template('add_token.html', cache_buster=int(time.time() / HTML_CACHE_MAX_AGE))
 
 @app.route('/manual_entry')
 def manual_entry():
     """Page for manually entering token details"""
-    return render_template('manual_entry.html')
+    return render_template('manual_entry.html', cache_buster=int(time.time() / HTML_CACHE_MAX_AGE))
 
 @app.route('/qr_scan')
 def qr_scan():
     """Page for scanning QR codes"""
-    return render_template('qr_scan.html')
+    return render_template('qr_scan.html', cache_buster=int(time.time() / HTML_CACHE_MAX_AGE))
 
 @app.route('/settings')
 def settings():
     """Settings page"""
-    return render_template('settings.html')
+    return render_template('settings.html', cache_buster=int(time.time() / HTML_CACHE_MAX_AGE))
 
 @app.route('/about')
 def about():
     """About page"""
-    return render_template('about.html')
+    return render_template('about.html', cache_buster=int(time.time() / HTML_CACHE_MAX_AGE))
+
+@app.route('/service-worker.js')
+def service_worker():
+    """Serve the service worker from the root path for better scope"""
+    response = send_from_directory('static/js', 'service-worker.js')
+    # No caching for service worker
+    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    return response
 
 # Performance optimization: Increased cache size
 @lru_cache(maxsize=CACHE_SIZE)
@@ -226,7 +264,12 @@ def get_tokens():
         'next_period_start': next_period_start,
         'time_remaining': time_remaining
     })
+    
+    # Ensure TOTP codes are never cached by the browser
     response.headers['Cache-Control'] = 'no-store, must-revalidate'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    
     return response
 
 # Performance optimization: Clean up old cache entries
