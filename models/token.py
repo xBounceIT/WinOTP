@@ -1,6 +1,7 @@
 import re
 import pyotp
 from datetime import datetime
+from utils.ntp_sync import get_accurate_time
 
 class Token:
     def __init__(self, issuer, secret, name):
@@ -10,12 +11,13 @@ class Token:
         self.totp = pyotp.TOTP(self.secret)
     
     def get_code(self):
-        """Generate the current TOTP code"""
-        return self.totp.now()
+        """Generate the current TOTP code using NTP-synchronized time"""
+        # Use the accurate time from NTP synchronization
+        return self.totp.at(get_accurate_time())
     
     def get_time_remaining(self):
-        """Calculate the time remaining until the next code refresh"""
-        return int(self.totp.interval - datetime.now().timestamp() % self.totp.interval)
+        """Calculate the time remaining until the next code refresh using NTP-synchronized time"""
+        return int(self.totp.interval - get_accurate_time() % self.totp.interval)
     
     @staticmethod
     def validate_base32_secret(secret):

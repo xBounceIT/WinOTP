@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container py-4">
+    <!-- Header with back button -->
+    <div class="d-flex align-items-center mb-4">
+        <a href="{{ url_for('index') }}" class="btn btn-outline-secondary me-3">
+            <img src="{{ url_for('static', filename='icons/back_arrow.png') }}" alt="Back" width="16" height="16">
+        </a>
+        <h2 class="mb-0">Add Token</h2>
+    </div>
+
+    <!-- Add Token Options -->
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card bg-dark border-secondary mb-4">
+                <div class="card-body text-center py-4">
+                    <h4 class="mb-4">Scan QR Code</h4>
+                    <p class="text-muted mb-4">Scan a QR code from your authenticator app or service</p>
+                    <a href="{{ url_for('qr_scan') }}" class="btn btn-primary btn-lg">
+                        <img src="{{ url_for('static', filename='icons/qr-code.png') }}" alt="QR" width="20" height="20" class="me-2">
+                        Scan QR Code
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card bg-dark border-secondary mb-4">
+                <div class="card-body text-center py-4">
+                    <h4 class="mb-4">Manual Entry</h4>
+                    <p class="text-muted mb-4">Enter the token details manually</p>
+                    <a href="{{ url_for('manual_entry') }}" class="btn btn-primary btn-lg">
+                        <img src="{{ url_for('static', filename='icons/edit.png') }}" alt="Edit" width="20" height="20" class="me-2">
+                        Manual Entry
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Bulk Import Option -->
+    <div class="row justify-content-center">
+        <div class="col-md-12">
+            <div class="card bg-dark border-secondary">
+                <div class="card-body text-center py-4">
+                    <h4 class="mb-4">Bulk Import</h4>
+                    <p class="text-muted mb-4">Import multiple tokens from a JSON file</p>
+                    <form id="bulk-import-form" enctype="multipart/form-data">
+                        <div class="d-flex justify-content-center">
+                            <input type="file" id="import-file" name="import_file" accept=".json" class="form-control bg-dark text-light border-secondary me-3" style="max-width: 300px;">
+                            <button type="submit" class="btn btn-primary">
+                                <img src="{{ url_for('static', filename='icons/upload.png') }}" alt="Import" width="20" height="20" class="me-2">
+                                Import
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    $(document).ready(function() {
+        // Handle bulk import form submission
+        $('#bulk-import-form').submit(function(e) {
+            e.preventDefault();
+            
+            const fileInput = $('#import-file')[0];
+            if (fileInput.files.length === 0) {
+                alert('Please select a file to import');
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('import_file', fileInput.files[0]);
+            
+            $.ajax({
+                url: "{{ url_for('bulk_import') }}",
+                type: 'POST',
+                data: formData,
+                processData: false,
+                contentType: false,
+                success: function(data) {
+                    if (data.success) {
+                        alert(data.message);
+                        window.location.href = "{{ url_for('index') }}";
+                    } else {
+                        alert('Error: ' + data.error);
+                    }
+                },
+                error: function(xhr) {
+                    alert('Error: ' + xhr.responseJSON?.error || 'Failed to import tokens');
+                }
+            });
+        });
+    });
+</script>
+{% endblock %} 

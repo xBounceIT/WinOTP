@@ -4,6 +4,7 @@ import tkinter.font as tkFont
 import pyotp
 from datetime import datetime
 from models.token import Token
+from utils.ntp_sync import get_accurate_time
 from PIL import Image, ImageTk
 import os
 
@@ -29,8 +30,11 @@ class TOTPFrame(ttk.Frame):
         self.secret = secret
         self.totp = pyotp.TOTP(self.secret)
         self.code = ttk.StringVar(value=self.totp.now())
-        self.time_remaining = ttk.StringVar(value=self.get_time_remaining())
-        self.last_update = datetime.now().timestamp()
+        
+        # Use the accurate time for initialization
+        current_time = get_accurate_time()
+        self.time_remaining = ttk.StringVar(value=str(int(self.totp.interval - (current_time % self.totp.interval))))
+        self.last_update = current_time
 
         # Update issuer label with a larger font
         self.issuer_label = ttk.Label(self, text=self.issuer, font="Calibri 16 bold")
@@ -210,32 +214,20 @@ class TOTPFrame(ttk.Frame):
 
     def update(self):
         """Update the TOTP code and progress bar"""
-        current_time = datetime.now().timestamp()
+        # This method is now simplified since the update_progress_bar method
+        # handles both the progress bar and code updates
         
-        # Only update the code if we've crossed a 30-second boundary
-        if int(current_time / self.totp.interval) > int(self.last_update / self.totp.interval):
-            self.code.set(self.totp.now())
-            
-        # Update time remaining and progress
-        remaining_seconds = self.get_time_remaining()
-        self.time_remaining.set(remaining_seconds)
-        
-        # Update progress bar
-        percentage = (remaining_seconds / self.totp.interval) * 100
-        self.progress_bar["value"] = percentage
-        
-        # Change color to red when less than 5 seconds remain
-        if remaining_seconds <= 5:
-            self.progress_bar.configure(bootstyle="danger")
-        else:
-            self.progress_bar.configure(bootstyle="primary")
-            
-        # Store last update time
-        self.last_update = current_time
+        # Force an immediate update of the progress bar
+        self.update_progress_bar()
 
     def get_time_remaining(self):
-        """Calculate the time remaining until the next code refresh"""
-        return int(self.totp.interval - datetime.now().timestamp() % self.totp.interval)
+        """Calculate the time remaining until the next code refresh using NTP-synchronized time"""
+        # Get the accurate time from NTP synchronization
+        current_time = get_accurate_time()
+        
+        # Calculate the exact time remaining in the current 30-second interval
+        # Return the exact value with decimal precision for more accurate calculations
+        return self.totp.interval - (current_time % self.totp.interval)
 
     def copy_totp(self):
         """Copy the current TOTP code to clipboard with visual feedback"""
@@ -359,17 +351,33 @@ class TOTPFrame(ttk.Frame):
 
     def update_progress_bar(self):
         """Update the progress bar based on remaining time"""
-        remaining_seconds = self.get_time_remaining()
+        # Get the accurate time from NTP synchronization
+        current_time = get_accurate_time()
+        
+        # Calculate the exact time remaining in the current 30-second interval
+        remaining_seconds = self.totp.interval - (current_time % self.totp.interval)
+        
+        # Calculate the exact percentage (with decimal precision)
         percentage = (remaining_seconds / self.totp.interval) * 100
         
-        # Update progress bar value
+        # Update progress bar value with precise percentage
         self.progress_bar["value"] = percentage
+        
+        # Update the time remaining label with the integer value
+        self.time_remaining.set(int(remaining_seconds))
         
         # Change color to red when less than 5 seconds remain
         if remaining_seconds <= 5:
             self.progress_bar.configure(bootstyle="danger")
         else:
             self.progress_bar.configure(bootstyle="primary")
+        
+        # Check if we've crossed a 30-second boundary and need to update the code
+        if int(current_time / self.totp.interval) > int(self.last_update / self.totp.interval):
+            # Use the accurate time from NTP synchronization to generate the new code
+            self.code.set(self.totp.at(current_time))
+            # Store the last update time
+            self.last_update = current_time
             
-        # Schedule next update
-        self.after(100, self.update_progress_bar) 
+        # Schedule next update - use a shorter interval for smoother animation
+        self.after(50, self.update_progress_bar) 

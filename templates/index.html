@@ -1,0 +1,762 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container py-4">
+    <!-- Search Bar -->
+    <div class="search-bar mb-4">
+        <div class="row">
+            <div class="col">
+                <div class="d-flex">
+                    <div class="input-group me-2">
+                        <input type="text" id="search-input" class="form-control bg-dark text-light border-secondary" placeholder="Search tokens...">
+                        <button class="btn btn-outline-secondary" type="button" id="search-button">
+                            <img src="{{ url_for('static', filename='icons/search.png') }}" alt="Search" width="20" height="20">
+                        </button>
+                    </div>
+                    <button class="btn btn-outline-secondary me-2" id="sort-button">
+                        {% if sort_ascending %}
+                        <img src="{{ url_for('static', filename='icons/sort_asc.png') }}" alt="Sort" width="20" height="20">
+                        {% else %}
+                        <img src="{{ url_for('static', filename='icons/sort_desc.png') }}" alt="Sort" width="20" height="20">
+                        {% endif %}
+                    </button>
+                    <button class="btn btn-outline-secondary me-2" id="settings-button">
+                        <img src="{{ url_for('static', filename='icons/settings.png') }}" alt="Settings" width="20" height="20">
+                    </button>
+                    <button class="btn btn-primary" id="add-token-button">
+                        <img src="{{ url_for('static', filename='icons/plus.png') }}" alt="Add" width="20" height="20">
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Token List or Welcome Message -->
+    <div id="content-area" 
+         data-has-tokens="{{ has_tokens|lower }}" 
+         data-sort-ascending="{{ sort_ascending|lower }}">
+        {% if has_tokens %}
+        <div id="token-list" class="token-list">
+            <!-- Tokens will be loaded here via JavaScript -->
+        </div>
+        {% else %}
+        <div class="welcome-message text-center py-5">
+            <h1 class="mb-4">Welcome to WinOTP!</h1>
+            <p class="mb-4">Add your first TOTP token to get started.</p>
+            <button class="btn btn-primary btn-lg" id="welcome-add-button">
+                <img src="{{ url_for('static', filename='icons/plus.png') }}" alt="Add" width="20" height="20">
+                Add Token
+            </button>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Immediately execute to avoid global scope pollution
+    (function() {
+        // Use DOMContentLoaded instead of jQuery's ready for faster initialization
+        document.addEventListener('DOMContentLoaded', function() {
+            // Cache DOM elements for better performance
+            const contentArea = document.getElementById('content-area');
+            const tokenList = document.getElementById('token-list');
+            const searchInput = document.getElementById('search-input');
+            const searchButton = document.getElementById('search-button');
+            const sortButton = document.getElementById('sort-button');
+            const settingsButton = document.getElementById('settings-button');
+            const addTokenButton = document.getElementById('add-token-button');
+            const welcomeAddButton = document.getElementById('welcome-add-button');
+            
+            // Get values from data attributes
+            const hasTokens = contentArea.dataset.hasTokens === "true";
+            let sortAscending = contentArea.dataset.sortAscending === "true";
+            
+            // Store tokens data globally to avoid unnecessary DOM updates
+            let tokensData = [];
+            let isUpdating = false;
+            let animationFrameId = null;
+            let serverTimeOffset = 0;
+            let currentPeriodStart = 0;
+            let nextPeriodStart = 0;
+            let lastTokenLoad = 0;
+            
+            // Minimum time between token loads (in seconds)
+            const MIN_LOAD_INTERVAL = 5;
+            
+            // Debounce function to limit function calls
+            function debounce(func, wait) {
+                let timeout;
+                return function() {
+                    const context = this, args = arguments;
+                    clearTimeout(timeout);
+                    timeout = setTimeout(function() {
+                        func.apply(context, args);
+                    }, wait);
+                };
+            }
+            
+            // Throttle function to limit the rate at which a function is executed
+            function throttle(func, limit) {
+                let inThrottle;
+                return function() {
+                    const args = arguments;
+                    const context = this;
+                    if (!inThrottle) {
+                        func.apply(context, args);
+                        inThrottle = true;
+                        setTimeout(() => inThrottle = false, limit);
+                    }
+                };
+            }
+            
+            // Load tokens on page load if we have tokens
+            if (hasTokens) {
+                loadTokens();
+                startProgressBarAnimation();
+            }
+
+            // Add token button click handler
+            if (addTokenButton) {
+                addTokenButton.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    window.location.href = "{{ url_for('add_token_page') }}";
+                });
+            }
+            
+            if (welcomeAddButton) {
+                welcomeAddButton.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    window.location.href = "{{ url_for('add_token_page') }}";
+                });
+            }
+
+            // Settings button click handler
+            if (settingsButton) {
+                settingsButton.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    window.location.href = "{{ url_for('settings') }}";
+                });
+            }
+
+            // Sort button click handler with debounce
+            if (sortButton) {
+                sortButton.addEventListener('click', debounce(function(e) {
+                    e.preventDefault();
+                    
+                    // Store current time remaining values before sorting
+                    const currentTimeRemaining = {};
+                    tokensData.forEach(token => {
+                        currentTimeRemaining[token.id] = token.time_remaining;
+                    });
+                    
+                    // Toggle sort order
+                    sortAscending = !sortAscending;
+                    
+                    // Update the sort button icon
+                    const sortIcon = sortButton.querySelector('img');
+                    if (sortIcon) {
+                        sortIcon.src = sortAscending ? 
+                            "{{ url_for('static', filename='icons/sort_asc.png') }}" : 
+                            "{{ url_for('static', filename='icons/sort_desc.png') }}";
+                    }
+                    
+                    // Send the sort order to the server
+                    fetch("{{ url_for('sort_tokens') }}", {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            sort_ascending: sortAscending
+                        })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            // Sort the tokens
+                            tokensData.sort(function(a, b) {
+                                if (sortAscending) {
+                                    return a.issuer.localeCompare(b.issuer);
+                                } else {
+                                    return b.issuer.localeCompare(a.issuer);
+                                }
+                            });
+                            
+                            // Preserve time remaining values after sorting
+                            tokensData.forEach(token => {
+                                if (currentTimeRemaining[token.id] !== undefined) {
+                                    token.time_remaining = currentTimeRemaining[token.id];
+                                }
+                            });
+                            
+                            // Render the tokens
+                            renderTokens();
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                    });
+                }, 200));
+            }
+            
+            // Search input handler with debounce
+            if (searchInput) {
+                // Performance optimization: Increase debounce time
+                searchInput.addEventListener('input', debounce(function() {
+                    const query = this.value.trim();
+                    if (query.length > 0) {
+                        searchTokens(query);
+                    } else {
+                        // If search is cleared, reload all tokens
+                        loadTokens();
+                    }
+                }, 500)); // Increased from 300ms to 500ms
+            }
+            
+            // Search button click handler
+            if (searchButton) {
+                searchButton.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const query = searchInput.value.trim();
+                    if (query.length > 0) {
+                        searchTokens(query);
+                    }
+                });
+            }
+            
+            // Function to get the current server time
+            function getServerTime() {
+                return Date.now() / 1000 + serverTimeOffset;
+            }
+            
+            // Function to load tokens from the server
+            function loadTokens() {
+                const now = getServerTime();
+                
+                // Prevent concurrent API calls
+                if (isUpdating) return;
+                isUpdating = true;
+                
+                // Use fetch API instead of jQuery
+                fetch("{{ url_for('get_tokens') }}", {
+                    headers: {
+                        'Cache-Control': 'no-cache',  // Ensure we get fresh data
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    // Update timing information
+                    const clientTime = Date.now() / 1000;
+                    const roundTripTime = (Date.now() / 1000 - clientTime) / 2;
+                    serverTimeOffset = data.server_time - clientTime + roundTripTime;
+                    currentPeriodStart = data.current_period_start;
+                    nextPeriodStart = data.next_period_start;
+                    lastTokenLoad = getServerTime();
+                    
+                    // Check if data has changed before updating
+                    const dataChanged = hasDataChanged(tokensData, data.tokens);
+                    
+                    // Store the tokens data
+                    tokensData = data.tokens;
+                    
+                    // Sort the tokens if needed
+                    tokensData.sort(function(a, b) {
+                        if (sortAscending) {
+                            return a.issuer.localeCompare(b.issuer);
+                        } else {
+                            return b.issuer.localeCompare(a.issuer);
+                        }
+                    });
+                    
+                    // Only rebuild the DOM if necessary
+                    if (dataChanged) {
+                        window.requestAnimationFrame(() => {
+                            renderTokens();
+                            isUpdating = false;
+                        });
+                    } else {
+                        // Update codes without rebuilding
+                        window.requestAnimationFrame(() => {
+                            updateTokensWithoutRebuild();
+                            isUpdating = false;
+                        });
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    isUpdating = false;
+                    
+                    // On error, retry after a short delay
+                    setTimeout(loadTokens, 1000);
+                });
+            }
+            
+            // Function to check if token data has changed significantly
+            function hasDataChanged(oldData, newData) {
+                // If lengths are different, data has changed
+                if (!oldData || !newData || oldData.length !== newData.length) {
+                    return true;
+                }
+                
+                // Create maps for faster lookup
+                const oldMap = new Map();
+                oldData.forEach(token => oldMap.set(token.id, token));
+                
+                // Check if any tokens are missing or have changed issuer/name/code
+                for (const token of newData) {
+                    const oldToken = oldMap.get(token.id);
+                    if (!oldToken || 
+                        oldToken.issuer !== token.issuer || 
+                        oldToken.name !== token.name ||
+                        oldToken.code !== token.code) {  // Also check if code has changed
+                        return true;
+                    }
+                }
+                
+                return false;
+            }
+            
+            // Function to update tokens without rebuilding the DOM
+            function updateTokensWithoutRebuild() {
+                if (!tokenList) return;
+                
+                // Create a map for faster lookup
+                const tokenMap = new Map();
+                tokensData.forEach(token => tokenMap.set(token.id, token));
+                
+                // Update existing token elements
+                const tokenElements = tokenList.querySelectorAll('.token-card');
+                tokenElements.forEach(element => {
+                    const tokenId = element.dataset.tokenId;
+                    const token = tokenMap.get(tokenId);
+                    
+                    if (token) {
+                        // Update the code
+                        const codeElement = element.querySelector('.token-code');
+                        if (codeElement) {
+                            codeElement.textContent = formatCode(token.code);
+                        }
+                        
+                        // Update the copy button data
+                        const copyButton = element.querySelector('.copy-button');
+                        if (copyButton) {
+                            copyButton.dataset.code = token.code;
+                        }
+                        
+                        // Update the progress bar
+                        const progressBar = element.querySelector('.progress-bar');
+                        if (progressBar) {
+                            const oldWidth = parseFloat(progressBar.style.width) || 0;
+                            const newWidth = (token.time_remaining / 30) * 100;
+                            
+                            // Only update if the change is significant (more than 1%)
+                            if (Math.abs(oldWidth - newWidth) > 1) {
+                                progressBar.style.transition = 'width 0.3s ease-in-out';
+                                progressBar.style.width = `${newWidth}%`;
+                            }
+                            
+                            progressBar.dataset.timeRemaining = Math.round(token.time_remaining);
+                            
+                            // Update color based on time remaining
+                            if (token.time_remaining <= 5) {
+                                progressBar.classList.remove('bg-primary');
+                                progressBar.classList.add('bg-danger');
+                            } else {
+                                progressBar.classList.remove('bg-danger');
+                                progressBar.classList.add('bg-primary');
+                            }
+                        }
+                        
+                        // Update the time remaining text
+                        const timeText = element.querySelector('.time-remaining');
+                        if (timeText) {
+                            timeText.textContent = `${Math.round(token.time_remaining)}s`;
+                        }
+                    }
+                });
+            }
+            
+            // Function to render all tokens
+            function renderTokens() {
+                if (!tokenList) return;
+                
+                // Performance optimization: Use document fragment for batch DOM updates
+                const fragment = document.createDocumentFragment();
+                
+                // Clear the token list
+                while (tokenList.firstChild) {
+                    tokenList.removeChild(tokenList.firstChild);
+                }
+                
+                // Add each token to the fragment
+                tokensData.forEach(function(token) {
+                    const tokenElement = createTokenElement(token);
+                    fragment.appendChild(tokenElement);
+                });
+                
+                // Add the fragment to the DOM in a single operation
+                tokenList.appendChild(fragment);
+            }
+            
+            // Function to create a token element using DOM API instead of innerHTML
+            function createTokenElement(token) {
+                // Create the main token card div
+                const tokenCard = document.createElement('div');
+                tokenCard.className = 'token-card mb-3 p-3 rounded';
+                tokenCard.dataset.tokenId = token.id;
+                
+                // Create the header row with issuer and delete button
+                const headerRow = document.createElement('div');
+                headerRow.className = 'row';
+                
+                // Issuer column
+                const issuerCol = document.createElement('div');
+                issuerCol.className = 'col-8';
+                
+                const issuerHeading = document.createElement('h4');
+                issuerHeading.textContent = token.issuer;
+                
+                const nameText = document.createElement('p');
+                nameText.className = 'text-muted';
+                nameText.textContent = token.name;
+                
+                issuerCol.appendChild(issuerHeading);
+                issuerCol.appendChild(nameText);
+                
+                // Delete button column
+                const deleteCol = document.createElement('div');
+                deleteCol.className = 'col-4 text-end';
+                
+                const deleteButton = document.createElement('button');
+                deleteButton.className = 'btn btn-outline-danger delete-button';
+                deleteButton.dataset.tokenId = token.id;
+                
+                const deleteImg = document.createElement('img');
+                deleteImg.src = "{{ url_for('static', filename='icons/delete.png') }}";
+                deleteImg.alt = 'Delete';
+                deleteImg.width = 16;
+                deleteImg.height = 16;
+                
+                deleteButton.appendChild(deleteImg);
+                deleteCol.appendChild(deleteButton);
+                
+                // Add columns to header row
+                headerRow.appendChild(issuerCol);
+                headerRow.appendChild(deleteCol);
+                
+                // Create the code row with TOTP code and copy button
+                const codeRow = document.createElement('div');
+                codeRow.className = 'row mt-2';
+                
+                // Code column
+                const codeCol = document.createElement('div');
+                codeCol.className = 'col-8';
+                
+                const codeHeading = document.createElement('h2');
+                codeHeading.className = 'token-code';
+                codeHeading.textContent = formatCode(token.code);
+                
+                codeCol.appendChild(codeHeading);
+                
+                // Copy button column
+                const copyCol = document.createElement('div');
+                copyCol.className = 'col-4 text-end';
+                
+                const copyButton = document.createElement('button');
+                copyButton.className = 'btn btn-outline-primary copy-button';
+                copyButton.dataset.code = token.code;
+                
+                const copyImg = document.createElement('img');
+                copyImg.src = "{{ url_for('static', filename='icons/copy.png') }}";
+                copyImg.alt = 'Copy';
+                copyImg.width = 20;
+                copyImg.height = 20;
+                
+                copyButton.appendChild(copyImg);
+                copyCol.appendChild(copyButton);
+                
+                // Add columns to code row
+                codeRow.appendChild(codeCol);
+                codeRow.appendChild(copyCol);
+                
+                // Create progress bar
+                const progressContainer = document.createElement('div');
+                progressContainer.className = 'progress mt-3';
+                progressContainer.style.height = '5px';
+                
+                const progressBar = document.createElement('div');
+                progressBar.className = 'progress-bar bg-primary';
+                progressBar.role = 'progressbar';
+                progressBar.style.width = `${(token.time_remaining / 30) * 100}%`;
+                progressBar.dataset.timeRemaining = token.time_remaining;
+                progressBar.dataset.tokenId = token.id;
+                progressBar.setAttribute('aria-valuenow', token.time_remaining);
+                progressBar.setAttribute('aria-valuemin', '0');
+                progressBar.setAttribute('aria-valuemax', '30');
+                
+                progressContainer.appendChild(progressBar);
+                
+                // Create time remaining text
+                const timeContainer = document.createElement('div');
+                timeContainer.className = 'text-end mt-1';
+                
+                const timeText = document.createElement('small');
+                timeText.className = 'text-muted time-remaining';
+                timeText.textContent = `${token.time_remaining}s`;
+                
+                timeContainer.appendChild(timeText);
+                
+                // Add all elements to the token card
+                tokenCard.appendChild(headerRow);
+                tokenCard.appendChild(codeRow);
+                tokenCard.appendChild(progressContainer);
+                tokenCard.appendChild(timeContainer);
+                
+                // Add event listeners
+                copyButton.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const code = this.dataset.code;
+                    copyToClipboard(code);
+                    
+                    // Show copy confirmation
+                    copyImg.src = "{{ url_for('static', filename='icons/copy_confirm.png') }}";
+                    copyButton.classList.add('copied');
+                    
+                    // Reset after 2 seconds
+                    setTimeout(function() {
+                        copyImg.src = "{{ url_for('static', filename='icons/copy.png') }}";
+                        copyButton.classList.remove('copied');
+                    }, 2000);
+                });
+                
+                deleteButton.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const tokenId = this.dataset.tokenId;
+                    if (confirm('Are you sure you want to delete this token?')) {
+                        deleteToken(tokenId);
+                    }
+                });
+                
+                return tokenCard;
+            }
+            
+            // Function to search tokens
+            function searchTokens(query) {
+                // Prevent multiple rapid searches
+                if (searchButton.dataset.processing === "true") return;
+                searchButton.dataset.processing = "true";
+                
+                fetch("{{ url_for('search_tokens') }}", {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    body: JSON.stringify({
+                        query: query
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Store the tokens data
+                        tokensData = data.tokens;
+                        
+                        // Render the tokens
+                        renderTokens();
+                    }
+                    searchButton.dataset.processing = "false";
+                })
+                .catch(() => {
+                    searchButton.dataset.processing = "false";
+                });
+            }
+            
+            // Function to delete a token
+            function deleteToken(tokenId) {
+                fetch("{{ url_for('delete_token', token_id='') }}" + tokenId, {
+                    method: 'DELETE',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Remove the token from the data
+                        tokensData = tokensData.filter(token => token.id !== tokenId);
+                        
+                        // If no tokens left, reload the page to show welcome message
+                        if (tokensData.length === 0) {
+                            window.location.reload();
+                        } else {
+                            // Otherwise, just update the UI
+                            renderTokens();
+                        }
+                    }
+                });
+            }
+            
+            // Function to format the TOTP code with a space in the middle
+            function formatCode(code) {
+                if (code.length === 6) {
+                    return code.substring(0, 3) + ' ' + code.substring(3);
+                }
+                return code;
+            }
+            
+            // Function to copy text to clipboard using modern Clipboard API if available
+            function copyToClipboard(text) {
+                if (navigator.clipboard && window.isSecureContext) {
+                    // Use the modern Clipboard API
+                    navigator.clipboard.writeText(text);
+                } else {
+                    // Fallback for older browsers
+                    const textarea = document.createElement('textarea');
+                    textarea.value = text;
+                    textarea.style.position = 'fixed';
+                    textarea.style.opacity = '0';
+                    document.body.appendChild(textarea);
+                    textarea.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(textarea);
+                }
+            }
+            
+            // Function to update progress bars using requestAnimationFrame
+            function updateProgressBars() {
+                // Calculate time based on server time
+                const serverTime = getServerTime();
+                
+                // Don't update if we don't have valid timing information
+                if (!currentPeriodStart || !nextPeriodStart) {
+                    animationFrameId = requestAnimationFrame(updateProgressBars);
+                    return;
+                }
+                
+                // Calculate exact time remaining in the period
+                const timeRemaining = nextPeriodStart - serverTime;
+                const progress = (timeRemaining / 30) * 100;
+                
+                // Check if we need to load new tokens
+                // Load tokens in these cases:
+                // 1. We're within 0.5 seconds of the period ending
+                // 2. We're past the period end
+                // 3. We haven't loaded tokens in over 1 second
+                if (timeRemaining <= 0.5 || 
+                    serverTime >= nextPeriodStart || 
+                    serverTime - lastTokenLoad >= 1) {
+                    loadTokens();
+                }
+                
+                // Get all progress bars
+                const progressBars = document.querySelectorAll('.progress-bar');
+                
+                // Performance optimization: Batch DOM reads and writes
+                const updates = [];
+                
+                // First, read all DOM values
+                progressBars.forEach(function(progressBar) {
+                    const tokenId = progressBar.dataset.tokenId;
+                    const timeText = progressBar.closest('.token-card').querySelector('.time-remaining');
+                    const codeElement = progressBar.closest('.token-card').querySelector('.token-code');
+                    const oldWidth = parseFloat(progressBar.style.width) || 0;
+                    
+                    updates.push({
+                        progressBar,
+                        timeRemaining,
+                        progress,
+                        tokenId,
+                        timeText,
+                        codeElement,
+                        oldWidth,
+                        needsColorChange: (timeRemaining <= 5 && !progressBar.classList.contains('bg-danger')) || 
+                                         (timeRemaining > 5 && progressBar.classList.contains('bg-danger'))
+                    });
+                });
+                
+                // Then, batch all DOM writes
+                updates.forEach(function(update) {
+                    // Only update the width if the change is significant (more than 1%)
+                    if (Math.abs(update.oldWidth - update.progress) > 1) {
+                        update.progressBar.style.transition = 'width 0.3s ease-in-out';
+                        update.progressBar.style.width = `${Math.max(0, Math.min(100, update.progress))}%`;
+                    }
+                    
+                    // Update the data attribute and text with rounded value for display
+                    const displayTime = Math.max(0, Math.round(update.timeRemaining));
+                    update.progressBar.dataset.timeRemaining = displayTime;
+                    
+                    // Update the time remaining text
+                    if (update.timeText) {
+                        update.timeText.textContent = `${displayTime}s`;
+                    }
+                    
+                    // Change color when less than 5 seconds remain (only if needed)
+                    if (update.needsColorChange) {
+                        if (update.timeRemaining <= 5) {
+                            update.progressBar.classList.remove('bg-primary');
+                            update.progressBar.classList.add('bg-danger');
+                        } else {
+                            update.progressBar.classList.remove('bg-danger');
+                            update.progressBar.classList.add('bg-primary');
+                        }
+                    }
+                });
+                
+                // Schedule next frame with a shorter interval for smoother animation
+                animationFrameId = requestAnimationFrame(updateProgressBars);
+            }
+            
+            // Start the progress bar animation
+            function startProgressBarAnimation() {
+                // Cancel any existing animation frame
+                if (animationFrameId) {
+                    cancelAnimationFrame(animationFrameId);
+                }
+                
+                // Start the animation loop
+                animationFrameId = requestAnimationFrame(updateProgressBars);
+            }
+            
+            // Initial load
+            if (hasTokens) {
+                loadTokens();
+                startProgressBarAnimation();
+            }
+            
+            // Performance optimization: Pause animations when tab is not visible
+            document.addEventListener('visibilitychange', function() {
+                if (document.hidden) {
+                    // Pause animations when tab is not visible
+                    if (animationFrameId) {
+                        cancelAnimationFrame(animationFrameId);
+                        animationFrameId = null;
+                    }
+                } else {
+                    // Resume animations and reload data when tab becomes visible
+                    if (hasTokens) {
+                        loadTokens();
+                        startProgressBarAnimation();
+                    }
+                }
+            });
+            
+            // Clean up when leaving the page
+            window.addEventListener('beforeunload', function() {
+                if (animationFrameId) {
+                    cancelAnimationFrame(animationFrameId);
+                }
+            });
+            
+            // Add passive event listeners for better performance
+            document.addEventListener('touchstart', function() {}, {passive: true});
+            document.addEventListener('touchmove', function() {}, {passive: true});
+            document.addEventListener('wheel', function() {}, {passive: true});
+        });
+    })();
+</script>
+{% endblock %} 

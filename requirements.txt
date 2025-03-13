@@ -1,8 +1,11 @@
 pyotp
-ttkbootstrap
+pywebview
+flask
 pyzbar
 cryptography
 pytest
 pytest-cov
 qrcode
-coverage 
+coverage
+pillow
+ntplib 
