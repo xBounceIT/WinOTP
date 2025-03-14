@@ -147,6 +147,33 @@
             font-weight: 600;
             letter-spacing: 2px;
             margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .copy-button {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background-color: var(--primary-color);
+            border: none;
+            padding: 6px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background-color 0.2s;
+        }
+
+        .copy-button:hover {
+            background-color: var(--secondary-color);
+        }
+
+        .copy-button img {
+            width: 16px;
+            height: 16px;
+            filter: brightness(0) invert(1);
         }
 
         .token-footer {
@@ -652,6 +679,7 @@
         let sortAscending = true;
         let updateInterval;
         let apiCheckInterval;
+        let cachedCopyIcon = ''; // Cache for the copy icon
 
         // Initialize the application
         document.addEventListener('DOMContentLoaded', function() {
@@ -663,13 +691,14 @@
             document.getElementById('qrFileInput').addEventListener('change', handleQrFileUpload);
             document.getElementById('saveTokenBtn').addEventListener('click', saveManualToken);
             document.getElementById('toggleSortBtn').addEventListener('click', toggleSortOrder);
-            document.getElementById('searchInput').addEventListener('input', (e) => {
+            document.getElementById('searchInput').addEventListener('input', async (e) => {
                 searchTerm = e.target.value.toLowerCase();
-                renderTokens();
+                await renderTokens();
             });
 
-            // Load plus icon
+            // Load icons
             if (window.pywebview && window.pywebview.api) {
+                // Load plus icon
                 window.pywebview.api.get_icon_base64('plus.png').then(result => {
                     if (result.status === 'success') {
                         document.getElementById('plusIcon').src = 'data:image/png;base64,' + result.data;
@@ -729,6 +758,12 @@
                 
                 // Load icons
                 loadSortIcon();
+                window.pywebview.api.get_icon_base64('copy.png').then(result => {
+                    if (result.status === 'success') {
+                        cachedCopyIcon = result.data;
+                        renderTokens(); // Re-render to show the icon
+                    }
+                });
             } else {
                 console.log("pywebview API not available yet, waiting...");
                 // If we haven't set up the interval yet, do so
@@ -748,7 +783,7 @@
                 }
                 
                 tokens = await window.pywebview.api.get_tokens();
-                renderTokens();
+                await renderTokens();
             } catch (error) {
                 showNotification('Error loading tokens: ' + error, 'error');
             }
@@ -763,14 +798,14 @@
                 }
                 
                 tokens = await window.pywebview.api.get_tokens();
-                renderTokens();
+                await renderTokens();
             } catch (error) {
                 console.error('Error updating tokens:', error);
             }
         }
 
         // Render tokens to the DOM
-        function renderTokens() {
+        async function renderTokens() {
             const tokenList = document.getElementById('tokenList');
             tokenList.innerHTML = '';
 
@@ -808,11 +843,15 @@
                             <div class="token-name">${escapeHtml(token.name)}</div>
                         </div>
                         <div class="token-actions">
-                            <button class="btn btn-icon" onclick="copyCode('${token.id}')">📋</button>
                             <button class="btn btn-icon" onclick="deleteToken('${token.id}')">🗑️</button>
                         </div>
                     </div>
-                    <div class="token-code">${formatCode(token.code)}</div>
+                    <div class="token-code">
+                        ${formatCode(token.code)}
+                        <button class="copy-button" onclick="copyCode('${token.id}')">
+                            <img src="data:image/png;base64,${cachedCopyIcon}" alt="Copy code">
+                        </button>
+                    </div>
                     <div class="token-footer">
                         <div class="progress-bar">
                             <div class="progress-fill" style="width: ${(token.timeRemaining / 30) * 100}%"></div>
