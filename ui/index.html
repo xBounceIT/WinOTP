@@ -181,9 +181,9 @@
 
         .copy-button.copied {
             background-color: #34c759;
-            width: 90px;
+            width: 80px;
             border-radius: 16px;
-            padding: 6px 16px;
+            padding: 6px 0;
         }
 
         .copy-button.copied img {
@@ -192,7 +192,7 @@
 
         .copy-button .copy-text {
             position: absolute;
-            color: white;
+            color: rgba(0, 0, 0, 0.9);
             font-size: 12px;
             font-weight: 700;
             text-transform: uppercase;
@@ -201,6 +201,8 @@
             opacity: 0;
             transform: translateY(20px);
             transition: all 0.3s ease;
+            width: 100%;
+            text-align: center;
         }
 
         .copy-button.copied .copy-text {
