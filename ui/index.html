@@ -518,15 +518,28 @@
             align-items: center;
             gap: 10px;
             margin-top: 10px;
-            padding: 10px;
-            border-radius: 4px;
-            background-color: var(--background-color);
+            padding: 12px 15px;
+            border-radius: 12px;
+            background-color: #444444;
+            color: white;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            border: 1px solid #555555;
+            transition: all 0.3s ease;
+            width: fit-content;
+            min-width: 180px;
+        }
+
+        .ntp-status:hover {
+            background-color: #505050;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
         }
 
         .status-indicator {
-            width: 12px;
-            height: 12px;
+            width: 16px;
+            height: 16px;
             border-radius: 50%;
+            box-shadow: 0 0 4px rgba(255, 255, 255, 0.5);
         }
 
         .status-indicator.synced {
@@ -543,6 +556,9 @@
 
         .status-text {
             font-size: 14px;
+            font-weight: 500;
+            color: #ffffff;
+            text-shadow: 0 1px 1px rgba(0, 0, 0, 0.2);
         }
 
         .welcome-message {
@@ -1398,7 +1414,7 @@
                     
                     if (status.synced) {
                         statusIndicator.className = 'status-indicator synced';
-                        statusText.textContent = `Synced (${status.offset.toFixed(2)}ms offset)`;
+                        statusText.textContent = `Synced (${status.offset_ms.toFixed(2)}ms offset)`;
                     } else if (status.syncing) {
                         statusIndicator.className = 'status-indicator syncing';
                         statusText.textContent = 'Synchronizing...';

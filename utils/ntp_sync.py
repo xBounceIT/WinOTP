@@ -182,10 +182,26 @@ def get_sync_status():
         dict: Status information including offset, last sync time, and sync interval
     """
     with _sync_lock:
+        # Calculate time since last sync
+        current_time = time.time()
+        time_since_sync = current_time - _last_sync if _last_sync > 0 else float('inf')
+        
+        # Determine if we're synced (had a successful sync in the last sync interval)
+        synced = _last_sync > 0 and time_since_sync < _sync_interval
+        
+        # Determine if we're currently syncing (thread is running but not yet synced)
+        syncing = _is_running and (_sync_thread is not None and _sync_thread.is_alive()) and not synced
+        
+        # Convert offset from seconds to milliseconds for UI display
+        offset_ms = _time_offset * 1000
+        
         return {
             "offset": _time_offset,
+            "offset_ms": offset_ms,  # Add milliseconds version for UI
             "last_sync": _last_sync,
             "last_sync_formatted": format_time(_last_sync) if _last_sync > 0 else "Never",
             "sync_interval": _sync_interval,
-            "is_running": _is_running and (_sync_thread is not None and _sync_thread.is_alive())
+            "is_running": _is_running and (_sync_thread is not None and _sync_thread.is_alive()),
+            "synced": synced,  # Add synced flag for UI
+            "syncing": syncing  # Add syncing flag for UI
         } 
