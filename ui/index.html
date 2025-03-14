@@ -155,7 +155,7 @@
         .copy-button {
             width: 32px;
             height: 32px;
-            border-radius: 50%;
+            border-radius: 32px;
             background-color: var(--primary-color);
             border: none;
             padding: 6px;
@@ -163,7 +163,9 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            transition: background-color 0.2s;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
         }
 
         .copy-button:hover {
@@ -174,6 +176,36 @@
             width: 16px;
             height: 16px;
             filter: brightness(0) invert(1);
+            transition: transform 0.3s ease;
+        }
+
+        .copy-button.copied {
+            background-color: #34c759;
+            width: 90px;
+            border-radius: 16px;
+            padding: 6px 16px;
+        }
+
+        .copy-button.copied img {
+            transform: scale(0);
+        }
+
+        .copy-button .copy-text {
+            position: absolute;
+            color: white;
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            white-space: nowrap;
+            opacity: 0;
+            transform: translateY(20px);
+            transition: all 0.3s ease;
+        }
+
+        .copy-button.copied .copy-text {
+            opacity: 1;
+            transform: translateY(0);
         }
 
         .token-footer {
@@ -998,8 +1030,21 @@
             const token = tokens.find(t => t.id === tokenId);
             if (token) {
                 try {
+                    const copyButton = document.querySelector(`#code-${tokenId} .copy-button`);
+                    const copyText = document.createElement('span');
+                    copyText.className = 'copy-text';
+                    copyText.textContent = 'COPIED';
+                    
+                    if (!copyButton.querySelector('.copy-text')) {
+                        copyButton.appendChild(copyText);
+                    }
+                    
                     await navigator.clipboard.writeText(token.code);
-                    showNotification('Code copied to clipboard', 'success');
+                    copyButton.classList.add('copied');
+                    
+                    setTimeout(() => {
+                        copyButton.classList.remove('copied');
+                    }, 2000);
                 } catch (error) {
                     showNotification('Failed to copy code', 'error');
                 }
