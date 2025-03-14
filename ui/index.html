@@ -685,6 +685,9 @@
         let apiCheckInterval;
         let cachedCopyIcon = ''; // Cache for the copy icon
         let cachedPlusIcon = ''; // Cache for the plus icon
+        let cachedSortAscIcon = ''; // Cache for the sort ascending icon
+        let cachedSortDescIcon = ''; // Cache for the sort descending icon
+        let cachedSettingsIcon = ''; // Cache for the settings icon
 
         // Function to load the plus icon
         async function loadPlusIcon() {
@@ -786,6 +789,7 @@
                     // Load all icons in parallel
                     loadPlusIcon(),
                     loadSortIcon(),
+                    loadSettingsIcon(),
                     window.pywebview.api.get_icon_base64('copy.png').then(result => {
                         if (result.status === 'success') {
                             cachedCopyIcon = result.data;
@@ -808,6 +812,8 @@
                             showEmojiPlaceholder();
                             const sortBtn = document.getElementById('toggleSortBtn');
                             sortBtn.innerHTML = '🔄';
+                            const settingsBtn = document.getElementById('settingsBtn');
+                            settingsBtn.innerHTML = '⚙️';
                         }
                     }, 3000); // Reduced from 5s to 3s
                     apiCheckInterval = setInterval(checkAndInitializeApi, 100); // More frequent initial checks
@@ -1047,21 +1053,98 @@
         }
 
         // Load the appropriate sort icon based on current sort order
-        function loadSortIcon() {
+        async function loadSortIcon() {
             try {
-                // Use embedded data URLs for the icons
-                if (sortAscending) {
-                    // Sort ascending icon (up arrow) - white color
-                    document.getElementById('sortIcon').src = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIgY2xhc3M9ImZlYXRoZXIgZmVhdGhlci1hcnJvdy11cCI+PGxpbmUgeDE9IjEyIiB5MT0iMTkiIHgyPSIxMiIgeTI9IjUiPjwvbGluZT48cG9seWxpbmUgcG9pbnRzPSI1IDEyIDEyIDUgMTkgMTIiPjwvcG9seWxpbmU+PC9zdmc+';
-                } else {
-                    // Sort descending icon (down arrow) - white color
-                    document.getElementById('sortIcon').src = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIgY2xhc3M9ImZlYXRoZXIgZmVhdGhlci1hcnJvdy1kb3duIj48bGluZSB4MT0iMTIiIHkxPSI1IiB4Mj0iMTIiIHkyPSIxOSI+PC9saW5lPjxwb2x5bGluZSBwb2ludHM9IjE5IDEyIDEyIDE5IDUgMTIiPjwvcG9seWxpbmU+PC9zdmc+';
+                if (!window.pywebview || !window.pywebview.api) {
+                    console.error("pywebview API not available for sort icon");
+                    return;
                 }
-                console.log("Sort icon set with embedded data URL");
+                
+                // Load both sort icons if not already cached
+                if (!cachedSortAscIcon) {
+                    const ascResult = await window.pywebview.api.get_icon_base64('sort_asc.png');
+                    if (ascResult.status === 'success') {
+                        cachedSortAscIcon = ascResult.data;
+                    }
+                }
+                if (!cachedSortDescIcon) {
+                    const descResult = await window.pywebview.api.get_icon_base64('sort_desc.png');
+                    if (descResult.status === 'success') {
+                        cachedSortDescIcon = descResult.data;
+                    }
+                }
+                
+                const sortBtn = document.getElementById('toggleSortBtn');
+                if (sortBtn) {
+                    // Clear any existing content
+                    sortBtn.innerHTML = '';
+                    
+                    // Add or update the image
+                    let sortIconImg = document.getElementById('sortIcon');
+                    if (!sortIconImg) {
+                        sortIconImg = document.createElement('img');
+                        sortIconImg.id = 'sortIcon';
+                        sortIconImg.alt = 'Sort Order';
+                        sortIconImg.width = 20;
+                        sortIconImg.height = 20;
+                    }
+                    sortIconImg.src = 'data:image/png;base64,' + (sortAscending ? cachedSortAscIcon : cachedSortDescIcon);
+                    sortIconImg.style.display = 'inline';
+                    sortBtn.appendChild(sortIconImg);
+                    console.log("Sort icon loaded successfully");
+                }
             } catch (error) {
                 console.error('Exception loading sort icon:', error);
                 // Fallback to emoji if icon loading fails
-                document.getElementById('toggleSortBtn').innerHTML = sortAscending ? '↑' : '↓';
+                const sortBtn = document.getElementById('toggleSortBtn');
+                sortBtn.innerHTML = sortAscending ? '↑' : '↓';
+            }
+        }
+
+        // Load the settings icon
+        async function loadSettingsIcon() {
+            try {
+                if (!window.pywebview || !window.pywebview.api) {
+                    console.error("pywebview API not available for settings icon");
+                    return;
+                }
+                
+                const result = await window.pywebview.api.get_icon_base64('settings.png');
+                console.log("Settings icon load result:", result);
+                
+                if (result.status === 'success') {
+                    cachedSettingsIcon = result.data;
+                    const settingsBtn = document.getElementById('settingsBtn');
+                    if (settingsBtn) {
+                        // Clear any existing content (emoji)
+                        settingsBtn.innerHTML = '';
+                        
+                        // Add or update the image
+                        let settingsIconImg = document.createElement('img');
+                        settingsIconImg.id = 'settingsIcon';
+                        settingsIconImg.alt = 'Settings';
+                        settingsIconImg.width = 20;
+                        settingsIconImg.height = 20;
+                        settingsIconImg.src = 'data:image/png;base64,' + cachedSettingsIcon;
+                        settingsIconImg.style.display = 'inline';
+                        settingsBtn.appendChild(settingsIconImg);
+                        console.log("Settings icon loaded successfully");
+                    }
+                } else {
+                    console.error('Error loading settings icon:', result.message);
+                    showSettingsEmojiPlaceholder();
+                }
+            } catch (error) {
+                console.error('Exception loading settings icon:', error);
+                showSettingsEmojiPlaceholder();
+            }
+        }
+
+        // Helper function to show settings emoji placeholder
+        function showSettingsEmojiPlaceholder() {
+            const settingsBtn = document.getElementById('settingsBtn');
+            if (settingsBtn) {
+                settingsBtn.innerHTML = '⚙️';
             }
         }
 
