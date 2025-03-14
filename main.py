@@ -266,6 +266,15 @@ class Api:
             print(f"Error loading icon {icon_name}: {str(e)}")
             return {"status": "error", "message": f"Failed to load icon: {str(e)}"}
 
+    def show_confirmation_dialog(self, message, title="Confirm"):
+        """Show a native Windows confirmation dialog"""
+        try:
+            import ctypes
+            result = ctypes.windll.user32.MessageBoxW(None, message, title, 0x4 | 0x20)  # Yes/No | Icon Question
+            return result == 6  # 6 = Yes, 7 = No
+        except Exception as e:
+            return False  # Default to No on error
+
 def set_tokens_path(path):
     """Set the path to the tokens file"""
     global tokens_path

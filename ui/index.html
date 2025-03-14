@@ -1055,14 +1055,17 @@
 
         // Delete token
         async function deleteToken(tokenId) {
-            if (confirm('Are you sure you want to delete this token?')) {
-                try {
-                    if (!window.pywebview || !window.pywebview.api) {
-                        console.error("pywebview API not available");
-                        showNotification('Error: API not available', 'error');
-                        return;
-                    }
-                    
+            try {
+                if (!window.pywebview || !window.pywebview.api) {
+                    console.error("pywebview API not available");
+                    showNotification('Error: API not available', 'error');
+                    return;
+                }
+                
+                // Show native Windows confirmation dialog
+                const confirmed = await window.pywebview.api.show_confirmation_dialog('Are you sure you want to delete this token?', 'Delete Token');
+                
+                if (confirmed) {
                     const result = await window.pywebview.api.delete_token(tokenId);
                     if (result.status === 'success') {
                         showNotification(result.message, 'success');
@@ -1070,9 +1073,9 @@
                     } else {
                         showNotification(result.message, 'error');
                     }
-                } catch (error) {
-                    showNotification('Error deleting token: ' + error, 'error');
                 }
+            } catch (error) {
+                showNotification('Error deleting token: ' + error, 'error');
             }
         }
 
