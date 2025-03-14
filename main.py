@@ -244,6 +244,33 @@ class Api:
         sort_ascending = not sort_ascending
         return {"status": "success", "ascending": sort_ascending}
     
+    def add_token_from_uri(self, uri):
+        """Add a new token from an otpauth URI"""
+        global tokens
+        try:
+            # Validate URI format
+            if not uri.startswith('otpauth://'):
+                return {"status": "error", "message": "Invalid OTP Auth URI format"}
+            
+            # Parse the URI using pyotp
+            try:
+                totp = pyotp.parse_uri(uri)
+                
+                # Extract token data
+                token_data = {
+                    "issuer": totp.issuer or "Unknown",
+                    "name": totp.name or "Unknown",
+                    "secret": totp.secret
+                }
+                
+                # Add the token using the existing method
+                return self.add_token(token_data)
+            except Exception as e:
+                return {"status": "error", "message": f"Failed to parse URI: {str(e)}"}
+            
+        except Exception as e:
+            return {"status": "error", "message": f"Failed to add token from URI: {str(e)}"}
+    
     def get_icon_base64(self, icon_name):
         """Get base64 encoded icon data"""
         try:

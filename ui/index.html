@@ -468,6 +468,33 @@
             margin-top: 5px;
         }
 
+        .form-separator {
+            display: flex;
+            align-items: center;
+            text-align: center;
+            margin: 30px 0;
+        }
+
+        .form-separator::before,
+        .form-separator::after {
+            content: '';
+            flex: 1;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .form-separator span {
+            padding: 0 10px;
+            font-weight: 500;
+            color: #666;
+        }
+
+        .input-description {
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+            font-style: italic;
+        }
+
         .switch {
             position: relative;
             display: inline-block;
@@ -736,13 +763,19 @@
         </div>
     </div>
 
-    <!-- Add Token Modal -->
-    <div id="addTokenModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2>Add Token</h2>
-                <button class="modal-close" onclick="closeModal('addTokenModal')">×</button>
+    <!-- Add Token Page -->
+    <div class="container" id="addTokenPage" style="display: none;">
+        <div class="header">
+            <div class="header-left">
+                <button id="backFromAddTokenBtn" class="btn btn-icon"><img id="backFromAddTokenIcon" alt="Back" width="20" height="20"></button>
+                <h1>Add Token</h1>
             </div>
+            <div class="header-actions">
+                <!-- Actions can be added here if needed in the future -->
+            </div>
+        </div>
+        
+        <div class="settings-content">
             <div class="tabs">
                 <div class="tab active" data-tab="scanQr">Scan QR</div>
                 <div class="tab" data-tab="manualEntry">Manual Entry</div>
@@ -756,7 +789,6 @@
                     </div>
                 </div>
                 <div class="form-actions">
-                    <button class="btn btn-secondary" onclick="closeModal('addTokenModal')">Cancel</button>
                     <button class="btn" id="uploadQrBtn">Upload QR Image</button>
                     <input type="file" id="qrFileInput" accept="image/*" style="display: none;">
                 </div>
@@ -775,8 +807,20 @@
                     <input type="text" id="tokenSecret" placeholder="Base32 encoded secret">
                 </div>
                 <div class="form-actions">
-                    <button class="btn btn-secondary" onclick="closeModal('addTokenModal')">Cancel</button>
                     <button class="btn" id="saveTokenBtn">Save Token</button>
+                </div>
+                
+                <div class="form-separator">
+                    <span>OR</span>
+                </div>
+                
+                <div class="form-group">
+                    <label for="tokenUri">OTP Auth URI</label>
+                    <input type="text" id="tokenUri" placeholder="otpauth://totp/...">
+                    <div class="input-description">Paste a complete otpauth:// URI</div>
+                </div>
+                <div class="form-actions">
+                    <button class="btn" id="saveUriTokenBtn">Add from URI</button>
                 </div>
             </div>
         </div>
@@ -881,13 +925,15 @@
         // Initialize the application
         document.addEventListener('DOMContentLoaded', function() {
             // Set up event listeners
-            document.getElementById('addTokenBtn').addEventListener('click', () => openModal('addTokenModal'));
+            document.getElementById('addTokenBtn').addEventListener('click', () => showAddTokenPage());
             document.getElementById('settingsBtn').addEventListener('click', () => showSettingsPage());
             document.getElementById('backToMainBtn').addEventListener('click', () => showMainPage());
+            document.getElementById('backFromAddTokenBtn').addEventListener('click', () => showMainPage());
             document.getElementById('aboutBtnSettings').addEventListener('click', () => openModal('aboutModal'));
             document.getElementById('uploadQrBtn').addEventListener('click', () => document.getElementById('qrFileInput').click());
             document.getElementById('qrFileInput').addEventListener('change', handleQrFileUpload);
             document.getElementById('saveTokenBtn').addEventListener('click', saveManualToken);
+            document.getElementById('saveUriTokenBtn').addEventListener('click', saveUriToken);
             document.getElementById('toggleSortBtn').addEventListener('click', toggleSortOrder);
             document.getElementById('searchInput').addEventListener('input', async (e) => {
                 searchTerm = e.target.value.toLowerCase();
@@ -1230,7 +1276,7 @@
 
                 if (result.status === 'success') {
                     showNotification(result.message, 'success');
-                    closeModal('addTokenModal');
+                    showMainPage();
                     clearTokenForm();
                     loadTokens();
                 } else {
@@ -1262,7 +1308,7 @@
                         
                         if (addResult.status === 'success') {
                             showNotification(addResult.message, 'success');
-                            closeModal('addTokenModal');
+                            showMainPage();
                             loadTokens();
                         } else {
                             showNotification(addResult.message, 'error');
@@ -1439,9 +1485,6 @@
         // Close modal
         function closeModal(modalId) {
             document.getElementById(modalId).style.display = 'none';
-            if (modalId === 'addTokenModal') {
-                clearTokenForm();
-            }
         }
 
         // Clear token form
@@ -1449,6 +1492,7 @@
             document.getElementById('tokenIssuer').value = '';
             document.getElementById('tokenName').value = '';
             document.getElementById('tokenSecret').value = '';
+            document.getElementById('tokenUri').value = '';
         }
 
         // Show notification
@@ -1500,14 +1544,42 @@
             }, 300);
         }
 
+        // Show add token page
+        function showAddTokenPage() {
+            // Add transition classes
+            document.getElementById('mainPage').classList.add('fade-out');
+            
+            setTimeout(() => {
+                document.getElementById('mainPage').style.display = 'none';
+                document.getElementById('addTokenPage').style.display = 'block';
+                
+                // Force reflow
+                void document.getElementById('addTokenPage').offsetWidth;
+                
+                document.getElementById('addTokenPage').classList.add('fade-in');
+                
+                // Load back icon for add token page
+                loadBackIconForAddToken();
+                
+                // Clear form fields
+                clearTokenForm();
+            }, 300);
+        }
+
         // Show main page
         function showMainPage() {
             // Add transition classes
-            document.getElementById('settingsPage').classList.remove('fade-in');
-            document.getElementById('settingsPage').classList.add('fade-out');
+            if (document.getElementById('settingsPage').style.display === 'block') {
+                document.getElementById('settingsPage').classList.remove('fade-in');
+                document.getElementById('settingsPage').classList.add('fade-out');
+            } else if (document.getElementById('addTokenPage').style.display === 'block') {
+                document.getElementById('addTokenPage').classList.remove('fade-in');
+                document.getElementById('addTokenPage').classList.add('fade-out');
+            }
             
             setTimeout(() => {
                 document.getElementById('settingsPage').style.display = 'none';
+                document.getElementById('addTokenPage').style.display = 'none';
                 document.getElementById('mainPage').style.display = 'block';
                 
                 // Force reflow
@@ -1529,37 +1601,95 @@
                 console.log("Back icon load result:", result);
                 
                 if (result.status === 'success') {
-                    const backBtn = document.getElementById('backToMainBtn');
-                    if (backBtn) {
-                        // Clear any existing content
-                        backBtn.innerHTML = '';
-                        
-                        // Add the image
-                        let backIconImg = document.createElement('img');
-                        backIconImg.id = 'backIcon';
-                        backIconImg.alt = 'Back';
-                        backIconImg.width = 20;
-                        backIconImg.height = 20;
-                        backIconImg.src = 'data:image/png;base64,' + result.data;
-                        backIconImg.style.display = 'inline';
-                        backBtn.appendChild(backIconImg);
-                        console.log("Back icon loaded successfully");
+                    const backIcon = document.getElementById('backIcon');
+                    if (backIcon) {
+                        backIcon.src = 'data:image/png;base64,' + result.data;
                     }
                 } else {
                     console.error('Error loading back icon:', result.message);
-                    showBackArrowPlaceholder();
+                    // Fallback to emoji
+                    const backBtn = document.getElementById('backToMainBtn');
+                    if (backBtn) {
+                        backBtn.innerHTML = '←';
+                    }
                 }
             } catch (error) {
                 console.error('Exception loading back icon:', error);
-                showBackArrowPlaceholder();
+                // Fallback to emoji
+                const backBtn = document.getElementById('backToMainBtn');
+                if (backBtn) {
+                    backBtn.innerHTML = '←';
+                }
             }
         }
 
-        // Helper function to show back arrow placeholder
-        function showBackArrowPlaceholder() {
-            const backBtn = document.getElementById('backToMainBtn');
-            if (backBtn) {
-                backBtn.innerHTML = '←';
+        // Load back icon for add token page
+        async function loadBackIconForAddToken() {
+            try {
+                if (!window.pywebview || !window.pywebview.api) {
+                    console.error("pywebview API not available for back icon");
+                    return;
+                }
+                
+                const result = await window.pywebview.api.get_icon_base64('back_arrow.png');
+                console.log("Back icon load result:", result);
+                
+                if (result.status === 'success') {
+                    const backIcon = document.getElementById('backFromAddTokenIcon');
+                    if (backIcon) {
+                        backIcon.src = 'data:image/png;base64,' + result.data;
+                    }
+                } else {
+                    console.error('Error loading back icon:', result.message);
+                    // Fallback to emoji
+                    const backBtn = document.getElementById('backFromAddTokenBtn');
+                    if (backBtn) {
+                        backBtn.innerHTML = '←';
+                    }
+                }
+            } catch (error) {
+                console.error('Exception loading back icon:', error);
+                // Fallback to emoji
+                const backBtn = document.getElementById('backFromAddTokenBtn');
+                if (backBtn) {
+                    backBtn.innerHTML = '←';
+                }
+            }
+        }
+
+        // Save token from URI
+        async function saveUriToken() {
+            const uri = document.getElementById('tokenUri').value.trim();
+
+            if (!uri) {
+                showNotification('URI is required', 'error');
+                return;
+            }
+
+            if (!uri.startsWith('otpauth://')) {
+                showNotification('Invalid OTP Auth URI format', 'error');
+                return;
+            }
+
+            try {
+                if (!window.pywebview || !window.pywebview.api) {
+                    console.error("pywebview API not available");
+                    showNotification('Error: API not available', 'error');
+                    return;
+                }
+                
+                const result = await window.pywebview.api.add_token_from_uri(uri);
+
+                if (result.status === 'success') {
+                    showNotification(result.message, 'success');
+                    showMainPage();
+                    clearTokenForm();
+                    loadTokens();
+                } else {
+                    showNotification(result.message, 'error');
+                }
+            } catch (error) {
+                showNotification('Error adding token: ' + error, 'error');
             }
         }
     </script>
