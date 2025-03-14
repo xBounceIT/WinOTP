@@ -536,6 +536,37 @@
             font-size: 16px;
         }
 
+        .token-actions .btn-icon {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background-color: #666666;
+            border: none;
+            padding: 4px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+            position: relative;
+            z-index: 1;
+        }
+
+        .token-actions .btn-icon:hover {
+            background-color: var(--error-color) !important;
+        }
+
+        .token-actions .btn-icon img {
+            width: 14px;
+            height: 14px;
+            filter: brightness(0) invert(1);
+            pointer-events: none;
+        }
+
+        .token-actions .btn-icon:hover img {
+            filter: brightness(0) invert(1) !important;
+        }
+
         @media (prefers-color-scheme: dark) {
             :root {
                 --primary-color: #0078d7;
@@ -688,6 +719,7 @@
         let cachedSortAscIcon = ''; // Cache for the sort ascending icon
         let cachedSortDescIcon = ''; // Cache for the sort descending icon
         let cachedSettingsIcon = ''; // Cache for the settings icon
+        let cachedCrossIcon = ''; // Cache for the cross icon
 
         // Function to load the plus icon
         async function loadPlusIcon() {
@@ -795,6 +827,11 @@
                             cachedCopyIcon = result.data;
                         }
                     }),
+                    window.pywebview.api.get_icon_base64('cross.png').then(result => {
+                        if (result.status === 'success') {
+                            cachedCrossIcon = result.data;
+                        }
+                    }),
                     // Check NTP status
                     checkNtpStatus()
                 ]).then(() => {
@@ -855,10 +892,45 @@
                 const result = await window.pywebview.api.get_tokens();
                 if (result) {
                     tokens = result;
-                    await renderTokens();
+                    // Only update existing tokens, full render if tokens changed
+                    const currentTokenIds = new Set(tokens.map(t => t.id));
+                    const displayedTokenIds = new Set(Array.from(document.querySelectorAll('.token-card'))
+                        .map(card => card.id.replace('token-', '')));
+                    
+                    // Check if we need a full re-render
+                    if (currentTokenIds.size !== displayedTokenIds.size || 
+                        !Array.from(currentTokenIds).every(id => displayedTokenIds.has(id))) {
+                        await renderTokens();
+                    } else {
+                        // Just update the dynamic content
+                        tokens.forEach(updateTokenDisplay);
+                    }
                 }
             } catch (error) {
                 console.error('Error updating tokens:', error);
+            }
+        }
+
+        // Update individual token display
+        function updateTokenDisplay(token) {
+            const codeElement = document.getElementById(`code-${token.id}`);
+            const progressElement = document.getElementById(`progress-${token.id}`);
+            const timerElement = document.getElementById(`timer-${token.id}`);
+            
+            if (codeElement && progressElement && timerElement) {
+                // Update TOTP code
+                const codeContent = codeElement.firstChild;
+                if (codeContent) {
+                    codeContent.textContent = formatCode(token.code);
+                }
+                
+                // Update progress bar and timer
+                const timeRemaining = token.timeRemaining;
+                const progressPercentage = (timeRemaining / 30) * 100;
+                
+                progressElement.style.width = `${progressPercentage}%`;
+                progressElement.className = `progress-fill${timeRemaining <= 5 ? ' warning' : ''}`;
+                timerElement.textContent = `${Math.ceil(timeRemaining)}s`;
             }
         }
 
@@ -881,8 +953,7 @@
             filteredTokens.forEach(token => {
                 const tokenCard = document.createElement('div');
                 tokenCard.className = 'token-card';
-                const timeRemaining = token.timeRemaining;
-                const progressPercentage = (timeRemaining / 30) * 100;
+                tokenCard.id = `token-${token.id}`;
                 
                 tokenCard.innerHTML = `
                     <div class="token-header">
@@ -891,10 +962,12 @@
                             <div class="token-name">${escapeHtml(token.name)}</div>
                         </div>
                         <div class="token-actions">
-                            <button class="btn btn-icon" onclick="deleteToken('${token.id}')">🗑️</button>
+                            <button class="btn btn-icon" onclick="deleteToken('${token.id}')">
+                                ${cachedCrossIcon ? `<img src="data:image/png;base64,${cachedCrossIcon}" alt="Delete token" width="20" height="20">` : '🗑️'}
+                            </button>
                         </div>
                     </div>
-                    <div class="token-code">
+                    <div class="token-code" id="code-${token.id}">
                         ${formatCode(token.code)}
                         <button class="copy-button" onclick="copyCode('${token.id}')">
                             <img src="data:image/png;base64,${cachedCopyIcon}" alt="Copy code">
@@ -902,13 +975,13 @@
                     </div>
                     <div class="token-footer">
                         <div class="progress-bar">
-                            <div class="progress-fill${timeRemaining <= 5 ? ' warning' : ''}" 
-                                 style="width: ${progressPercentage}%"></div>
+                            <div class="progress-fill" id="progress-${token.id}"></div>
                         </div>
-                        <div class="time-remaining">${Math.ceil(timeRemaining)}s</div>
+                        <div class="time-remaining" id="timer-${token.id}"></div>
                     </div>
                 `;
                 tokenList.appendChild(tokenCard);
+                updateTokenDisplay(token);
             });
         }
 
