@@ -16,6 +16,9 @@ files_to_download = [
     ('https://code.jquery.com/jquery-3.6.0.min.js', 'static/js/jquery-3.6.0.min.js'),
 ]
 
+# Flag to track if assets have been initialized
+_assets_initialized = False
+
 def download_file(url, path):
     """Download a file from URL to path"""
     # Skip if file already exists
@@ -40,8 +43,23 @@ def download_assets_background():
 
 def initialize_assets():
     """Initialize assets - create essential ones immediately and download others in background"""
+    global _assets_initialized
+    
+    # Only run initialization once
+    if _assets_initialized:
+        return
+    
     ensure_directories()
+    
+    # Check if all files already exist
+    all_files_exist = all(os.path.exists(path) for _, path in files_to_download)
+    
+    if all_files_exist:
+        print("All assets already exist, skipping download")
+        _assets_initialized = True
+        return
     
     # Start background thread to download remaining assets
     thread = threading.Thread(target=download_assets_background, daemon=True)
-    thread.start() 
+    thread.start()
+    _assets_initialized = True 

@@ -22,6 +22,7 @@ _sync_lock = threading.Lock()
 _sync_thread = None
 _is_running = False
 _last_server_index = 0  # Track which server we last used successfully
+_sync_initialized = False  # Flag to track if sync has been initialized
 
 def get_ntp_time(server=None):
     """
@@ -93,11 +94,17 @@ def get_accurate_time():
     Returns:
         float: Adjusted current time in seconds since epoch
     """
+    # Ensure NTP sync is initialized
+    if not _sync_initialized:
+        # Just use system time on first call
+        return time.time()
+        
     with _sync_lock:
         current_time = time.time()
         # Force a sync if too much time has passed since last sync
-        if current_time - _last_sync > _sync_interval:
-            threading.Thread(target=calculate_offset).start()
+        if _last_sync > 0 and current_time - _last_sync > _sync_interval:
+            threading.Thread(target=calculate_offset, daemon=True).start()
+        
         return current_time + _time_offset
 
 def get_accurate_timestamp_30s():
@@ -125,7 +132,7 @@ def format_time(timestamp=None):
     return datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
 
 def _sync_thread_func():
-    """Background thread function for periodic NTP synchronization."""
+    """Thread function for periodic NTP synchronization"""
     global _is_running
     
     while _is_running:
@@ -134,11 +141,8 @@ def _sync_thread_func():
         except Exception as e:
             logger.error(f"Error in NTP sync thread: {e}")
         
-        # Sleep for the sync interval, but wake up periodically to check if we should stop
-        for _ in range(int(_sync_interval / 10)):
-            if not _is_running:
-                break
-            time.sleep(10)
+        # Sleep until next sync interval
+        time.sleep(_sync_interval)
 
 def start_ntp_sync(interval=300):  # Default to 5 minutes instead of 1 hour
     """
@@ -147,23 +151,33 @@ def start_ntp_sync(interval=300):  # Default to 5 minutes instead of 1 hour
     Args:
         interval (int, optional): Sync interval in seconds. Defaults to 300 (5 minutes).
     """
-    global _sync_thread, _is_running, _sync_interval
+    global _sync_thread, _is_running, _sync_interval, _sync_initialized
     
-    if _sync_thread is not None and _sync_thread.is_alive():
-        logger.warning("NTP sync thread is already running")
+    # Don't start if already running
+    if _is_running:
         return
     
-    _sync_interval = max(60, min(interval, 3600))  # Limit interval between 1 minute and 1 hour
+    _sync_interval = interval
     _is_running = True
     
-    # Do an initial sync
-    calculate_offset()
+    # Start the sync in a background thread to avoid blocking the UI
+    def delayed_start():
+        global _sync_initialized
+        # Wait a short time before first sync to allow app to start up
+        time.sleep(1)
+        
+        # Perform initial sync
+        calculate_offset()
+        _sync_initialized = True
+        
+        # Start the periodic sync thread
+        _sync_thread = threading.Thread(target=_sync_thread_func, daemon=True)
+        _sync_thread.start()
+        logger.info(f"NTP sync started with interval {interval} seconds")
     
-    # Start the background thread
-    _sync_thread = threading.Thread(target=_sync_thread_func, daemon=True)
-    _sync_thread.start()
-    
-    logger.info(f"Started NTP sync thread with interval of {_sync_interval} seconds")
+    # Start the delayed initialization
+    init_thread = threading.Thread(target=delayed_start, daemon=True)
+    init_thread.start()
 
 def stop_ntp_sync():
     """

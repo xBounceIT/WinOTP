@@ -3,12 +3,22 @@ import pyotp
 from datetime import datetime
 from utils.ntp_sync import get_accurate_time
 
+# Cache for TOTP objects
+_totp_cache = {}
+
 class Token:
     def __init__(self, issuer, secret, name):
         self.issuer = issuer
         self.secret = secret
         self.name = name
-        self.totp = pyotp.TOTP(self.secret)
+        
+        # Use cached TOTP object if available
+        cache_key = self.secret
+        if cache_key in _totp_cache:
+            self.totp = _totp_cache[cache_key]
+        else:
+            self.totp = pyotp.TOTP(self.secret)
+            _totp_cache[cache_key] = self.totp
     
     def get_code(self):
         """Generate the current TOTP code using NTP-synchronized time"""

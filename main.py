@@ -3,21 +3,16 @@ import json
 import os
 import sys
 import uuid
-import pyotp
 import threading
 import time
 from datetime import datetime
 import base64
-from PIL import Image
 import io
-import gzip
 
 # Import utilities
 from utils.file_io import read_json, write_json
-from utils.qr_scanner import scan_qr_image
-from utils.ntp_sync import start_ntp_sync, get_accurate_time, get_accurate_timestamp_30s, get_sync_status, calculate_offset
 from utils.asset_manager import initialize_assets
-from models.token import Token
+from utils.ntp_sync import start_ntp_sync, get_accurate_time, get_sync_status
 
 # Global variables
 tokens_path = "tokens.json"  # Default path
@@ -26,15 +21,36 @@ sort_ascending = True  # Default sort order
 last_tokens_update = 0  # Track when tokens were last updated from disk
 file_write_lock = threading.Lock()  # Lock for thread-safe file operations
 
+# Lazy imports for modules not needed at startup
+def import_lazy_modules():
+    global pyotp, gzip, Image, scan_qr_image, Token, calculate_offset, get_accurate_timestamp_30s
+    
+    import pyotp
+    import gzip
+    from PIL import Image
+    from utils.qr_scanner import scan_qr_image
+    from models.token import Token
+    from utils.ntp_sync import calculate_offset, get_accurate_timestamp_30s
+    
+    print("Lazy modules imported successfully")
+
+# Start lazy import in background
+lazy_import_thread = None
+
 class Api:
     def __init__(self):
         self._window = None
         # Initialize assets in the background
         initialize_assets()
-        # Start NTP sync in the background
+        # Start NTP sync in the background with delayed initialization
         start_ntp_sync()
         # Load tokens
         self.load_tokens()
+        
+        # Start lazy import in background
+        global lazy_import_thread
+        lazy_import_thread = threading.Thread(target=import_lazy_modules, daemon=True)
+        lazy_import_thread.start()
     
     def __eq__(self, other):
         # Completely rewritten equality method to avoid Rectangle.op_Equality error
@@ -81,8 +97,16 @@ class Api:
     
     def get_tokens(self):
         """Get all tokens with their current codes"""
-        global tokens
+        global tokens, lazy_import_thread
         result = []
+        
+        # Ensure lazy modules are imported
+        if lazy_import_thread and lazy_import_thread.is_alive():
+            lazy_import_thread.join(timeout=1.0)  # Wait for imports to complete with timeout
+        
+        # Import Token class if not already imported
+        if 'Token' not in globals():
+            from models.token import Token
         
         # Check if we need to reload tokens from disk
         self.check_reload_tokens()
@@ -99,39 +123,37 @@ class Api:
                     token_data.get("name", "Unknown")
                 )
                 
-                # Generate code and get time remaining
+                # Get the current code and time remaining
                 code = token_obj.get_code()
                 time_remaining = token_obj.get_time_remaining()
                 
-                # Add token to result
+                # Add to result
                 result.append({
                     "id": token_id,
                     "issuer": token_data.get("issuer", "Unknown"),
                     "name": token_data.get("name", "Unknown"),
                     "code": code,
                     "timeRemaining": time_remaining,
-                    "created": token_data.get("created", ""),
-                    "lastUsed": token_data.get("lastUsed", "")
+                    "icon": token_data.get("icon", None)
                 })
             except Exception as e:
-                # Add error token
+                print(f"Error generating code for token {token_id}: {str(e)}")
                 result.append({
                     "id": token_id,
                     "issuer": token_data.get("issuer", "Unknown"),
                     "name": token_data.get("name", "Unknown"),
                     "code": "ERROR",
                     "timeRemaining": 30,
-                    "error": str(e),
-                    "created": token_data.get("created", ""),
-                    "lastUsed": token_data.get("lastUsed", "")
+                    "icon": token_data.get("icon", None),
+                    "error": str(e)
                 })
         
-        # Sort tokens
+        # Sort tokens by issuer and name
         if sort_ascending:
-            result.sort(key=lambda x: (x.get("issuer", "").lower(), x.get("name", "").lower()))
+            result.sort(key=lambda x: (x["issuer"].lower(), x["name"].lower()))
         else:
-            result.sort(key=lambda x: (x.get("issuer", "").lower(), x.get("name", "").lower()), reverse=True)
-        
+            result.sort(key=lambda x: (x["issuer"].lower(), x["name"].lower()), reverse=True)
+            
         return result
     
     def check_reload_tokens(self):
