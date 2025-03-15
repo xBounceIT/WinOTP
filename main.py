@@ -13,6 +13,10 @@ import io
 from utils.file_io import read_json, write_json
 from utils.asset_manager import initialize_assets
 from utils.ntp_sync import start_ntp_sync, get_accurate_time, get_sync_status
+from utils.auth import (
+    set_pin, set_password, clear_auth, verify_pin, verify_password, 
+    is_auth_enabled, get_auth_type
+)
 from models.token import Token  # Import Token class directly
 
 # Global variables
@@ -46,6 +50,15 @@ class Api:
         start_ntp_sync()
         # Load tokens
         self.load_tokens()
+        
+        # Check authentication status
+        auth_enabled = is_auth_enabled()
+        auth_type = get_auth_type()
+        print(f"Authentication enabled: {auth_enabled}, type: {auth_type}")
+        
+        # Authentication state - initially not authenticated if auth is enabled
+        self.is_authenticated = False
+        print(f"Initial authentication state: {self.is_authenticated}")
         
         # Start lazy import in background
         global lazy_import_thread
@@ -387,13 +400,72 @@ class Api:
             return {"status": "error", "message": f"Failed to load icon: {str(e)}"}
 
     def show_confirmation_dialog(self, message, title="Confirm"):
-        """Show a native Windows confirmation dialog"""
-        try:
-            import ctypes
-            result = ctypes.windll.user32.MessageBoxW(None, message, title, 0x4 | 0x20)  # Yes/No | Icon Question
-            return result == 6  # 6 = Yes, 7 = No
-        except Exception as e:
-            return False  # Default to No on error
+        """Show a confirmation dialog to the user"""
+        return self._window.create_confirmation_dialog(title, message)
+
+    def set_pin_protection(self, pin):
+        """Set a PIN for app protection"""
+        if not pin or len(pin) < 4:
+            return {"status": "error", "message": "PIN must be at least 4 digits"}
+        
+        # Validate PIN format (numbers only)
+        if not pin.isdigit():
+            return {"status": "error", "message": "PIN must contain only digits"}
+            
+        # Set the PIN
+        if set_pin(pin):
+            return {"status": "success", "message": "PIN protection enabled"}
+        else:
+            return {"status": "error", "message": "Failed to set PIN protection"}
+    
+    def set_password_protection(self, password):
+        """Set a password for app protection"""
+        if not password or len(password) < 6:
+            return {"status": "error", "message": "Password must be at least 6 characters"}
+            
+        # Set the password
+        if set_password(password):
+            return {"status": "success", "message": "Password protection enabled"}
+        else:
+            return {"status": "error", "message": "Failed to set password protection"}
+    
+    def disable_protection(self):
+        """Disable PIN/password protection"""
+        if clear_auth():
+            return {"status": "success", "message": "Protection disabled"}
+        else:
+            return {"status": "error", "message": "Failed to disable protection"}
+    
+    def verify_authentication(self, credential):
+        """Verify PIN or password"""
+        auth_type = get_auth_type()
+        
+        if auth_type == "pin":
+            if verify_pin(credential):
+                self.is_authenticated = True
+                return {"status": "success", "message": "Authentication successful"}
+            else:
+                return {"status": "error", "message": "Incorrect PIN"}
+        elif auth_type == "password":
+            if verify_password(credential):
+                self.is_authenticated = True
+                return {"status": "success", "message": "Authentication successful"}
+            else:
+                return {"status": "error", "message": "Incorrect password"}
+        else:
+            self.is_authenticated = True
+            return {"status": "success", "message": "No authentication required"}
+    
+    def get_auth_status(self):
+        """Get the current authentication status and type"""
+        auth_enabled = is_auth_enabled()
+        auth_type = get_auth_type()
+        
+        return {
+            "is_enabled": auth_enabled,
+            "auth_type": auth_type,
+            "is_authenticated": self.is_authenticated if auth_enabled else True
+        }
 
 def set_tokens_path(path):
     """Set the path to the tokens file"""

@@ -750,6 +750,71 @@
             font-size: 14px;
             color: #888;
         }
+
+        /* Login page styles */
+        .login-content {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            min-height: 400px;
+        }
+
+        .login-section {
+            width: 100%;
+            max-width: 350px;
+            background-color: var(--card-background);
+            border-radius: 8px;
+            padding: 30px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .login-section h2 {
+            margin-top: 0;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+
+        .login-section p {
+            text-align: center;
+            margin-bottom: 25px;
+            color: #666;
+        }
+
+        .error-message {
+            color: var(--error-color);
+            font-size: 14px;
+            margin-top: 5px;
+            font-weight: 500;
+        }
+
+        /* Protection page styles */
+        .protection-section {
+            background-color: var(--card-background);
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .protection-options {
+            margin-top: 20px;
+        }
+
+        .btn-danger {
+            background-color: var(--error-color);
+        }
+
+        .btn-danger:hover {
+            background-color: #b83301;
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 600px) {
+            .settings-content {
+                padding: 10px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -797,6 +862,17 @@
                         <div class="status-indicator syncing"></div>
                         <div class="status-text">Checking...</div>
                     </div>
+                </div>
+            </div>
+
+            <div class="settings-section">
+                <h2>Security</h2>
+                <div class="setting-item">
+                    <div>
+                        <div class="setting-label">App Protection</div>
+                        <div class="setting-description">Protect the app with a PIN or password</div>
+                    </div>
+                    <button id="appProtectionBtn" class="btn">Configure</button>
                 </div>
             </div>
 
@@ -930,6 +1006,88 @@
         </div>
     </div>
 
+    <!-- App Protection Page -->
+    <div class="container" id="appProtectionPage" style="display: none;">
+        <div class="header">
+            <div class="header-left">
+                <button id="backFromProtectionBtn" class="btn btn-icon"><img id="backFromProtectionIcon" alt="Back" width="20" height="20"></button>
+                <h1>App Protection</h1>
+            </div>
+        </div>
+        
+        <div class="settings-content">
+            <div class="protection-section">
+                <p>Choose how you want to protect your app:</p>
+                
+                <div id="protectionStatus" class="setting-item" style="margin-bottom: 20px;">
+                    <div>
+                        <div class="setting-label">Current Status</div>
+                        <div id="protectionStatusText" class="setting-description">Not protected</div>
+                    </div>
+                </div>
+                
+                <div class="protection-options">
+                    <div class="form-group">
+                        <label for="pinInput">PIN Protection</label>
+                        <input type="password" id="pinInput" placeholder="Enter a PIN (at least 4 digits)" inputmode="numeric" pattern="[0-9]*">
+                        <div class="input-description">PIN must be at least 4 digits</div>
+                        <div class="form-actions" style="margin-top: 10px;">
+                            <button class="btn" id="setPinBtn">Set PIN</button>
+                        </div>
+                    </div>
+                    
+                    <div class="form-separator">
+                        <span>OR</span>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="passwordInput">Password Protection</label>
+                        <input type="password" id="passwordInput" placeholder="Enter a password (at least 6 characters)">
+                        <div class="input-description">Password must be at least 6 characters</div>
+                        <div class="form-actions" style="margin-top: 10px;">
+                            <button class="btn" id="setPasswordBtn">Set Password</button>
+                        </div>
+                    </div>
+                    
+                    <div id="disableProtectionSection" style="margin-top: 30px; display: none;">
+                        <div class="form-separator">
+                            <span>OR</span>
+                        </div>
+                        
+                        <div class="form-actions" style="margin-top: 20px;">
+                            <button class="btn btn-danger" id="disableProtectionBtn">Disable Protection</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Login Page -->
+    <div class="container" id="loginPage" style="display: none;">
+        <div class="header">
+            <div class="header-left">
+                <h1>WinOTP Authenticator</h1>
+            </div>
+        </div>
+        
+        <div class="login-content">
+            <div class="login-section">
+                <h2 id="loginTitle">Enter PIN</h2>
+                <p id="loginDescription">Please enter your PIN to access the app</p>
+                
+                <div class="form-group">
+                    <input type="password" id="loginCredential" placeholder="Enter your PIN" autofocus>
+                    <div id="loginError" class="error-message" style="display: none;"></div>
+                </div>
+                
+                <div class="form-actions">
+                    <button class="btn" id="loginBtn">Login</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Notification -->
     <div id="notification" class="notification"></div>
 
@@ -938,6 +1096,7 @@
         let tokens = [];
         let searchTerm = '';
         let sortAscending = true;
+        let isAuthenticated = false;
         let updateInterval;
         let apiCheckInterval;
         let cachedCopyIcon = ''; // Cache for the copy icon
@@ -947,6 +1106,169 @@
         let cachedSettingsIcon = ''; // Cache for the settings icon
         let cachedCrossIcon = ''; // Cache for the cross icon
         let cachedAboutIcon = ''; // Cache for the about icon
+        let apiReady = false; // Flag to track API readiness
+
+        // Initialize the application
+        document.addEventListener('DOMContentLoaded', function() {
+            // Wait for API to be ready
+            waitForApi();
+            
+            // Set up event listeners
+            document.getElementById('settingsBtn').addEventListener('click', showSettingsPage);
+            document.getElementById('backToMainBtn').addEventListener('click', showMainPage);
+            document.getElementById('addTokenBtn').addEventListener('click', showAddTokenPage);
+            document.getElementById('backFromAddTokenBtn').addEventListener('click', showMainPage);
+            document.getElementById('aboutBtnSettings').addEventListener('click', showAboutPage);
+            document.getElementById('backFromAboutBtn').addEventListener('click', showSettingsPage);
+            document.getElementById('uploadQrBtn').addEventListener('click', function() {
+                document.getElementById('qrFileInput').click();
+            });
+            document.getElementById('qrFileInput').addEventListener('change', handleQrFileUpload);
+            document.getElementById('saveTokenBtn').addEventListener('click', saveManualToken);
+            document.getElementById('saveUriTokenBtn').addEventListener('click', saveUriToken);
+            document.getElementById('toggleSortBtn').addEventListener('click', toggleSortOrder);
+            document.getElementById('searchInput').addEventListener('input', async (e) => {
+                searchTerm = e.target.value.toLowerCase();
+                await renderTokens();
+            });
+
+            // Import tokens button in settings
+            document.getElementById('importTokensBtn').addEventListener('click', showImportTokensPage);
+            // Back button from import page
+            document.getElementById('backFromImportBtn').addEventListener('click', showSettingsPage);
+            // Import from WinOTP button
+            document.getElementById('importFromWinOTPBtn').addEventListener('click', importFromWinOTP);
+            
+            // App protection settings
+            document.getElementById('appProtectionBtn').addEventListener('click', showAppProtectionPage);
+            document.getElementById('backFromProtectionBtn').addEventListener('click', showSettingsPage);
+            document.getElementById('setPinBtn').addEventListener('click', setPin);
+            document.getElementById('setPasswordBtn').addEventListener('click', setPassword);
+            document.getElementById('disableProtectionBtn').addEventListener('click', disableProtection);
+            
+            // Login page
+            document.getElementById('loginBtn').addEventListener('click', login);
+            document.getElementById('loginCredential').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    login();
+                }
+            });
+
+            // Set up tabs
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.addEventListener('click', function() {
+                    const tabId = this.getAttribute('data-tab');
+                    
+                    // Remove active class from all tabs and tab contents
+                    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                    
+                    // Add active class to selected tab and tab content
+                    this.classList.add('active');
+                    document.getElementById(tabId).classList.add('active');
+                });
+            });
+        });
+
+        // Wait for API to be ready
+        function waitForApi() {
+            console.log("Waiting for API to be ready...");
+            
+            // Show a loading indicator
+            document.getElementById('mainPage').style.display = 'none';
+            document.getElementById('loginPage').style.display = 'none';
+            
+            // Create a loading element if it doesn't exist
+            if (!document.getElementById('loadingIndicator')) {
+                const loadingDiv = document.createElement('div');
+                loadingDiv.id = 'loadingIndicator';
+                loadingDiv.style.position = 'fixed';
+                loadingDiv.style.top = '0';
+                loadingDiv.style.left = '0';
+                loadingDiv.style.width = '100%';
+                loadingDiv.style.height = '100%';
+                loadingDiv.style.display = 'flex';
+                loadingDiv.style.flexDirection = 'column';
+                loadingDiv.style.alignItems = 'center';
+                loadingDiv.style.justifyContent = 'center';
+                loadingDiv.style.backgroundColor = 'var(--background-color)';
+                loadingDiv.style.zIndex = '9999';
+                
+                const loadingText = document.createElement('h2');
+                loadingText.textContent = 'Loading WinOTP...';
+                loadingText.style.marginBottom = '20px';
+                
+                const spinner = document.createElement('div');
+                spinner.className = 'loading-spinner';
+                spinner.style.width = '40px';
+                spinner.style.height = '40px';
+                spinner.style.border = '4px solid var(--border-color)';
+                spinner.style.borderTop = '4px solid var(--primary-color)';
+                spinner.style.borderRadius = '50%';
+                spinner.style.animation = 'spin 1s linear infinite';
+                
+                // Add keyframes for spinner animation
+                const style = document.createElement('style');
+                style.textContent = '@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }';
+                document.head.appendChild(style);
+                
+                loadingDiv.appendChild(loadingText);
+                loadingDiv.appendChild(spinner);
+                document.body.appendChild(loadingDiv);
+            }
+            
+            // Check if API is available
+            const checkApi = () => {
+                if (window.pywebview && window.pywebview.api) {
+                    console.log("API is ready!");
+                    apiReady = true;
+                    
+                    // Remove loading indicator
+                    const loadingIndicator = document.getElementById('loadingIndicator');
+                    if (loadingIndicator) {
+                        document.body.removeChild(loadingIndicator);
+                    }
+                    
+                    // Check authentication status
+                    checkAuthStatus();
+                } else {
+                    console.log("API not ready yet, retrying...");
+                    setTimeout(checkApi, 100);
+                }
+            };
+            
+            // Start checking for API
+            checkApi();
+        }
+
+        // Check authentication status
+        async function checkAuthStatus() {
+            try {
+                if (!apiReady) {
+                    console.error("API not ready yet, cannot check auth status");
+                    showMainPage();
+                    return;
+                }
+                
+                const status = await window.pywebview.api.get_auth_status();
+                console.log("Auth status:", status);
+                
+                if (status.is_enabled && !status.is_authenticated) {
+                    // Show login page
+                    showLoginPage(status.auth_type);
+                } else {
+                    // Already authenticated or no auth required
+                    isAuthenticated = true;
+                    showMainPage();
+                    loadTokens();
+                }
+            } catch (error) {
+                console.error('Error checking auth status:', error);
+                // Default to showing main page
+                showMainPage();
+                loadTokens();
+            }
+        }
 
         // Function to load the plus icon
         async function loadPlusIcon() {
@@ -1002,136 +1324,47 @@
             }
         }
 
-        // Initialize the application
-        document.addEventListener('DOMContentLoaded', function() {
-            // Set up event listeners
-            document.getElementById('settingsBtn').addEventListener('click', showSettingsPage);
-            document.getElementById('backToMainBtn').addEventListener('click', showMainPage);
-            document.getElementById('addTokenBtn').addEventListener('click', showAddTokenPage);
-            document.getElementById('backFromAddTokenBtn').addEventListener('click', showMainPage);
-            document.getElementById('aboutBtnSettings').addEventListener('click', showAboutPage);
-            document.getElementById('backFromAboutBtn').addEventListener('click', showSettingsPage);
-            document.getElementById('uploadQrBtn').addEventListener('click', function() {
-                document.getElementById('qrFileInput').click();
-            });
-            document.getElementById('qrFileInput').addEventListener('change', handleQrFileUpload);
-            document.getElementById('saveTokenBtn').addEventListener('click', saveManualToken);
-            document.getElementById('saveUriTokenBtn').addEventListener('click', saveUriToken);
-            document.getElementById('toggleSortBtn').addEventListener('click', toggleSortOrder);
-            document.getElementById('searchInput').addEventListener('input', async (e) => {
-                searchTerm = e.target.value.toLowerCase();
-                await renderTokens();
-            });
-
-            // Import tokens button in settings
-            document.getElementById('importTokensBtn').addEventListener('click', showImportTokensPage);
-            // Back button from import page
-            document.getElementById('backFromImportBtn').addEventListener('click', showSettingsPage);
-            // Import from WinOTP button
-            document.getElementById('importFromWinOTPBtn').addEventListener('click', importFromWinOTP);
-
-            // Set up tabs
-            document.querySelectorAll('.tab').forEach(tab => {
-                tab.addEventListener('click', () => {
-                    const tabId = tab.getAttribute('data-tab');
-                    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-                    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-                    tab.classList.add('active');
-                    document.getElementById(tabId).classList.add('active');
-                });
-            });
-
-            // Check if API is available, if not, wait for it
-            checkAndInitializeApi();
-        });
-
-        // Check if the pywebview API is available and initialize the app
-        function checkAndInitializeApi() {
-            if (window.pywebview && window.pywebview.api) {
-                console.log("pywebview API is available, initializing app");
-                // Clear any existing interval
-                if (apiCheckInterval) {
-                    clearInterval(apiCheckInterval);
-                }
-                
-                // Load everything in parallel
-                Promise.all([
-                    // Load tokens
-                    loadTokens(),
-                    // Load all icons in parallel
-                    loadPlusIcon(),
-                    loadSortIcon(),
-                    loadSettingsIcon(),
-                    loadAboutIcon(),
-                    window.pywebview.api.get_icon_base64('copy.png').then(result => {
-                        if (result.status === 'success') {
-                            cachedCopyIcon = result.data;
-                        }
-                    }),
-                    window.pywebview.api.get_icon_base64('cross.png').then(result => {
-                        if (result.status === 'success') {
-                            cachedCrossIcon = result.data;
-                        }
-                    }),
-                    // Check NTP status
-                    checkNtpStatus()
-                ]).then(() => {
-                    // Start update interval after initial load
-                    updateInterval = setInterval(updateTokens, 1000); // Changed from 100ms to 1000ms
-                    renderTokens(); // Final render after all resources are loaded
-                });
-            } else {
-                console.log("pywebview API not available yet, waiting...");
-                // If we haven't set up the interval yet, do so
-                if (!apiCheckInterval) {
-                    // Show emoji placeholder if API doesn't become available within 3 seconds
-                    setTimeout(() => {
-                        if (!window.pywebview || !window.pywebview.api) {
-                            showEmojiPlaceholder();
-                            const sortBtn = document.getElementById('toggleSortBtn');
-                            sortBtn.innerHTML = '🔄';
-                            const settingsBtn = document.getElementById('settingsBtn');
-                            settingsBtn.innerHTML = '⚙️';
-                        }
-                    }, 3000); // Reduced from 5s to 3s
-                    apiCheckInterval = setInterval(checkAndInitializeApi, 100); // More frequent initial checks
-                    // Clear interval after 10 seconds if API still not available
-                    setTimeout(() => {
-                        if (apiCheckInterval) {
-                            clearInterval(apiCheckInterval);
-                            apiCheckInterval = setInterval(checkAndInitializeApi, 1000); // Slower checks after 10s
-                        }
-                    }, 10000);
-                }
-            }
-        }
-
-        // Load tokens from the backend
+        // Load tokens from the API
         async function loadTokens() {
             try {
-                if (!window.pywebview || !window.pywebview.api) {
-                    console.error("pywebview API not available");
-                    showNotification('Error: API not available', 'error');
+                if (!apiReady || !window.pywebview || !window.pywebview.api) {
+                    console.error("API not available for loading tokens");
                     return;
                 }
                 
                 const result = await window.pywebview.api.get_tokens();
-                // Check if result is an array (direct token list) or an object with status
-                if (Array.isArray(result)) {
-                    tokens = result;
-                } else if (result && Array.isArray(result.data)) {
-                    tokens = result.data;
-                } else {
-                    console.error("Unexpected response format from get_tokens:", result);
-                    tokens = []; // Ensure tokens is always an array
+                tokens = result;
+                await renderTokens();
+                
+                // Start update interval if not already started
+                if (!updateInterval) {
+                    updateInterval = setInterval(updateTokens, 1000);
                 }
                 
-                await renderTokens();
+                // Load icons if not already loaded
+                if (!cachedPlusIcon) loadPlusIcon();
+                if (!cachedSortAscIcon || !cachedSortDescIcon) loadSortIcon();
+                if (!cachedSettingsIcon) loadSettingsIcon();
+                if (!cachedAboutIcon) loadAboutIcon();
+                if (!cachedCopyIcon) {
+                    window.pywebview.api.get_icon_base64('copy.png').then(result => {
+                        if (result.status === 'success') {
+                            cachedCopyIcon = result.data;
+                        }
+                    });
+                }
+                if (!cachedCrossIcon) {
+                    window.pywebview.api.get_icon_base64('cross.png').then(result => {
+                        if (result.status === 'success') {
+                            cachedCrossIcon = result.data;
+                        }
+                    });
+                }
+                
+                return result;
             } catch (error) {
-                console.error("Error loading tokens:", error);
-                showNotification('Error loading tokens: ' + error, 'error');
-                tokens = []; // Ensure tokens is always an array
-                await renderTokens();
+                console.error('Error loading tokens:', error);
+                return [];
             }
         }
 
@@ -1659,6 +1892,9 @@
             } else if (document.getElementById('importTokensPage').style.display === 'block') {
                 document.getElementById('importTokensPage').classList.remove('fade-in');
                 document.getElementById('importTokensPage').classList.add('fade-out');
+            } else if (document.getElementById('appProtectionPage').style.display === 'block') {
+                document.getElementById('appProtectionPage').classList.remove('fade-in');
+                document.getElementById('appProtectionPage').classList.add('fade-out');
             } else {
                 document.getElementById('mainPage').classList.add('fade-out');
             }
@@ -1667,6 +1903,7 @@
                 document.getElementById('mainPage').style.display = 'none';
                 document.getElementById('aboutPage').style.display = 'none';
                 document.getElementById('importTokensPage').style.display = 'none';
+                document.getElementById('appProtectionPage').style.display = 'none';
                 document.getElementById('settingsPage').style.display = 'block';
                 
                 // Force reflow
@@ -2062,6 +2299,210 @@
             
             // Trigger file selection dialog
             fileInput.click();
+        }
+
+        // Show app protection page
+        function showAppProtectionPage() {
+            // Add transition classes
+            document.getElementById('settingsPage').classList.remove('fade-in');
+            document.getElementById('settingsPage').classList.add('fade-out');
+            
+            setTimeout(() => {
+                document.getElementById('settingsPage').style.display = 'none';
+                document.getElementById('appProtectionPage').style.display = 'block';
+                
+                // Force reflow
+                void document.getElementById('appProtectionPage').offsetWidth;
+                
+                document.getElementById('appProtectionPage').classList.add('fade-in');
+                
+                // Load back icon
+                loadBackIconForProtection();
+                
+                // Update protection status
+                updateProtectionStatus();
+            }, 300);
+        }
+
+        // Load back icon for protection page
+        function loadBackIconForProtection() {
+            if (!apiReady || !window.pywebview || !window.pywebview.api) {
+                console.error("API not available for loading back icon");
+                return;
+            }
+            
+            window.pywebview.api.get_icon_base64('back_arrow.png').then(function(result) {
+                if (result && result.status === 'success' && result.data) {
+                    document.getElementById('backFromProtectionIcon').src = 'data:image/png;base64,' + result.data;
+                } else {
+                    console.error('Error loading back icon:', result);
+                }
+            }).catch(function(error) {
+                console.error('Error loading back icon for protection page:', error);
+            });
+        }
+
+        // Update protection status
+        async function updateProtectionStatus() {
+            try {
+                const status = await window.pywebview.api.get_auth_status();
+                
+                if (status.is_enabled) {
+                    document.getElementById('protectionStatusText').textContent = 
+                        `Protected with ${status.auth_type === 'pin' ? 'PIN' : 'Password'}`;
+                    document.getElementById('disableProtectionSection').style.display = 'block';
+                } else {
+                    document.getElementById('protectionStatusText').textContent = 'Not protected';
+                    document.getElementById('disableProtectionSection').style.display = 'none';
+                }
+            } catch (error) {
+                console.error('Error getting protection status:', error);
+            }
+        }
+
+        // Set PIN protection
+        async function setPin() {
+            const pinInput = document.getElementById('pinInput');
+            const pin = pinInput.value.trim();
+            
+            if (!pin) {
+                showNotification('Please enter a PIN', 'error');
+                return;
+            }
+            
+            try {
+                const result = await window.pywebview.api.set_pin_protection(pin);
+                
+                if (result.status === 'success') {
+                    showNotification(result.message, 'success');
+                    pinInput.value = '';
+                    updateProtectionStatus();
+                } else {
+                    showNotification(result.message, 'error');
+                }
+            } catch (error) {
+                console.error('Error setting PIN:', error);
+                showNotification('Error setting PIN', 'error');
+            }
+        }
+
+        // Set password protection
+        async function setPassword() {
+            const passwordInput = document.getElementById('passwordInput');
+            const password = passwordInput.value.trim();
+            
+            if (!password) {
+                showNotification('Please enter a password', 'error');
+                return;
+            }
+            
+            try {
+                const result = await window.pywebview.api.set_password_protection(password);
+                
+                if (result.status === 'success') {
+                    showNotification(result.message, 'success');
+                    passwordInput.value = '';
+                    updateProtectionStatus();
+                } else {
+                    showNotification(result.message, 'error');
+                }
+            } catch (error) {
+                console.error('Error setting password:', error);
+                showNotification('Error setting password', 'error');
+            }
+        }
+
+        // Disable protection
+        async function disableProtection() {
+            try {
+                const result = await window.pywebview.api.disable_protection();
+                
+                if (result.status === 'success') {
+                    showNotification(result.message, 'success');
+                    updateProtectionStatus();
+                } else {
+                    showNotification(result.message, 'error');
+                }
+            } catch (error) {
+                console.error('Error disabling protection:', error);
+                showNotification('Error disabling protection', 'error');
+            }
+        }
+
+        // Show login page
+        function showLoginPage(authType) {
+            // Hide all other pages
+            document.getElementById('mainPage').style.display = 'none';
+            document.getElementById('settingsPage').style.display = 'none';
+            document.getElementById('addTokenPage').style.display = 'none';
+            document.getElementById('aboutPage').style.display = 'none';
+            document.getElementById('importTokensPage').style.display = 'none';
+            document.getElementById('appProtectionPage').style.display = 'none';
+            
+            // Update login page based on auth type
+            if (authType === 'pin') {
+                document.getElementById('loginTitle').textContent = 'Enter PIN';
+                document.getElementById('loginDescription').textContent = 'Please enter your PIN to access the app';
+                document.getElementById('loginCredential').placeholder = 'Enter your PIN';
+                document.getElementById('loginCredential').type = 'password';
+                document.getElementById('loginCredential').inputMode = 'numeric';
+                document.getElementById('loginCredential').pattern = '[0-9]*';
+            } else {
+                document.getElementById('loginTitle').textContent = 'Enter Password';
+                document.getElementById('loginDescription').textContent = 'Please enter your password to access the app';
+                document.getElementById('loginCredential').placeholder = 'Enter your password';
+                document.getElementById('loginCredential').type = 'password';
+                document.getElementById('loginCredential').inputMode = 'text';
+                document.getElementById('loginCredential').pattern = '';
+            }
+            
+            // Show login page
+            document.getElementById('loginPage').style.display = 'block';
+            
+            // Focus on credential input
+            document.getElementById('loginCredential').focus();
+        }
+
+        // Login
+        async function login() {
+            const credentialInput = document.getElementById('loginCredential');
+            const credential = credentialInput.value.trim();
+            
+            if (!credential) {
+                document.getElementById('loginError').textContent = 'Please enter your credential';
+                document.getElementById('loginError').style.display = 'block';
+                return;
+            }
+            
+            try {
+                if (!apiReady || !window.pywebview || !window.pywebview.api) {
+                    document.getElementById('loginError').textContent = 'API not available, please try again';
+                    document.getElementById('loginError').style.display = 'block';
+                    console.error("API not available for login");
+                    return;
+                }
+                
+                const result = await window.pywebview.api.verify_authentication(credential);
+                
+                if (result.status === 'success') {
+                    // Hide login page
+                    document.getElementById('loginPage').style.display = 'none';
+                    
+                    // Show main page
+                    isAuthenticated = true;
+                    showMainPage();
+                    loadTokens();
+                } else {
+                    document.getElementById('loginError').textContent = result.message;
+                    document.getElementById('loginError').style.display = 'block';
+                    credentialInput.value = '';
+                    credentialInput.focus();
+                }
+            } catch (error) {
+                console.error('Error during login:', error);
+                document.getElementById('loginError').textContent = 'An error occurred during login';
+                document.getElementById('loginError').style.display = 'block';
+            }
         }
     </script>
 </body>
