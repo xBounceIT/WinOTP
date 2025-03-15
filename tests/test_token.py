@@ -1,66 +1,105 @@
 import unittest
-import sys
-import os
-from datetime import datetime
-import time
-
-# Add the parent directory to sys.path so we can import the app modules
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
+from unittest.mock import patch, MagicMock
+import pyotp
+import re
 from models.token import Token
 
 class TestToken(unittest.TestCase):
-    """Test cases for the Token model."""
+    """Test cases for the Token class"""
     
     def setUp(self):
-        """Set up test fixtures."""
-        # Use a standard test secret for testing (from Google Authenticator docs)
-        self.test_issuer = "TestIssuer"
-        self.test_secret = "JBSWY3DPEHPK3PXP"  # This is a valid base32 secret
-        self.test_name = "TestAccount"
-        self.token = Token(self.test_issuer, self.test_secret, self.test_name)
-    
-    def test_token_initialization(self):
-        """Test that a token is properly initialized with the right attributes."""
-        self.assertEqual(self.token.issuer, self.test_issuer)
-        self.assertEqual(self.token.secret, self.test_secret)
-        self.assertEqual(self.token.name, self.test_name)
-        self.assertIsNotNone(self.token.totp)
-    
-    def test_get_code(self):
-        """Test that get_code() returns a 6-digit code."""
-        code = self.token.get_code()
-        self.assertIsNotNone(code)
-        self.assertTrue(code.isdigit())
-        self.assertEqual(len(code), 6)
-    
-    def test_get_time_remaining(self):
-        """Test that get_time_remaining() returns a value between 0 and 30."""
-        time_remaining = self.token.get_time_remaining()
-        self.assertIsInstance(time_remaining, int)
-        self.assertTrue(0 <= time_remaining <= 30)
+        """Set up test fixtures"""
+        # Valid base32 secret for testing
+        self.valid_secret = "JBSWY3DPEHPK3PXP"
+        self.issuer = "Test Issuer"
+        self.name = "Test Account"
         
-        # Test that time decreases if we wait
-        time.sleep(1)
-        new_time_remaining = self.token.get_time_remaining()
-        self.assertTrue(new_time_remaining <= time_remaining)
-    
+    def test_init(self):
+        """Test Token initialization"""
+        token = Token(self.issuer, self.valid_secret, self.name)
+        
+        self.assertEqual(token.issuer, self.issuer)
+        self.assertEqual(token.secret, self.valid_secret)
+        self.assertEqual(token.name, self.name)
+        self.assertIsInstance(token.totp, pyotp.TOTP)
+        
+    @patch('models.token.get_accurate_time')
+    def test_get_code(self, mock_get_accurate_time):
+        """Test code generation with mocked time"""
+        # Mock the time to get a predictable code
+        mock_get_accurate_time.return_value = 0
+        
+        token = Token(self.issuer, self.valid_secret, self.name)
+        
+        # Calculate expected code manually
+        expected_code = pyotp.TOTP(self.valid_secret).at(0)
+        
+        # Get the actual code
+        actual_code = token.get_code()
+        
+        # Verify the code
+        self.assertEqual(actual_code, expected_code)
+        self.assertTrue(len(actual_code) == 6)
+        self.assertTrue(re.match(r'^\d{6}$', actual_code))
+        
+    @patch('models.token.get_accurate_time')
+    def test_get_time_remaining(self, mock_get_accurate_time):
+        """Test time remaining calculation with mocked time"""
+        # Mock the time to get a predictable result
+        mock_get_accurate_time.return_value = 10  # 10 seconds into the period
+        
+        token = Token(self.issuer, self.valid_secret, self.name)
+        
+        # Default TOTP interval is 30 seconds
+        expected_remaining = 20  # 30 - 10 = 20
+        
+        # Get the actual time remaining
+        actual_remaining = token.get_time_remaining()
+        
+        # Verify the time remaining
+        self.assertEqual(actual_remaining, expected_remaining)
+        
     def test_validate_base32_secret_valid(self):
-        """Test that valid base32 secrets pass validation."""
-        # Valid secrets
-        self.assertTrue(Token.validate_base32_secret("JBSWY3DPEHPK3PXP"))
-        self.assertTrue(Token.validate_base32_secret("A" * 16))
-        self.assertTrue(Token.validate_base32_secret("234567ABCDEFGHIJKLMNOPQRSTUVWXYZ"))
-    
-    def test_validate_base32_secret_invalid(self):
-        """Test that invalid base32 secrets fail validation."""
-        # Invalid secrets (too short)
-        self.assertFalse(Token.validate_base32_secret("ABC"))
+        """Test validation of valid base32 secrets"""
+        # Test valid secrets
+        valid_secrets = [
+            "JBSWY3DPEHPK3PXP",  # Standard secret
+            "JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP",  # Longer secret
+            "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567"  # All valid chars
+        ]
         
-        # Invalid characters
-        self.assertFalse(Token.validate_base32_secret("JBSWY3DPEHPK3PXP1"))  # Contains '1'
-        self.assertFalse(Token.validate_base32_secret("JBSWY3DPEHPK3PXP!"))  # Contains '!'
-        self.assertFalse(Token.validate_base32_secret("jbswy3dpehpk3pxp"))  # Lowercase letters
+        for secret in valid_secrets:
+            self.assertTrue(Token.validate_base32_secret(secret))
+            
+    def test_validate_base32_secret_invalid(self):
+        """Test validation of invalid base32 secrets"""
+        # Test invalid secrets
+        invalid_secrets = [
+            "",  # Empty
+            "12345",  # Too short
+            "INVALID!",  # Invalid characters
+            "jbswy3dpehpk3pxp"  # Lowercase (base32 is uppercase)
+        ]
+        
+        for secret in invalid_secrets:
+            self.assertFalse(Token.validate_base32_secret(secret))
+            
+    @patch('models.token.get_accurate_time')
+    def test_code_changes_with_time(self, mock_get_accurate_time):
+        """Test that the code changes when the time period changes"""
+        # Set initial time
+        mock_get_accurate_time.return_value = 0
+        
+        token = Token(self.issuer, self.valid_secret, self.name)
+        code1 = token.get_code()
+        
+        # Move to next time period
+        mock_get_accurate_time.return_value = 30
+        
+        code2 = token.get_code()
+        
+        # Codes should be different
+        self.assertNotEqual(code1, code2)
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     unittest.main() 

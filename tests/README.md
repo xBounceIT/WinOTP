@@ -1,78 +1,49 @@
-# WinOTP Tests
+# WinOTP Test Suite
 
-This directory contains tests for the WinOTP application.
+This directory contains unit tests for the WinOTP application. The tests are organized by component and functionality.
+
+## Test Files
+
+- `test_token.py`: Tests for the Token model, including code generation and validation
+- `test_file_io.py`: Tests for file I/O operations
+- `test_ntp_sync.py`: Tests for NTP synchronization functionality
+- `test_qr_scanner.py`: Tests for QR code scanning functionality
+- `test_api.py`: Tests for the API class that handles application logic
 
 ## Running Tests
 
-There are multiple ways to run the tests:
+You can run the tests using pytest. From the project root directory:
 
-### 1. Run all tests from the project root
-
-```
-python run_tests.py
-```
-
-This will run all tests, including UI tests with mocked tkinter modules.
-
-### 2. Run only core non-UI tests
-
-If you're having issues with the UI mocking, you can run just the core functionality tests:
-
-```
-python tests/run_core_tests.py
-```
-
-These tests don't rely on tkinter mocking and should run without issues.
-
-### 3. Run individual test modules
-
-You can also run individual test modules:
-
-```
-python tests/test_token.py
-python tests/test_file_io.py
-python tests/test_qr_scanner.py
-python tests/test_mock_ui.py
-python tests/test_app.py
-```
-
-### 4. Run with pytest
-
-You can use pytest to run the tests with additional features like coverage reports:
-
-```
+```bash
+# Run all tests
 pytest
+
+# Run tests with coverage report
+pytest --cov=. --cov-report=term-missing
+
+# Run a specific test file
+pytest tests/test_token.py
+
+# Run a specific test
+pytest tests/test_token.py::TestToken::test_get_code
 ```
 
-## Test Module Overview
+## Test Configuration
 
-- **test_token.py**: Tests for the Token model, including OTP code generation
-- **test_file_io.py**: Tests for JSON file I/O utilities
-- **test_qr_scanner.py**: Tests for QR code scanning functionality
-- **test_mock_ui.py**: Simple tests to validate our UI mocking strategy
-- **test_app.py**: Tests for the main WinOTP application functionality
+The test configuration is defined in `pytest.ini` in the project root. It includes:
+- Test discovery patterns
+- Coverage reporting options
+- Verbosity settings
 
-## Troubleshooting
+## Adding New Tests
 
-### ImportError with tkinter
+When adding new tests:
+1. Create a new test file following the naming convention `test_*.py`
+2. Create test classes with the prefix `Test*`
+3. Create test methods with the prefix `test_*`
+4. Use pytest fixtures for setup and teardown
+5. Use mocks for external dependencies
 
-If you see errors like:
-```
-ModuleNotFoundError: No module named 'tkinter.font'; 'tkinter' is not a package
-```
+## Test Data
 
-Try running the core non-UI tests instead:
-```
-python tests/run_core_tests.py
-```
-
-### Install Test Dependencies
-
-Make sure you have all the required test dependencies installed:
-```
-pip install -r requirements_dev.txt
-```
-
-### Mock Objects
-
-The UI tests use extensive mocking of tkinter and other UI-related modules. If you encounter issues with the mocking mechanism, try updating the mock objects in test_app.py or test_mock_ui.py. 
+Some tests require test data. Test data is generated within the tests or stored in the `tests/data` directory. 

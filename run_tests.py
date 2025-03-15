@@ -1,14 +1,22 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """
-Main entry point to run all WinOTP tests.
-Run this from the project root directory.
+Test runner for WinOTP
+Run this script to execute all tests with coverage reporting
 """
-import os
+
 import sys
-import subprocess
+import pytest
 
 if __name__ == "__main__":
-    # Run the tests module
-    print("Running WinOTP tests...")
-    result = subprocess.call([sys.executable, os.path.join("tests", "run_tests.py")])
-    sys.exit(result) 
+    # Add command line arguments
+    args = [
+        "-v",                      # Verbose output
+        "--cov=.",                 # Coverage for all modules
+        "--cov-report=term-missing", # Show missing lines in coverage report
+    ]
+    
+    # Add any additional arguments from the command line
+    args.extend(sys.argv[1:])
+    
+    # Run pytest with the arguments
+    sys.exit(pytest.main(args)) 

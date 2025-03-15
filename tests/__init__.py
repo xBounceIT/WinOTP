@@ -1,3 +1,3 @@
 """
-Test package for WinOTP application.
+WinOTP Test Suite
 """ 

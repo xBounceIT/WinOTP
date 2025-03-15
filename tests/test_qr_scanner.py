@@ -1,123 +1,127 @@
 import unittest
-import sys
+from unittest.mock import patch, MagicMock
 import os
 import tempfile
 from PIL import Image, ImageDraw
-from unittest.mock import patch, MagicMock
-
-# Add the parent directory to sys.path so we can import the app modules
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
+import qrcode
 from utils.qr_scanner import scan_qr_image
 
 class TestQRScanner(unittest.TestCase):
-    """Test cases for QR scanner utilities."""
+    """Test cases for QR code scanning functionality"""
     
     def setUp(self):
-        """Set up test fixtures."""
+        """Set up test fixtures"""
         # Create a temporary directory for test files
         self.test_dir = tempfile.mkdtemp()
-    
+        
+        # Create test QR code images
+        self.create_test_qr_codes()
+        
     def tearDown(self):
-        """Tear down test fixtures."""
-        # Remove all test files
-        for file in os.listdir(self.test_dir):
-            os.remove(os.path.join(self.test_dir, file))
-        os.rmdir(self.test_dir)
-    
-    def create_dummy_image(self, filename):
-        """Helper to create a dummy image for testing."""
+        """Tear down test fixtures"""
+        try:
+            # Remove test files
+            for filename in os.listdir(self.test_dir):
+                try:
+                    os.remove(os.path.join(self.test_dir, filename))
+                except (PermissionError, OSError):
+                    # Skip files that can't be removed
+                    pass
+            os.rmdir(self.test_dir)
+        except (PermissionError, OSError):
+            # If we can't remove the directory, just log it
+            print(f"Warning: Could not remove temporary directory {self.test_dir}")
+        
+    def create_test_qr_codes(self):
+        """Create test QR code images"""
+        # Standard format: otpauth://totp/ISSUER:ACCOUNT?secret=SECRET&issuer=ISSUER
+        standard_data = "otpauth://totp/Test%20Issuer:test%40example.com?secret=JBSWY3DPEHPK3PXP&issuer=Test%20Issuer"
+        self.standard_qr_path = os.path.join(self.test_dir, "standard_qr.png")
+        self.create_qr_code(standard_data, self.standard_qr_path)
+        
+        # Alternative format: otpauth://totp/ACCOUNT?secret=SECRET&issuer=ISSUER
+        alt_data = "otpauth://totp/test%40example.com?secret=JBSWY3DPEHPK3PXP&issuer=Test%20Issuer"
+        self.alt_qr_path = os.path.join(self.test_dir, "alt_qr.png")
+        self.create_qr_code(alt_data, self.alt_qr_path)
+        
+        # Invalid format
+        invalid_data = "https://example.com"
+        self.invalid_qr_path = os.path.join(self.test_dir, "invalid_qr.png")
+        self.create_qr_code(invalid_data, self.invalid_qr_path)
+        
+        # Create a non-QR image
+        self.non_qr_path = os.path.join(self.test_dir, "non_qr.png")
         img = Image.new('RGB', (100, 100), color='white')
         d = ImageDraw.Draw(img)
-        d.rectangle([(20, 20), (80, 80)], fill="black")
+        d.rectangle([(20, 20), (80, 80)], fill='black')
+        img.save(self.non_qr_path)
         
-        img_path = os.path.join(self.test_dir, filename)
-        img.save(img_path)
-        return img_path
-    
-    @patch('utils.qr_scanner.decode')
-    def test_scan_valid_qr_code_format1(self, mock_decode):
-        """Test scanning a valid QR code with format: otpauth://totp/ISSUER:ACCOUNT?secret=SECRET."""
-        # Create test data
-        issuer = "Test Issuer"
-        account = "test@example.com"
-        secret = "JBSWY3DPEHPK3PXP"
+    def create_qr_code(self, data, path):
+        """Create a QR code image with the given data"""
+        qr = qrcode.QRCode(
+            version=1,
+            error_correction=qrcode.constants.ERROR_CORRECT_L,
+            box_size=10,
+            border=4,
+        )
+        qr.add_data(data)
+        qr.make(fit=True)
         
-        # Create a dummy image path
-        img_path = self.create_dummy_image("test_qr1.png")
+        img = qr.make_image(fill_color="black", back_color="white")
+        img.save(path)
         
-        # Mock the decode function to return data in the first format
-        mock_decoded_obj = MagicMock()
-        mock_decoded_obj.data.decode.return_value = f"otpauth://totp/{issuer}:{account}?secret={secret}&issuer={issuer}"
-        mock_decode.return_value = [mock_decoded_obj]
+    def test_scan_standard_format(self):
+        """Test scanning a QR code with standard format"""
+        result = scan_qr_image(self.standard_qr_path)
         
-        # Scan the QR code
-        result = scan_qr_image(img_path)
-        
-        # Check results
         self.assertIsNotNone(result)
         self.assertEqual(len(result), 3)
-        self.assertEqual(result[0], issuer)  # issuer
-        self.assertEqual(result[1], secret)  # secret
-        self.assertEqual(result[2], account)  # name/account
-    
-    @patch('utils.qr_scanner.decode')
-    def test_scan_valid_qr_code_format2(self, mock_decode):
-        """Test scanning a valid QR code with format: otpauth://totp/ACCOUNT?secret=SECRET&issuer=ISSUER."""
-        # Create test data
-        issuer = "Test Issuer"
-        account = "test@example.com"
-        secret = "JBSWY3DPEHPK3PXP"
         
-        # Create a dummy image path
-        img_path = self.create_dummy_image("test_qr2.png")
+        issuer, secret, name = result
+        self.assertEqual(issuer, "Test Issuer")
+        self.assertEqual(secret, "JBSWY3DPEHPK3PXP")
+        self.assertEqual(name, "test@example.com")
         
-        # Mock the decode function to return data in the second format
-        mock_decoded_obj = MagicMock()
-        mock_decoded_obj.data.decode.return_value = f"otpauth://totp/{account}?secret={secret}&issuer={issuer}"
-        mock_decode.return_value = [mock_decoded_obj]
+    def test_scan_alternative_format(self):
+        """Test scanning a QR code with alternative format"""
+        result = scan_qr_image(self.alt_qr_path)
         
-        # Scan the QR code
-        result = scan_qr_image(img_path)
-        
-        # Check results
         self.assertIsNotNone(result)
         self.assertEqual(len(result), 3)
-        self.assertEqual(result[0], issuer)  # issuer
-        self.assertEqual(result[1], secret)  # secret
-        self.assertEqual(result[2], account)  # name/account
-    
-    @patch('utils.qr_scanner.decode')
-    def test_scan_invalid_qr_code(self, mock_decode):
-        """Test scanning an invalid QR code that doesn't contain otpauth URL."""
-        # Create a dummy image path
-        img_path = self.create_dummy_image("invalid_qr.png")
         
-        # Mock the decode function to return invalid data
-        mock_decoded_obj = MagicMock()
-        mock_decoded_obj.data.decode.return_value = "This is not an otpauth URL"
-        mock_decode.return_value = [mock_decoded_obj]
+        issuer, secret, name = result
+        self.assertEqual(issuer, "Test Issuer")
+        self.assertEqual(secret, "JBSWY3DPEHPK3PXP")
+        self.assertEqual(name, "test@example.com")
         
-        # Scan the QR code
-        result = scan_qr_image(img_path)
+    def test_scan_invalid_format(self):
+        """Test scanning a QR code with invalid format"""
+        result = scan_qr_image(self.invalid_qr_path)
         
-        # Should return None for invalid data
         self.assertIsNone(result)
-    
+        
+    def test_scan_non_qr_image(self):
+        """Test scanning an image that is not a QR code"""
+        result = scan_qr_image(self.non_qr_path)
+        
+        self.assertIsNone(result)
+        
+    def test_scan_nonexistent_file(self):
+        """Test scanning a file that doesn't exist"""
+        result = scan_qr_image(os.path.join(self.test_dir, "nonexistent.png"))
+        
+        self.assertIsNone(result)
+        
     @patch('utils.qr_scanner.decode')
-    def test_scan_non_qr_image(self, mock_decode):
-        """Test scanning an image that doesn't contain a QR code."""
-        # Create a dummy image
-        img_path = self.create_dummy_image("non_qr.png")
+    def test_decode_error(self, mock_decode):
+        """Test handling of decode errors"""
+        # Mock decode to raise an exception
+        mock_decode.side_effect = Exception("Decode error")
         
-        # Mock the decode function to return empty list (no QR codes found)
-        mock_decode.return_value = []
+        # Use a path that doesn't require file access
+        result = scan_qr_image("nonexistent_file.png")
         
-        # Scan the non-QR image
-        result = scan_qr_image(img_path)
-        
-        # Should return None for non-QR image
         self.assertIsNone(result)
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     unittest.main() 
