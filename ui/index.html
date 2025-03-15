@@ -1346,20 +1346,8 @@
                 if (!cachedSortAscIcon || !cachedSortDescIcon) loadSortIcon();
                 if (!cachedSettingsIcon) loadSettingsIcon();
                 if (!cachedAboutIcon) loadAboutIcon();
-                if (!cachedCopyIcon) {
-                    window.pywebview.api.get_icon_base64('copy.png').then(result => {
-                        if (result.status === 'success') {
-                            cachedCopyIcon = result.data;
-                        }
-                    });
-                }
-                if (!cachedCrossIcon) {
-                    window.pywebview.api.get_icon_base64('cross.png').then(result => {
-                        if (result.status === 'success') {
-                            cachedCrossIcon = result.data;
-                        }
-                    });
-                }
+                if (!cachedCopyIcon) loadCopyIcon();
+                if (!cachedCrossIcon) loadCrossIcon();
                 
                 return result;
             } catch (error) {
@@ -1499,7 +1487,7 @@
                     <div class="token-code" id="code-${token.id}">
                         ${formatCode(token.code)}
                         <button class="copy-button" onclick="copyCode('${token.id}')">
-                            <img src="data:image/png;base64,${cachedCopyIcon}" alt="Copy code">
+                            ${cachedCopyIcon ? `<img src="data:image/png;base64,${cachedCopyIcon}" alt="Copy code">` : '📋'}
                         </button>
                     </div>
                     <div class="token-footer">
@@ -2502,6 +2490,52 @@
                 console.error('Error during login:', error);
                 document.getElementById('loginError').textContent = 'An error occurred during login';
                 document.getElementById('loginError').style.display = 'block';
+            }
+        }
+
+        // Load copy icon
+        async function loadCopyIcon() {
+            try {
+                if (!window.pywebview || !window.pywebview.api) {
+                    console.error("pywebview API not available for copy icon");
+                    return;
+                }
+                
+                const result = await window.pywebview.api.get_icon_base64('copy.png');
+                console.log("Copy icon load result:", result);
+                
+                if (result.status === 'success') {
+                    cachedCopyIcon = result.data;
+                    // Re-render tokens to show the icon
+                    renderTokens();
+                } else {
+                    console.error('Error loading copy icon:', result.message);
+                }
+            } catch (error) {
+                console.error('Exception loading copy icon:', error);
+            }
+        }
+
+        // Load cross icon
+        async function loadCrossIcon() {
+            try {
+                if (!window.pywebview || !window.pywebview.api) {
+                    console.error("pywebview API not available for cross icon");
+                    return;
+                }
+                
+                const result = await window.pywebview.api.get_icon_base64('cross.png');
+                console.log("Cross icon load result:", result);
+                
+                if (result.status === 'success') {
+                    cachedCrossIcon = result.data;
+                    // Re-render tokens to show the icon
+                    renderTokens();
+                } else {
+                    console.error('Error loading cross icon:', result.message);
+                }
+            } catch (error) {
+                console.error('Exception loading cross icon:', error);
             }
         }
     </script>
