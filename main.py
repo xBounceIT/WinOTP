@@ -13,6 +13,7 @@ import io
 from utils.file_io import read_json, write_json
 from utils.asset_manager import initialize_assets
 from utils.ntp_sync import start_ntp_sync, get_accurate_time, get_sync_status
+from models.token import Token  # Import Token class directly
 
 # Global variables
 tokens_path = "tokens.json"  # Default path
@@ -23,13 +24,12 @@ file_write_lock = threading.Lock()  # Lock for thread-safe file operations
 
 # Lazy imports for modules not needed at startup
 def import_lazy_modules():
-    global pyotp, gzip, Image, scan_qr_image, Token, calculate_offset, get_accurate_timestamp_30s
+    global pyotp, gzip, Image, scan_qr_image, calculate_offset, get_accurate_timestamp_30s
     
     import pyotp
     import gzip
     from PIL import Image
     from utils.qr_scanner import scan_qr_image
-    from models.token import Token
     from utils.ntp_sync import calculate_offset, get_accurate_timestamp_30s
     
     print("Lazy modules imported successfully")
@@ -97,16 +97,8 @@ class Api:
     
     def get_tokens(self):
         """Get all tokens with their current codes"""
-        global tokens, lazy_import_thread
+        global tokens
         result = []
-        
-        # Ensure lazy modules are imported
-        if lazy_import_thread and lazy_import_thread.is_alive():
-            lazy_import_thread.join(timeout=1.0)  # Wait for imports to complete with timeout
-        
-        # Import Token class if not already imported
-        if 'Token' not in globals():
-            from models.token import Token
         
         # Check if we need to reload tokens from disk
         self.check_reload_tokens()
@@ -238,6 +230,16 @@ class Api:
     def scan_qr_code(self, image_data):
         """Scan a QR code from image data"""
         try:
+            # Ensure PIL.Image is imported
+            if 'Image' not in globals():
+                from PIL import Image
+                print("Imported PIL.Image directly for QR scanning")
+                
+            # Ensure scan_qr_image is imported
+            if 'scan_qr_image' not in globals():
+                from utils.qr_scanner import scan_qr_image
+                print("Imported scan_qr_image directly for QR scanning")
+                
             # Decode base64 image
             image_data = base64.b64decode(image_data.split(',')[1])
             image = Image.open(io.BytesIO(image_data))
@@ -274,6 +276,11 @@ class Api:
             if not uri.startswith('otpauth://'):
                 return {"status": "error", "message": "Invalid OTP Auth URI format"}
             
+            # Ensure pyotp is imported
+            if 'pyotp' not in globals():
+                import pyotp
+                print("Imported pyotp directly for URI parsing")
+                
             # Parse the URI using pyotp
             try:
                 totp = pyotp.parse_uri(uri)
