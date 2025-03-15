@@ -733,20 +733,11 @@
             </div>
             <div class="header-actions">
                 <!-- Actions can be added here if needed in the future -->
+                <button class="btn btn-icon" id="aboutBtnSettings"><img id="aboutIcon" alt="About" width="20" height="20"></button>
             </div>
         </div>
         
         <div class="settings-content">
-            <div class="settings-section">
-                <h2>Display</h2>
-                <div class="setting-item">
-                    <div>
-                        <div class="setting-label">About WinOTP</div>
-                        <div class="setting-description">View information about this application</div>
-                    </div>
-                    <button class="btn" id="aboutBtnSettings">About</button>
-                </div>
-            </div>
             <div class="settings-section">
                 <h2>Time Synchronization</h2>
                 <div class="setting-item">
@@ -867,6 +858,7 @@
         let cachedSortDescIcon = ''; // Cache for the sort descending icon
         let cachedSettingsIcon = ''; // Cache for the settings icon
         let cachedCrossIcon = ''; // Cache for the cross icon
+        let cachedAboutIcon = ''; // Cache for the about icon
 
         // Function to load the plus icon
         async function loadPlusIcon() {
@@ -972,6 +964,7 @@
                     loadPlusIcon(),
                     loadSortIcon(),
                     loadSettingsIcon(),
+                    loadAboutIcon(),
                     window.pywebview.api.get_icon_base64('copy.png').then(result => {
                         if (result.status === 'success') {
                             cachedCopyIcon = result.data;
@@ -1442,6 +1435,41 @@
             }
         }
 
+        // Load the about icon
+        async function loadAboutIcon() {
+            try {
+                if (!window.pywebview || !window.pywebview.api) {
+                    console.error("pywebview API not available for about icon");
+                    return;
+                }
+                
+                const result = await window.pywebview.api.get_icon_base64('question.png');
+                console.log("About icon load result:", result);
+                
+                if (result.status === 'success') {
+                    cachedAboutIcon = result.data;
+                    const aboutIcon = document.getElementById('aboutIcon');
+                    if (aboutIcon) {
+                        aboutIcon.src = 'data:image/png;base64,' + cachedAboutIcon;
+                    }
+                } else {
+                    console.error('Error loading about icon:', result.message);
+                    showAboutEmojiPlaceholder();
+                }
+            } catch (error) {
+                console.error('Exception loading about icon:', error);
+                showAboutEmojiPlaceholder();
+            }
+        }
+
+        // Helper function to show about emoji placeholder
+        function showAboutEmojiPlaceholder() {
+            const aboutBtn = document.getElementById('aboutBtnSettings');
+            if (aboutBtn) {
+                aboutBtn.innerHTML = '?';
+            }
+        }
+
         // Check NTP synchronization status
         async function checkNtpStatus() {
             try {
@@ -1541,6 +1569,8 @@
                 checkNtpStatus();
                 // Load back icon
                 loadBackIcon();
+                // Load about icon
+                loadAboutIcon();
             }, 300);
         }
 
