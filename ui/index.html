@@ -754,6 +754,34 @@
         </div>
     </div>
 
+    <!-- About Page -->
+    <div class="container" id="aboutPage" style="display: none;">
+        <div class="header">
+            <div class="header-left">
+                <button id="backFromAboutBtn" class="btn btn-icon"><img id="backFromAboutIcon" alt="Back" width="20" height="20"></button>
+                <h1>About</h1>
+            </div>
+        </div>
+        
+        <div class="settings-content">
+            <div class="about-section">
+                <h2>WinOTP Authenticator</h2>
+                <p>A simple, secure TOTP authenticator for Windows with Windows Hello integration.</p>
+                <p>Version: 1.0.0</p>
+            </div>
+            <div class="about-section">
+                <h2>Features</h2>
+                <ul>
+                    <li>Generate TOTP codes for two-factor authentication</li>
+                    <li>Scan QR codes to add tokens</li>
+                    <li>Manual entry of token details</li>
+                    <li>NTP time synchronization for accurate codes</li>
+                    <li>Windows Hello integration for secure access</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
     <!-- Add Token Page -->
     <div class="container" id="addTokenPage" style="display: none;">
         <div class="header">
@@ -813,31 +841,6 @@
                 <div class="form-actions">
                     <button class="btn" id="saveUriTokenBtn">Add from URI</button>
                 </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- About Modal -->
-    <div id="aboutModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2>About WinOTP</h2>
-                <button class="modal-close" onclick="closeModal('aboutModal')">×</button>
-            </div>
-            <div class="about-section">
-                <h2>WinOTP Authenticator</h2>
-                <p>A simple, secure TOTP authenticator for Windows with Windows Hello integration.</p>
-                <p>Version: 1.0.0</p>
-            </div>
-            <div class="about-section">
-                <h2>Features</h2>
-                <ul>
-                    <li>Generate TOTP codes for two-factor authentication</li>
-                    <li>Scan QR codes to add tokens</li>
-                    <li>Manual entry of token details</li>
-                    <li>NTP time synchronization for accurate codes</li>
-                    <li>Windows Hello integration for secure access</li>
-                </ul>
             </div>
         </div>
     </div>
@@ -921,7 +924,8 @@
             document.getElementById('settingsBtn').addEventListener('click', () => showSettingsPage());
             document.getElementById('backToMainBtn').addEventListener('click', () => showMainPage());
             document.getElementById('backFromAddTokenBtn').addEventListener('click', () => showMainPage());
-            document.getElementById('aboutBtnSettings').addEventListener('click', () => openModal('aboutModal'));
+            document.getElementById('aboutBtnSettings').addEventListener('click', () => showAboutPage());
+            document.getElementById('backFromAboutBtn').addEventListener('click', () => showSettingsPage());
             document.getElementById('uploadQrBtn').addEventListener('click', () => document.getElementById('qrFileInput').click());
             document.getElementById('qrFileInput').addEventListener('change', handleQrFileUpload);
             document.getElementById('saveTokenBtn').addEventListener('click', saveManualToken);
@@ -1448,6 +1452,7 @@
                 
                 if (result.status === 'success') {
                     cachedAboutIcon = result.data;
+                    // Update the about icon in settings page
                     const aboutIcon = document.getElementById('aboutIcon');
                     if (aboutIcon) {
                         aboutIcon.src = 'data:image/png;base64,' + cachedAboutIcon;
@@ -1554,10 +1559,16 @@
         // Show settings page
         function showSettingsPage() {
             // Add transition classes
-            document.getElementById('mainPage').classList.add('fade-out');
+            if (document.getElementById('aboutPage').style.display === 'block') {
+                document.getElementById('aboutPage').classList.remove('fade-in');
+                document.getElementById('aboutPage').classList.add('fade-out');
+            } else {
+                document.getElementById('mainPage').classList.add('fade-out');
+            }
             
             setTimeout(() => {
                 document.getElementById('mainPage').style.display = 'none';
+                document.getElementById('aboutPage').style.display = 'none';
                 document.getElementById('settingsPage').style.display = 'block';
                 
                 // Force reflow
@@ -1571,6 +1582,26 @@
                 loadBackIcon();
                 // Load about icon
                 loadAboutIcon();
+            }, 300);
+        }
+
+        // Show about page
+        function showAboutPage() {
+            // Add transition classes
+            document.getElementById('settingsPage').classList.remove('fade-in');
+            document.getElementById('settingsPage').classList.add('fade-out');
+            
+            setTimeout(() => {
+                document.getElementById('settingsPage').style.display = 'none';
+                document.getElementById('aboutPage').style.display = 'block';
+                
+                // Force reflow
+                void document.getElementById('aboutPage').offsetWidth;
+                
+                document.getElementById('aboutPage').classList.add('fade-in');
+                
+                // Load back icon for about page
+                loadBackIconForAbout();
             }, 300);
         }
 
@@ -1605,11 +1636,15 @@
             } else if (document.getElementById('addTokenPage').style.display === 'block') {
                 document.getElementById('addTokenPage').classList.remove('fade-in');
                 document.getElementById('addTokenPage').classList.add('fade-out');
+            } else if (document.getElementById('aboutPage').style.display === 'block') {
+                document.getElementById('aboutPage').classList.remove('fade-in');
+                document.getElementById('aboutPage').classList.add('fade-out');
             }
             
             setTimeout(() => {
                 document.getElementById('settingsPage').style.display = 'none';
                 document.getElementById('addTokenPage').style.display = 'none';
+                document.getElementById('aboutPage').style.display = 'none';
                 document.getElementById('mainPage').style.display = 'block';
                 
                 // Force reflow
@@ -1681,6 +1716,40 @@
                 console.error('Exception loading back icon:', error);
                 // Fallback to emoji
                 const backBtn = document.getElementById('backFromAddTokenBtn');
+                if (backBtn) {
+                    backBtn.innerHTML = '←';
+                }
+            }
+        }
+
+        // Load back icon for about page
+        async function loadBackIconForAbout() {
+            try {
+                if (!window.pywebview || !window.pywebview.api) {
+                    console.error("pywebview API not available for back icon");
+                    return;
+                }
+                
+                const result = await window.pywebview.api.get_icon_base64('back_arrow.png');
+                console.log("Back icon load result:", result);
+                
+                if (result.status === 'success') {
+                    const backIcon = document.getElementById('backFromAboutIcon');
+                    if (backIcon) {
+                        backIcon.src = 'data:image/png;base64,' + result.data;
+                    }
+                } else {
+                    console.error('Error loading back icon:', result.message);
+                    // Fallback to emoji
+                    const backBtn = document.getElementById('backFromAboutBtn');
+                    if (backBtn) {
+                        backBtn.innerHTML = '←';
+                    }
+                }
+            } catch (error) {
+                console.error('Exception loading back icon:', error);
+                // Fallback to emoji
+                const backBtn = document.getElementById('backFromAboutBtn');
                 if (backBtn) {
                     backBtn.innerHTML = '←';
                 }
