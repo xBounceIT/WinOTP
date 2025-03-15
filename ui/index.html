@@ -703,6 +703,53 @@
                 --hover-color: #3a3a3a;
             }
         }
+
+        /* Import page styles */
+        .import-section {
+            margin-bottom: 30px;
+        }
+
+        .import-section p {
+            margin-bottom: 20px;
+            line-height: 1.5;
+        }
+
+        .import-options {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .btn-block {
+            display: block;
+            width: 100%;
+            text-align: left;
+            padding: 15px;
+            border-radius: 8px;
+            background-color: var(--card-background);
+            border: 1px solid var(--border-color);
+            cursor: pointer;
+        }
+
+        .btn-block:hover {
+            background-color: var(--hover-color);
+        }
+
+        .import-option-content {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .import-option-title {
+            font-weight: 500;
+            font-size: 16px;
+            margin-bottom: 5px;
+        }
+
+        .import-option-desc {
+            font-size: 14px;
+            color: #888;
+        }
     </style>
 </head>
 <body>
@@ -752,6 +799,17 @@
                     </div>
                 </div>
             </div>
+
+            <div class="settings-section">
+                <h2>Token Management</h2>
+                <div class="setting-item">
+                    <div>
+                        <div class="setting-label">Import Tokens</div>
+                        <div class="setting-description">Import authentication tokens from other sources</div>
+                    </div>
+                    <button id="importTokensBtn" class="btn">Import</button>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -779,6 +837,32 @@
                     <li>NTP time synchronization for accurate codes</li>
                     <li>Windows Hello integration for secure access</li>
                 </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Import Tokens Page -->
+    <div class="container" id="importTokensPage" style="display: none;">
+        <div class="header">
+            <div class="header-left">
+                <button id="backFromImportBtn" class="btn btn-icon"><img id="backFromImportIcon" alt="Back" width="20" height="20"></button>
+                <h1>Import Tokens</h1>
+            </div>
+        </div>
+        
+        <div class="settings-content">
+            <div class="import-section">
+                <p>Select a source to import your authentication tokens from:</p>
+                
+                <div class="import-options">
+                    <button id="importFromWinOTPBtn" class="btn btn-block">
+                        <div class="import-option-content">
+                            <span class="import-option-title">WinOTP Backup</span>
+                            <span class="import-option-desc">Import from another WinOTP instance or backup file</span>
+                        </div>
+                    </button>
+                    <!-- Additional import options can be added here in the future -->
+                </div>
             </div>
         </div>
     </div>
@@ -921,13 +1005,15 @@
         // Initialize the application
         document.addEventListener('DOMContentLoaded', function() {
             // Set up event listeners
-            document.getElementById('addTokenBtn').addEventListener('click', () => showAddTokenPage());
-            document.getElementById('settingsBtn').addEventListener('click', () => showSettingsPage());
-            document.getElementById('backToMainBtn').addEventListener('click', () => showMainPage());
-            document.getElementById('backFromAddTokenBtn').addEventListener('click', () => showMainPage());
-            document.getElementById('aboutBtnSettings').addEventListener('click', () => showAboutPage());
-            document.getElementById('backFromAboutBtn').addEventListener('click', () => showSettingsPage());
-            document.getElementById('uploadQrBtn').addEventListener('click', () => document.getElementById('qrFileInput').click());
+            document.getElementById('settingsBtn').addEventListener('click', showSettingsPage);
+            document.getElementById('backToMainBtn').addEventListener('click', showMainPage);
+            document.getElementById('addTokenBtn').addEventListener('click', showAddTokenPage);
+            document.getElementById('backFromAddTokenBtn').addEventListener('click', showMainPage);
+            document.getElementById('aboutBtnSettings').addEventListener('click', showAboutPage);
+            document.getElementById('backFromAboutBtn').addEventListener('click', showSettingsPage);
+            document.getElementById('uploadQrBtn').addEventListener('click', function() {
+                document.getElementById('qrFileInput').click();
+            });
             document.getElementById('qrFileInput').addEventListener('change', handleQrFileUpload);
             document.getElementById('saveTokenBtn').addEventListener('click', saveManualToken);
             document.getElementById('saveUriTokenBtn').addEventListener('click', saveUriToken);
@@ -936,6 +1022,13 @@
                 searchTerm = e.target.value.toLowerCase();
                 await renderTokens();
             });
+
+            // Import tokens button in settings
+            document.getElementById('importTokensBtn').addEventListener('click', showImportTokensPage);
+            // Back button from import page
+            document.getElementById('backFromImportBtn').addEventListener('click', showSettingsPage);
+            // Import from WinOTP button
+            document.getElementById('importFromWinOTPBtn').addEventListener('click', importFromWinOTP);
 
             // Set up tabs
             document.querySelectorAll('.tab').forEach(tab => {
@@ -1563,6 +1656,9 @@
             if (document.getElementById('aboutPage').style.display === 'block') {
                 document.getElementById('aboutPage').classList.remove('fade-in');
                 document.getElementById('aboutPage').classList.add('fade-out');
+            } else if (document.getElementById('importTokensPage').style.display === 'block') {
+                document.getElementById('importTokensPage').classList.remove('fade-in');
+                document.getElementById('importTokensPage').classList.add('fade-out');
             } else {
                 document.getElementById('mainPage').classList.add('fade-out');
             }
@@ -1570,6 +1666,7 @@
             setTimeout(() => {
                 document.getElementById('mainPage').style.display = 'none';
                 document.getElementById('aboutPage').style.display = 'none';
+                document.getElementById('importTokensPage').style.display = 'none';
                 document.getElementById('settingsPage').style.display = 'block';
                 
                 // Force reflow
@@ -1640,12 +1737,16 @@
             } else if (document.getElementById('aboutPage').style.display === 'block') {
                 document.getElementById('aboutPage').classList.remove('fade-in');
                 document.getElementById('aboutPage').classList.add('fade-out');
+            } else if (document.getElementById('importTokensPage').style.display === 'block') {
+                document.getElementById('importTokensPage').classList.remove('fade-in');
+                document.getElementById('importTokensPage').classList.add('fade-out');
             }
             
             setTimeout(() => {
                 document.getElementById('settingsPage').style.display = 'none';
                 document.getElementById('addTokenPage').style.display = 'none';
                 document.getElementById('aboutPage').style.display = 'none';
+                document.getElementById('importTokensPage').style.display = 'none';
                 document.getElementById('mainPage').style.display = 'block';
                 
                 // Force reflow
@@ -1856,6 +1957,111 @@
             }
 
             return { valid: true };
+        }
+
+        // Show import tokens page
+        function showImportTokensPage() {
+            // Add transition classes
+            document.getElementById('settingsPage').classList.remove('fade-in');
+            document.getElementById('settingsPage').classList.add('fade-out');
+            
+            setTimeout(() => {
+                document.getElementById('settingsPage').style.display = 'none';
+                document.getElementById('importTokensPage').style.display = 'block';
+                
+                // Force reflow
+                void document.getElementById('importTokensPage').offsetWidth;
+                
+                document.getElementById('importTokensPage').classList.add('fade-in');
+                
+                // Load back icon for import page
+                loadBackIconForImport();
+            }, 300);
+        }
+
+        // Load back icon for import page
+        async function loadBackIconForImport() {
+            try {
+                if (!window.pywebview || !window.pywebview.api) {
+                    console.error("pywebview API not available for back icon");
+                    return;
+                }
+                
+                const result = await window.pywebview.api.get_icon_base64('back_arrow.png');
+                console.log("Back icon load result for import page:", result);
+                
+                if (result.status === 'success') {
+                    const backIcon = document.getElementById('backFromImportIcon');
+                    if (backIcon) {
+                        backIcon.src = 'data:image/png;base64,' + result.data;
+                    }
+                } else {
+                    console.error('Error loading back icon for import page:', result.message);
+                    // Fallback to emoji
+                    const backBtn = document.getElementById('backFromImportBtn');
+                    if (backBtn) {
+                        backBtn.innerHTML = '←';
+                    }
+                }
+            } catch (error) {
+                console.error('Exception loading back icon for import page:', error);
+                // Fallback to emoji
+                const backBtn = document.getElementById('backFromImportBtn');
+                if (backBtn) {
+                    backBtn.innerHTML = '←';
+                }
+            }
+        }
+
+        // Import from WinOTP
+        function importFromWinOTP() {
+            // Create a hidden file input element
+            const fileInput = document.createElement('input');
+            fileInput.type = 'file';
+            fileInput.accept = '.json';
+            fileInput.style.display = 'none';
+            document.body.appendChild(fileInput);
+            
+            // Add event listener for file selection
+            fileInput.addEventListener('change', async function(event) {
+                const file = event.target.files[0];
+                if (!file) {
+                    document.body.removeChild(fileInput);
+                    return;
+                }
+                
+                const reader = new FileReader();
+                reader.onload = async function(e) {
+                    try {
+                        if (!window.pywebview || !window.pywebview.api) {
+                            console.error("pywebview API not available");
+                            showNotification('Error: API not available', 'error');
+                            document.body.removeChild(fileInput);
+                            return;
+                        }
+                        
+                        // Call API to import tokens
+                        const result = await window.pywebview.api.import_tokens_from_json(e.target.result);
+                        if (result.status === 'success') {
+                            showNotification(result.message, 'success');
+                            // Go back to main page to show the imported tokens
+                            showMainPage();
+                            loadTokens();
+                        } else {
+                            showNotification(result.message, 'error');
+                        }
+                    } catch (error) {
+                        showNotification('Error importing tokens: ' + error, 'error');
+                    }
+                    
+                    document.body.removeChild(fileInput);
+                };
+                
+                reader.readAsText(file);
+            });
+            
+            // Trigger file selection dialog
+            fileInput.click();
         }
     </script>
 </body>

@@ -308,6 +308,62 @@ class Api:
         except Exception as e:
             return {"status": "error", "message": f"Failed to add token from URI: {str(e)}"}
     
+    def import_tokens_from_json(self, json_str):
+        """Import tokens from a JSON string (typically from another WinOTP instance)"""
+        try:
+            # Parse JSON data
+            import_data = json.loads(json_str)
+            
+            # Validate import data format
+            if not isinstance(import_data, dict):
+                return {"status": "error", "message": "Invalid import format: Expected a JSON object"}
+            
+            # Count successful and failed imports
+            successful = 0
+            failed = 0
+            
+            # Process each token
+            for token_id, token_data in import_data.items():
+                try:
+                    # Validate token data
+                    if not token_data.get("secret"):
+                        failed += 1
+                        continue
+                    
+                    # Validate that the secret is a valid base32 string
+                    if not Token.validate_base32_secret(token_data.get("secret")):
+                        failed += 1
+                        continue
+                    
+                    # Add each token with a new ID (using existing add_token method)
+                    result = self.add_token({
+                        "issuer": token_data.get("issuer", "Unknown"),
+                        "name": token_data.get("name", "Unknown"),
+                        "secret": token_data.get("secret")
+                    })
+                    
+                    if result.get("status") == "success":
+                        successful += 1
+                    else:
+                        failed += 1
+                except Exception:
+                    failed += 1
+            
+            if successful > 0:
+                return {
+                    "status": "success", 
+                    "message": f"Successfully imported {successful} tokens" + 
+                              (f", {failed} failed" if failed > 0 else "")
+                }
+            elif failed > 0:
+                return {"status": "error", "message": f"Failed to import {failed} tokens"}
+            else:
+                return {"status": "warning", "message": "No tokens found in the import file"}
+        except json.JSONDecodeError:
+            return {"status": "error", "message": "Invalid JSON format"}
+        except Exception as e:
+            return {"status": "error", "message": f"Failed to import tokens: {str(e)}"}
+    
     def get_icon_base64(self, icon_name):
         """Get base64 encoded icon data"""
         try:
