@@ -993,6 +993,13 @@
                     </div>
                     <button id="importTokensBtn" class="btn">Import</button>
                 </div>
+                <div class="setting-item">
+                    <div>
+                        <div class="setting-label">Export Tokens</div>
+                        <div class="setting-description">Export your tokens to a backup file</div>
+                    </div>
+                    <button id="exportTokensBtn" class="btn">Export</button>
+                </div>
             </div>
         </div>
     </div>
@@ -1235,6 +1242,8 @@
             document.getElementById('saveTokenBtn').addEventListener('click', saveManualToken);
             document.getElementById('saveUriTokenBtn').addEventListener('click', saveUriToken);
             document.getElementById('toggleSortBtn').addEventListener('click', toggleSortOrder);
+            document.getElementById('importTokensBtn').addEventListener('click', importFromWinOTP);
+            document.getElementById('exportTokensBtn').addEventListener('click', exportTokens);
             document.getElementById('searchInput').addEventListener('input', async (e) => {
                 searchTerm = e.target.value.toLowerCase();
                 await renderTokens();
@@ -2649,6 +2658,31 @@
                 }
             } catch (error) {
                 console.error('Exception loading cross icon:', error);
+            }
+        }
+
+        // Export tokens to file
+        async function exportTokens() {
+            try {
+                if (!window.pywebview || !window.pywebview.api) {
+                    console.error("pywebview API not available");
+                    showNotification('Error: API not available', 'error');
+                    return;
+                }
+
+                // Export tokens using native file dialog
+                const result = await window.pywebview.api.export_tokens_to_json();
+                
+                if (result.status === 'success') {
+                    showNotification(result.message, 'success');
+                } else if (result.status === 'cancelled') {
+                    // User cancelled the file dialog, no need to show notification
+                    console.log('Export cancelled by user');
+                } else {
+                    showNotification(result.message, 'error');
+                }
+            } catch (error) {
+                showNotification('Error exporting tokens: ' + error, 'error');
             }
         }
     </script>

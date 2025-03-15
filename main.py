@@ -467,6 +467,37 @@ class Api:
             "is_authenticated": self.is_authenticated if auth_enabled else True
         }
 
+    def export_tokens_to_json(self):
+        """Export tokens to a JSON string"""
+        try:
+            # Convert tokens to JSON string with pretty printing
+            json_str = json.dumps(tokens, indent=4)
+            
+            # Get current date for default filename
+            default_filename = f"winotp_backup_{datetime.now().strftime('%Y-%m-%d')}.json"
+            
+            # Show save file dialog
+            file_path = self._window.create_file_dialog(
+                webview.SAVE_DIALOG,
+                directory='~',
+                save_filename=default_filename,
+                file_types=('JSON Files (*.json)',)
+            )
+            
+            if file_path:
+                # Ensure file has .json extension
+                if not file_path.lower().endswith('.json'):
+                    file_path += '.json'
+                    
+                # Write the file
+                with open(file_path, 'w') as f:
+                    f.write(json_str)
+                return {"status": "success", "message": "Tokens exported successfully"}
+            else:
+                return {"status": "cancelled", "message": "Export cancelled"}
+        except Exception as e:
+            return {"status": "error", "message": f"Failed to export tokens: {str(e)}"}
+
 def set_tokens_path(path):
     """Set the path to the tokens file"""
     global tokens_path
