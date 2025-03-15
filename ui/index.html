@@ -899,6 +899,29 @@
                 color: #999;
             }
         }
+
+        /* Add new styles for protection status badge */
+        .protection-status-badge {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 6px 12px;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 13px;
+            background-color: var(--border-color);
+            color: var(--text-color);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        .protection-status-badge.protected {
+            background-color: var(--success-color);
+            color: white;
+        }
+
+        .protection-status-badge.not-protected {
+            background-color: var(--error-color);
+            color: white;
+        }
     </style>
 </head>
 <body>
@@ -955,6 +978,7 @@
                     <div>
                         <div class="setting-label">App Protection</div>
                         <div class="setting-description">Protect the app with a PIN or password</div>
+                        <div id="settingsProtectionStatus" class="protection-status-badge"></div>
                     </div>
                     <button id="appProtectionBtn" class="btn">Configure</button>
                 </div>
@@ -1985,6 +2009,8 @@
                 
                 // Check NTP status immediately when settings page is shown
                 checkNtpStatus();
+                // Update protection status
+                updateProtectionStatus();
                 // Load back icon
                 loadBackIcon();
                 // Load about icon
@@ -2418,15 +2444,18 @@
         async function updateProtectionStatus() {
             try {
                 const status = await window.pywebview.api.get_auth_status();
+                const statusText = status.is_enabled 
+                    ? `Protected with ${status.auth_type === 'pin' ? 'PIN' : 'Password'}`
+                    : 'Not protected';
                 
-                if (status.is_enabled) {
-                    document.getElementById('protectionStatusText').textContent = 
-                        `Protected with ${status.auth_type === 'pin' ? 'PIN' : 'Password'}`;
-                    document.getElementById('disableProtectionSection').style.display = 'block';
-                } else {
-                    document.getElementById('protectionStatusText').textContent = 'Not protected';
-                    document.getElementById('disableProtectionSection').style.display = 'none';
-                }
+                // Update status in settings page
+                const settingsStatus = document.getElementById('settingsProtectionStatus');
+                settingsStatus.textContent = statusText;
+                settingsStatus.className = 'protection-status-badge ' + (status.is_enabled ? 'protected' : 'not-protected');
+                
+                // Update status in protection page
+                document.getElementById('protectionStatusText').textContent = statusText;
+                document.getElementById('disableProtectionSection').style.display = status.is_enabled ? 'block' : 'none';
             } catch (error) {
                 console.error('Error getting protection status:', error);
             }
