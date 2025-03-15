@@ -276,14 +276,22 @@ class Api:
             if not uri.startswith('otpauth://'):
                 return {"status": "error", "message": "Invalid OTP Auth URI format"}
             
-            # Ensure pyotp is imported
+            # Ensure pyotp is imported synchronously
             if 'pyotp' not in globals():
-                import pyotp
-                print("Imported pyotp directly for URI parsing")
+                try:
+                    global pyotp
+                    import pyotp
+                    print("Imported pyotp synchronously for URI parsing")
+                except ImportError as e:
+                    return {"status": "error", "message": f"Failed to import pyotp: {str(e)}"}
                 
             # Parse the URI using pyotp
             try:
                 totp = pyotp.parse_uri(uri)
+                
+                # Validate that the secret is a valid base32 string
+                if not Token.validate_base32_secret(totp.secret):
+                    return {"status": "error", "message": "Invalid secret: Not a valid base32 string"}
                 
                 # Extract token data
                 token_data = {

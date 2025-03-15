@@ -340,6 +340,7 @@
             z-index: 1001;
             opacity: 0;
             transition: opacity 0.3s;
+            pointer-events: none; /* Ensure notifications don't block clicks */
         }
 
         .notification.success {
@@ -836,7 +837,7 @@
                 <div class="form-group">
                     <label for="tokenUri">OTP Auth URI</label>
                     <input type="text" id="tokenUri" placeholder="otpauth://totp/...">
-                    <div class="input-description">Paste a complete otpauth:// URI</div>
+                    <div class="input-description">Paste a complete otpauth:// URI. The secret must be a valid base32 string (A-Z, 2-7).</div>
                 </div>
                 <div class="form-actions">
                     <button class="btn" id="saveUriTokenBtn">Add from URI</button>
@@ -1759,7 +1760,13 @@
         // Save token from URI
         async function saveUriToken() {
             const uri = document.getElementById('tokenUri').value.trim();
+            const saveButton = document.getElementById('saveUriTokenBtn');
 
+            // Ensure button is enabled at the start
+            saveButton.disabled = false;
+            saveButton.style.pointerEvents = 'auto';
+
+            // Client-side validation
             if (!uri) {
                 showNotification('URI is required', 'error');
                 return;
@@ -1770,13 +1777,25 @@
                 return;
             }
 
+            // Validate URI format and secret
+            const validationResult = validateOtpUri(uri);
+            if (!validationResult.valid) {
+                showNotification(validationResult.message, 'error');
+                return;
+            }
+
+            if (!window.pywebview || !window.pywebview.api) {
+                console.error("pywebview API not available");
+                showNotification('Error: API not available', 'error');
+                return;
+            }
+            
             try {
-                if (!window.pywebview || !window.pywebview.api) {
-                    console.error("pywebview API not available");
-                    showNotification('Error: API not available', 'error');
-                    return;
-                }
+                // Only disable the button during the actual API call
+                saveButton.disabled = true;
+                saveButton.style.pointerEvents = 'none';
                 
+                // API call
                 const result = await window.pywebview.api.add_token_from_uri(uri);
 
                 if (result.status === 'success') {
@@ -1788,8 +1807,55 @@
                     showNotification(result.message, 'error');
                 }
             } catch (error) {
+                console.error('Error adding token from URI:', error);
                 showNotification('Error adding token: ' + error, 'error');
+            } finally {
+                // Re-enable the button after API call
+                saveButton.disabled = false;
+                saveButton.style.pointerEvents = 'auto';
+                
+                // Force a style update
+                saveButton.style.backgroundColor = '';
+                saveButton.style.cursor = 'pointer';
             }
+        }
+
+        // Validate OTP Auth URI format and secret
+        function validateOtpUri(uri) {
+            // Basic format check
+            if (!uri.startsWith('otpauth://totp/')) {
+                return { valid: false, message: 'URI must start with otpauth://totp/' };
+            }
+
+            // Extract secret from URI
+            const secretMatch = uri.match(/secret=([^&]+)/);
+            if (!secretMatch) {
+                return { valid: false, message: 'Secret parameter is missing in URI' };
+            }
+
+            const secret = secretMatch[1];
+            
+            // Check if secret is valid base32 (A-Z and 2-7)
+            // Remove any padding characters
+            const cleanSecret = secret.replace(/=/g, '');
+            
+            // Check if the string only contains valid base32 characters
+            if (!/^[A-Z2-7]+$/.test(cleanSecret)) {
+                return { 
+                    valid: false, 
+                    message: 'Secret is not a valid base32 string. Only characters A-Z and 2-7 are allowed.' 
+                };
+            }
+            
+            // Most TOTP secrets should be at least 16 chars
+            if (cleanSecret.length < 16) {
+                return { 
+                    valid: false, 
+                    message: 'Secret is too short. It should be at least 16 characters long.' 
+                };
+            }
+
+            return { valid: true };
         }
     </script>
 </body>
