@@ -941,6 +941,55 @@
             line-height: 1.5;
             color: var(--text-color);
         }
+
+        .token-edit-form {
+            margin: 10px 0;
+            padding: 10px;
+            background-color: var(--background-color);
+            border-radius: 4px;
+            border: 1px solid var(--border-color);
+        }
+
+        .token-edit-form .form-group {
+            margin-bottom: 10px;
+        }
+
+        .token-edit-form label {
+            display: block;
+            margin-bottom: 5px;
+            color: var(--text-color);
+            font-size: 14px;
+        }
+
+        .token-edit-form input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            background-color: var(--card-background);
+            color: var(--text-color);
+            font-size: 14px;
+        }
+
+        .token-edit-form .form-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .token-edit-form .btn {
+            padding: 8px 16px;
+            font-size: 14px;
+        }
+
+        .token-edit-form .btn-secondary {
+            background-color: var(--border-color);
+            color: var(--text-color);
+        }
+
+        .token-edit-form .btn-secondary:hover {
+            background-color: var(--hover-color);
+        }
     </style>
 </head>
 <body>
@@ -1688,12 +1737,26 @@
                             <div class="token-name">${escapeHtml(token.name)}</div>
                         </div>
                         <div class="token-actions">
-                            <button class="btn btn-icon" onclick="editToken('${token.id}')">
+                            <button class="btn btn-icon" onclick="toggleEditMode('${token.id}')">
                                 ${cachedEditIcon ? `<img src="data:image/png;base64,${cachedEditIcon}" alt="Edit token" width="20" height="20">` : '✏️'}
                             </button>
                             <button class="btn btn-icon" onclick="deleteToken('${token.id}')">
                                 ${cachedCrossIcon ? `<img src="data:image/png;base64,${cachedCrossIcon}" alt="Delete token" width="20" height="20">` : '🗑️'}
                             </button>
+                        </div>
+                    </div>
+                    <div class="token-edit-form" id="edit-form-${token.id}" style="display: none;">
+                        <div class="form-group">
+                            <label for="editTokenIssuer-${token.id}">Issuer:</label>
+                            <input type="text" id="editTokenIssuer-${token.id}" value="${escapeHtml(token.issuer)}" />
+                        </div>
+                        <div class="form-group">
+                            <label for="editTokenName-${token.id}">Account Name:</label>
+                            <input type="text" id="editTokenName-${token.id}" value="${escapeHtml(token.name)}" />
+                        </div>
+                        <div class="form-actions">
+                            <button class="btn" onclick="saveTokenEdit('${token.id}')">Save</button>
+                            <button class="btn btn-secondary" onclick="toggleEditMode('${token.id}')">Cancel</button>
                         </div>
                     </div>
                     <div class="token-code" id="code-${token.id}">
@@ -2806,45 +2869,11 @@
         }
 
         // Edit token
-        async function editToken(tokenId) {
-            try {
-                if (!window.pywebview || !window.pywebview.api) {
-                    console.error("pywebview API not available");
-                    showNotification('Error: API not available', 'error');
-                    return;
-                }
-                
-                const token = tokens.find(t => t.id === tokenId);
-                if (!token) {
-                    showNotification('Token not found', 'error');
-                    return;
-                }
-
-                // Show edit form in a modal
-                const editModal = document.createElement('div');
-                editModal.className = 'modal';
-                editModal.id = 'editTokenModal';
-                editModal.innerHTML = `
-                    <div class="modal-content">
-                        <h2>Edit Token</h2>
-                        <div class="form-group">
-                            <label for="editTokenIssuer">Issuer:</label>
-                            <input type="text" id="editTokenIssuer" value="${escapeHtml(token.issuer)}" />
-                        </div>
-                        <div class="form-group">
-                            <label for="editTokenName">Account Name:</label>
-                            <input type="text" id="editTokenName" value="${escapeHtml(token.name)}" />
-                        </div>
-                        <div class="form-actions">
-                            <button class="btn" onclick="saveTokenEdit('${tokenId}')">Save</button>
-                            <button class="btn btn-secondary" onclick="closeModal('editTokenModal')">Cancel</button>
-                        </div>
-                    </div>
-                `;
-                document.body.appendChild(editModal);
-                editModal.style.display = 'block';
-            } catch (error) {
-                showNotification('Error editing token: ' + error, 'error');
+        function toggleEditMode(tokenId) {
+            const editForm = document.getElementById(`edit-form-${tokenId}`);
+            if (editForm) {
+                const isVisible = editForm.style.display !== 'none';
+                editForm.style.display = isVisible ? 'none' : 'block';
             }
         }
 
@@ -2857,8 +2886,8 @@
                     return;
                 }
 
-                const issuer = document.getElementById('editTokenIssuer').value.trim();
-                const name = document.getElementById('editTokenName').value.trim();
+                const issuer = document.getElementById(`editTokenIssuer-${tokenId}`).value.trim();
+                const name = document.getElementById(`editTokenName-${tokenId}`).value.trim();
 
                 if (!issuer && !name) {
                     showNotification('Please enter either issuer or account name', 'error');
@@ -2872,7 +2901,7 @@
 
                 if (result.status === 'success') {
                     showNotification(result.message, 'success');
-                    closeModal('editTokenModal');
+                    toggleEditMode(tokenId);
                     loadTokens();
                 } else {
                     showNotification(result.message, 'error');
