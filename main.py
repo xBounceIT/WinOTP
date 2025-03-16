@@ -17,7 +17,8 @@ from utils.asset_manager import initialize_assets
 from utils.ntp_sync import start_ntp_sync, get_accurate_time, get_sync_status
 from utils.auth import (
     set_pin, set_password, clear_auth, verify_pin, verify_password, 
-    is_auth_enabled, get_auth_type, hash_password
+    is_auth_enabled, get_auth_type, hash_password, set_timeout,
+    get_timeout, check_timeout
 )
 from utils.crypto import encrypt_tokens_file, decrypt_tokens_file
 from models.token import Token  # Import Token class directly
@@ -110,6 +111,7 @@ class Api:
         
         # Authentication state - initially not authenticated if auth is enabled
         self.is_authenticated = False
+        self.last_auth_time = None
         print(f"Initial authentication state: {self.is_authenticated}")
         
         # Start lazy import in background
@@ -577,28 +579,38 @@ class Api:
         if auth_type == "pin":
             if verify_pin(credential):
                 self.is_authenticated = True
+                self.last_auth_time = time.time()
                 return {"status": "success", "message": "Authentication successful"}
             else:
                 return {"status": "error", "message": "Incorrect PIN"}
         elif auth_type == "password":
             if verify_password(credential):
                 self.is_authenticated = True
+                self.last_auth_time = time.time()
                 return {"status": "success", "message": "Authentication successful"}
             else:
                 return {"status": "error", "message": "Incorrect password"}
         else:
             self.is_authenticated = True
+            self.last_auth_time = time.time()
             return {"status": "success", "message": "No authentication required"}
     
     def get_auth_status(self):
-        """Get the current authentication status and type"""
+        """Get current authentication status"""
         auth_enabled = is_auth_enabled()
         auth_type = get_auth_type()
+        
+        # Check if authentication has timed out
+        if auth_enabled and self.is_authenticated and self.last_auth_time:
+            if check_timeout(self.last_auth_time):
+                self.is_authenticated = False
+                self.last_auth_time = None
         
         return {
             "is_enabled": auth_enabled,
             "auth_type": auth_type,
-            "is_authenticated": self.is_authenticated if auth_enabled else True
+            "is_authenticated": self.is_authenticated,
+            "timeout_minutes": get_timeout()
         }
 
     def export_tokens_to_json(self):
@@ -657,6 +669,20 @@ class Api:
             return {"status": "error", "message": "Failed to save setting"}
         except Exception as e:
             return {"status": "error", "message": str(e)}
+
+    def set_protection_timeout(self, timeout_minutes):
+        """Set the protection timeout duration"""
+        try:
+            timeout_minutes = int(timeout_minutes)
+            if timeout_minutes < 0:
+                return {"status": "error", "message": "Timeout cannot be negative"}
+                
+            if set_timeout(timeout_minutes):
+                return {"status": "success", "message": "Protection timeout updated"}
+            else:
+                return {"status": "error", "message": "Failed to update protection timeout"}
+        except ValueError:
+            return {"status": "error", "message": "Invalid timeout value"}
 
 def set_tokens_path(path):
     """Set the path to the tokens file"""

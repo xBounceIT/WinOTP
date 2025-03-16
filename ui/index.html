@@ -929,17 +929,98 @@
 
         /* Add new styles for info box */
         .info-box {
-            background-color: var(--card-background);
-            border-left: 4px solid var(--primary-color);
+            background-color: var(--hover-color);
+            border-radius: 8px;
             padding: 15px;
             margin-bottom: 20px;
-            border-radius: 4px;
         }
-        
+
         .info-box p {
             margin: 0;
-            line-height: 1.5;
+            font-size: 14px;
             color: var(--text-color);
+            line-height: 1.5;
+        }
+
+        /* Add styles for timeout select */
+        .form-control {
+            width: 100%;
+            padding: 12px 15px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            background-color: var(--card-background);
+            color: var(--text-color);
+            font-size: 14px;
+            margin-top: 8px;
+            outline: none;
+            transition: all 0.2s ease;
+            cursor: pointer;
+            appearance: none;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right 15px center;
+            background-size: 16px;
+            padding-right: 45px;
+        }
+
+        .form-control:hover {
+            border-color: var(--primary-color);
+            background-color: var(--hover-color);
+        }
+
+        .form-control:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 2px rgba(0, 120, 215, 0.2);
+        }
+
+        .form-control option {
+            background-color: var(--card-background);
+            color: var(--text-color);
+            padding: 12px;
+            font-size: 14px;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            .form-control {
+                background-color: var(--card-background);
+                border-color: var(--border-color);
+            }
+            
+            .form-control:hover {
+                background-color: var(--hover-color);
+            }
+            
+            .form-control option {
+                background-color: var(--card-background);
+                color: var(--text-color);
+            }
+        }
+
+        /* Add styles for the form group containing the timeout select */
+        .form-group {
+            margin: 15px 0;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: var(--text-color);
+        }
+
+        .input-description {
+            font-size: 13px;
+            color: #666;
+            margin-top: 8px;
+            font-style: italic;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            .input-description {
+                color: #999;
+            }
         }
 
         .token-edit-form {
@@ -1034,6 +1115,21 @@
                         <div class="setting-description">Protect the app with a PIN or password</div>
                         <div id="settingsProtectionStatus" class="protection-status-badge"></div>
                         <div class="setting-description" style="margin-top: 10px; font-style: italic;">When protection is enabled, your tokens are automatically encrypted using your PIN/password</div>
+                        <div class="form-group" style="margin-top: 15px;">
+                            <label for="timeoutSelect">Re-authentication Timeout</label>
+                            <select id="timeoutSelect" class="form-control">
+                                <option value="0">Never</option>
+                                <option value="5">5 minutes</option>
+                                <option value="15">15 minutes</option>
+                                <option value="30">30 minutes</option>
+                                <option value="60">1 hour</option>
+                                <option value="120">2 hours</option>
+                                <option value="360">6 hours</option>
+                                <option value="720">12 hours</option>
+                                <option value="1440">24 hours</option>
+                            </select>
+                            <div class="input-description">Choose how long until re-authentication is required</div>
+                        </div>
                     </div>
                     <button id="appProtectionBtn" class="btn">Configure</button>
                 </div>
@@ -1254,7 +1350,7 @@
                             <button class="btn" id="setPasswordBtn">Set Password</button>
                         </div>
                     </div>
-                    
+
                     <div id="disableProtectionSection" style="margin-top: 30px; display: none;">
                         <div class="form-separator">
                             <span>OR</span>
@@ -1305,6 +1401,7 @@
         let isAuthenticated = false;
         let updateInterval;
         let apiCheckInterval;
+        let authCheckInterval;  // New interval for checking auth timeout
         let cachedCopyIcon = ''; // Cache for the copy icon
         let cachedPlusIcon = ''; // Cache for the plus icon
         let cachedSortAscIcon = ''; // Cache for the sort ascending icon
@@ -1342,52 +1439,7 @@
             });
 
             // Load minimize to tray setting
-            async function loadMinimizeToTraySetting() {
-                try {
-                    // Wait for pywebview API to be ready
-                    await waitForPywebviewApi();
-                    const result = await window.pywebview.api.get_minimize_to_tray();
-                    if (result.status === 'success') {
-                        document.getElementById('minimizeToTrayToggle').checked = result.enabled;
-                    }
-                } catch (error) {
-                    console.error('Error loading minimize to tray setting:', error);
-                }
-            }
-
-            // Helper function to wait for pywebview API
-            function waitForPywebviewApi() {
-                return new Promise((resolve, reject) => {
-                    const checkApi = () => {
-                        if (window.pywebview && window.pywebview.api) {
-                            resolve();
-                        } else {
-                            setTimeout(checkApi, 100);
-                        }
-                    };
-                    checkApi();
-                });
-            }
-
-            // Initialize minimize to tray setting and set up event listener
             loadMinimizeToTraySetting();
-            
-            // Minimize to tray toggle
-            document.getElementById('minimizeToTrayToggle').addEventListener('change', async function(e) {
-                try {
-                    const result = await window.pywebview.api.set_minimize_to_tray(e.target.checked);
-                    if (result.status === 'success') {
-                        showNotification(result.message, 'success');
-                    } else {
-                        showNotification(result.message, 'error');
-                        e.target.checked = !e.target.checked;
-                    }
-                } catch (error) {
-                    console.error('Error setting minimize to tray:', error);
-                    showNotification('Failed to update minimize to tray setting', 'error');
-                    e.target.checked = !e.target.checked;
-                }
-            });
 
             // Import tokens button in settings
             document.getElementById('importTokensBtn').addEventListener('click', showImportTokensPage);
@@ -1425,7 +1477,147 @@
                     document.getElementById(tabId).classList.add('active');
                 });
             });
+
+            // Start periodic auth check
+            startAuthCheck();
         });
+
+        // Helper function to wait for pywebview API
+        function waitForPywebviewApi() {
+            return new Promise((resolve, reject) => {
+                const checkApi = () => {
+                    if (window.pywebview && window.pywebview.api) {
+                        resolve();
+                    } else {
+                        setTimeout(checkApi, 100);
+                    }
+                };
+                checkApi();
+            });
+        }
+
+        // Load minimize to tray setting
+        async function loadMinimizeToTraySetting() {
+            try {
+                // Wait for pywebview API to be ready
+                await waitForPywebviewApi();
+                const result = await window.pywebview.api.get_minimize_to_tray();
+                if (result.status === 'success') {
+                    document.getElementById('minimizeToTrayToggle').checked = result.enabled;
+                }
+            } catch (error) {
+                console.error('Error loading minimize to tray setting:', error);
+            }
+        }
+
+        // Minimize to tray toggle
+        document.getElementById('minimizeToTrayToggle').addEventListener('change', async function(e) {
+            try {
+                const result = await window.pywebview.api.set_minimize_to_tray(e.target.checked);
+                if (result.status === 'success') {
+                    showNotification(result.message, 'success');
+                } else {
+                    showNotification(result.message, 'error');
+                    e.target.checked = !e.target.checked;
+                }
+            } catch (error) {
+                console.error('Error setting minimize to tray:', error);
+                showNotification('Failed to update minimize to tray setting', 'error');
+                e.target.checked = !e.target.checked;
+            }
+        });
+
+        // Function to start periodic auth check
+        function startAuthCheck() {
+            // Clear existing interval if any
+            if (authCheckInterval) {
+                clearInterval(authCheckInterval);
+            }
+            
+            // Check auth status every 30 seconds
+            authCheckInterval = setInterval(async () => {
+                try {
+                    const status = await window.pywebview.api.get_auth_status();
+                    if (status.is_enabled && !status.is_authenticated) {
+                        // Show login page if authentication has expired
+                        showLoginPage(status.auth_type);
+                    }
+                } catch (error) {
+                    console.error('Error checking auth status:', error);
+                }
+            }, 30000); // Check every 30 seconds
+        }
+
+        // Function to stop auth check
+        function stopAuthCheck() {
+            if (authCheckInterval) {
+                clearInterval(authCheckInterval);
+                authCheckInterval = null;
+            }
+        }
+
+        // Update showMainPage to restart auth check
+        function showMainPage() {
+            // Add transition classes
+            if (document.getElementById('settingsPage').style.display === 'block') {
+                document.getElementById('settingsPage').classList.remove('fade-in');
+                document.getElementById('settingsPage').classList.add('fade-out');
+            } else if (document.getElementById('addTokenPage').style.display === 'block') {
+                document.getElementById('addTokenPage').classList.remove('fade-in');
+                document.getElementById('addTokenPage').classList.add('fade-out');
+            } else if (document.getElementById('aboutPage').style.display === 'block') {
+                document.getElementById('aboutPage').classList.remove('fade-in');
+                document.getElementById('aboutPage').classList.add('fade-out');
+            } else if (document.getElementById('importTokensPage').style.display === 'block') {
+                document.getElementById('importTokensPage').classList.remove('fade-in');
+                document.getElementById('importTokensPage').classList.add('fade-out');
+            }
+            
+            setTimeout(() => {
+                document.getElementById('settingsPage').style.display = 'none';
+                document.getElementById('addTokenPage').style.display = 'none';
+                document.getElementById('aboutPage').style.display = 'none';
+                document.getElementById('importTokensPage').style.display = 'none';
+                document.getElementById('loginPage').style.display = 'none';
+                document.getElementById('mainPage').style.display = 'block';
+                
+                // Force reflow
+                void document.getElementById('mainPage').offsetWidth;
+                
+                document.getElementById('mainPage').classList.add('fade-in');
+                
+                // Load icons
+                loadPlusIcon();
+                loadSettingsIcon();
+                loadSortIcon();
+                
+                // Start auth check when returning to main page
+                startAuthCheck();
+                
+                // Load tokens
+                loadTokens();
+            }, 300);
+        }
+
+        // Update login function to start auth check after successful login
+        async function login() {
+            const credential = document.getElementById('loginCredential').value;
+            
+            try {
+                const result = await window.pywebview.api.verify_authentication(credential);
+                if (result.status === 'success') {
+                    document.getElementById('loginCredential').value = '';
+                    isAuthenticated = true;
+                    showMainPage();
+                    startAuthCheck();  // Start auth check after successful login
+                } else {
+                    showNotification(result.message, 'error');
+                }
+            } catch (error) {
+                console.error('Error during login:', error);
+                showNotification('Login failed', 'error');
+            }
+        }
 
         // Wait for API to be ready
         function waitForApi() {
@@ -2167,6 +2359,7 @@
                 document.getElementById('aboutPage').style.display = 'none';
                 document.getElementById('importTokensPage').style.display = 'none';
                 document.getElementById('appProtectionPage').style.display = 'none';
+                document.getElementById('loginPage').style.display = 'none';
                 document.getElementById('settingsPage').style.display = 'block';
                 
                 // Force reflow
@@ -2191,6 +2384,7 @@
             
             setTimeout(() => {
                 document.getElementById('settingsPage').style.display = 'none';
+                document.getElementById('loginPage').style.display = 'none';
                 document.getElementById('aboutPage').style.display = 'block';
                 
                 // Force reflow
@@ -2210,6 +2404,7 @@
             
             setTimeout(() => {
                 document.getElementById('mainPage').style.display = 'none';
+                document.getElementById('loginPage').style.display = 'none';
                 document.getElementById('addTokenPage').style.display = 'block';
                 
                 // Force reflow
@@ -2222,37 +2417,6 @@
                 
                 // Clear form fields
                 clearTokenForm();
-            }, 300);
-        }
-
-        // Show main page
-        function showMainPage() {
-            // Add transition classes
-            if (document.getElementById('settingsPage').style.display === 'block') {
-                document.getElementById('settingsPage').classList.remove('fade-in');
-                document.getElementById('settingsPage').classList.add('fade-out');
-            } else if (document.getElementById('addTokenPage').style.display === 'block') {
-                document.getElementById('addTokenPage').classList.remove('fade-in');
-                document.getElementById('addTokenPage').classList.add('fade-out');
-            } else if (document.getElementById('aboutPage').style.display === 'block') {
-                document.getElementById('aboutPage').classList.remove('fade-in');
-                document.getElementById('aboutPage').classList.add('fade-out');
-            } else if (document.getElementById('importTokensPage').style.display === 'block') {
-                document.getElementById('importTokensPage').classList.remove('fade-in');
-                document.getElementById('importTokensPage').classList.add('fade-out');
-            }
-            
-            setTimeout(() => {
-                document.getElementById('settingsPage').style.display = 'none';
-                document.getElementById('addTokenPage').style.display = 'none';
-                document.getElementById('aboutPage').style.display = 'none';
-                document.getElementById('importTokensPage').style.display = 'none';
-                document.getElementById('mainPage').style.display = 'block';
-                
-                // Force reflow
-                void document.getElementById('mainPage').offsetWidth;
-                
-                document.getElementById('mainPage').classList.remove('fade-out');
             }, 300);
         }
 
@@ -2467,6 +2631,7 @@
             
             setTimeout(() => {
                 document.getElementById('settingsPage').style.display = 'none';
+                document.getElementById('loginPage').style.display = 'none';
                 document.getElementById('importTokensPage').style.display = 'block';
                 
                 // Force reflow
@@ -2572,6 +2737,7 @@
             
             setTimeout(() => {
                 document.getElementById('settingsPage').style.display = 'none';
+                document.getElementById('loginPage').style.display = 'none';
                 document.getElementById('appProtectionPage').style.display = 'block';
                 
                 // Force reflow
@@ -2623,11 +2789,36 @@
                 protectionStatus.textContent = statusText;
                 protectionStatus.className = 'protection-status-badge ' + (status.is_enabled ? 'protected' : 'not-protected');
                 
+                // Update timeout select
+                const timeoutSelect = document.getElementById('timeoutSelect');
+                if (timeoutSelect) {
+                    timeoutSelect.value = status.timeout_minutes.toString();
+                }
+                
                 document.getElementById('disableProtectionSection').style.display = status.is_enabled ? 'block' : 'none';
             } catch (error) {
                 console.error('Error getting protection status:', error);
             }
         }
+
+        // Add event listener for timeout select
+        document.getElementById('timeoutSelect').addEventListener('change', async function(e) {
+            try {
+                const result = await window.pywebview.api.set_protection_timeout(e.target.value);
+                if (result.status === 'success') {
+                    showNotification(result.message, 'success');
+                } else {
+                    showNotification(result.message, 'error');
+                    // Reset to previous value
+                    updateProtectionStatus();
+                }
+            } catch (error) {
+                console.error('Error setting protection timeout:', error);
+                showNotification('Failed to update protection timeout', 'error');
+                // Reset to previous value
+                updateProtectionStatus();
+            }
+        });
 
         // Set PIN protection
         async function setPin() {
@@ -2730,48 +2921,6 @@
             
             // Focus on credential input
             document.getElementById('loginCredential').focus();
-        }
-
-        // Login
-        async function login() {
-            const credentialInput = document.getElementById('loginCredential');
-            const credential = credentialInput.value.trim();
-            
-            if (!credential) {
-                document.getElementById('loginError').textContent = 'Please enter your credential';
-                document.getElementById('loginError').style.display = 'block';
-                return;
-            }
-            
-            try {
-                if (!apiReady || !window.pywebview || !window.pywebview.api) {
-                    document.getElementById('loginError').textContent = 'API not available, please try again';
-                    document.getElementById('loginError').style.display = 'block';
-                    console.error("API not available for login");
-                    return;
-                }
-                
-                const result = await window.pywebview.api.verify_authentication(credential);
-                
-                if (result.status === 'success') {
-                    // Hide login page
-                    document.getElementById('loginPage').style.display = 'none';
-                    
-                    // Show main page
-                    isAuthenticated = true;
-                    showMainPage();
-                    loadTokens();
-                } else {
-                    document.getElementById('loginError').textContent = result.message;
-                    document.getElementById('loginError').style.display = 'block';
-                    credentialInput.value = '';
-                    credentialInput.focus();
-                }
-            } catch (error) {
-                console.error('Error during login:', error);
-                document.getElementById('loginError').textContent = 'An error occurred during login';
-                document.getElementById('loginError').style.display = 'block';
-            }
         }
 
         // Load copy icon

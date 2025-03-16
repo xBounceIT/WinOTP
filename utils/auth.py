@@ -192,4 +192,70 @@ def get_auth_type():
         return config.get("auth_type")
     except Exception as e:
         print(f"Error getting auth type: {e}")
-        return None 
+        return None
+
+def set_timeout(timeout_minutes):
+    """
+    Set the authentication timeout duration
+    
+    Args:
+        timeout_minutes (int): Number of minutes until re-authentication is required, 0 for never
+        
+    Returns:
+        bool: True if successful, False otherwise
+    """
+    try:
+        # Read existing config
+        config = read_json(AUTH_CONFIG_PATH) or {}
+        
+        # Update the config
+        config["timeout_minutes"] = timeout_minutes
+        
+        # Write the config
+        write_json(AUTH_CONFIG_PATH, config)
+        return True
+    except Exception as e:
+        print(f"Error setting timeout: {e}")
+        return False
+
+def get_timeout():
+    """
+    Get the current authentication timeout duration
+    
+    Returns:
+        int: Number of minutes until re-authentication is required, 0 for never
+    """
+    try:
+        # Read config
+        config = read_json(AUTH_CONFIG_PATH) or {}
+        
+        # Return timeout setting
+        return config.get("timeout_minutes", 0)
+    except Exception as e:
+        print(f"Error getting timeout: {e}")
+        return 0
+
+def check_timeout(last_auth_time):
+    """
+    Check if the authentication has timed out
+    
+    Args:
+        last_auth_time (float): Timestamp of the last successful authentication
+        
+    Returns:
+        bool: True if authentication has timed out, False otherwise
+    """
+    try:
+        timeout_minutes = get_timeout()
+        
+        # If timeout is 0, authentication never expires
+        if timeout_minutes == 0:
+            return False
+            
+        # Check if enough time has passed
+        import time
+        elapsed_minutes = (time.time() - last_auth_time) / 60
+        return elapsed_minutes >= timeout_minutes
+    except Exception as e:
+        print(f"Error checking timeout: {e}")
+        return True  # Default to requiring re-authentication on error 
