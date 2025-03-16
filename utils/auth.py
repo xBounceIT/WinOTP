@@ -246,6 +246,10 @@ def check_timeout(last_auth_time):
         bool: True if authentication has timed out, False otherwise
     """
     try:
+        # If protection is disabled, never timeout
+        if not is_auth_enabled():
+            return False
+            
         timeout_minutes = get_timeout()
         
         # If timeout is 0, authentication never expires

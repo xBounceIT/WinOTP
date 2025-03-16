@@ -563,6 +563,9 @@ class Api:
         
         # Clear the protection
         if clear_auth():
+            # Set timeout to 0 (never) when disabling protection
+            set_timeout(0)
+            
             # Save the tokens without encryption
             try:
                 write_json(tokens_path, current_tokens)

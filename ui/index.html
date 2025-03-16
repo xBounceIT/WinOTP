@@ -2791,10 +2791,14 @@
                 protectionStatus.textContent = statusText;
                 protectionStatus.className = 'protection-status-badge ' + (status.is_enabled ? 'protected' : 'not-protected');
                 
-                // Update timeout select
-                const timeoutSelect = document.getElementById('timeoutSelect');
-                if (timeoutSelect) {
-                    timeoutSelect.value = status.timeout_minutes.toString();
+                // Update timeout select visibility and value
+                const timeoutSelectContainer = document.getElementById('timeoutSelect').parentElement;
+                if (status.is_enabled) {
+                    timeoutSelectContainer.style.display = 'block';
+                    document.getElementById('timeoutSelect').value = status.timeout_minutes.toString();
+                } else {
+                    timeoutSelectContainer.style.display = 'none';
+                    document.getElementById('timeoutSelect').value = '0'; // Set to "Never" when disabled
                 }
                 
                 // Show/hide protection forms and disable button based on status
