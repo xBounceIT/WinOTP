@@ -1,60 +1,85 @@
 # WinOTP
 
-A Windows TOTP Authenticator application built with Python and PyWebView.
+A secure and user-friendly Windows desktop application for managing Two-Factor Authentication (2FA) tokens.
 
 ## Features
 
-- Add TOTP tokens manually or by scanning QR codes
-- Copy TOTP codes to clipboard with a single click
-- Search and sort tokens
-- Dark mode UI
-- Import/export tokens
-- NTP time synchronization for accurate TOTP codes
+- Desktop-based OTP token management
+- QR code scanning support
+- Secure token storage with encryption
+- Modern and intuitive user interface
+- Automatic time synchronization
+- System tray integration
 
-## Project Structure
+## Prerequisites
 
-The project has a modular structure:
-
-```
-WinOTP/
-├── main.py                 # Entry point and API implementation
-├── ui/                     # UI files
-│   └── index.html          # Main HTML interface
-├── models/                 # Data models
-│   └── token.py            # Token model
-├── utils/                  # Utility functions
-│   ├── asset_manager.py    # Asset management
-│   ├── file_io.py          # File I/O operations
-│   ├── ntp_sync.py         # NTP time synchronization
-│   └── qr_scanner.py       # QR code scanning
-├── tokens.json             # Token storage (production)
-└── tokens.json.dev         # Token storage (development)
-```
-
-## How It Works
-
-This application uses PyWebView to create a desktop application with a web-based UI:
-
-1. Python backend handles token management, TOTP generation, and file operations
-2. HTML/CSS/JavaScript frontend provides the user interface
-3. PyWebView bridges the gap between the two, allowing JavaScript to call Python functions directly
+- Windows 10 or later
+- Python 3.8+
+- Camera (optional, for QR code scanning)
 
 ## Installation
 
-1. Clone the repository
-2. Install the required packages: `pip install -r requirements.txt`
-3. Run the application: `python main.py`
+1. Clone the repository:
+```bash
+git clone https://github.com/xBounceIT/WinOTP.git
+cd WinOTP
+```
+
+2. Install the required dependencies:
+```bash
+pip install -r requirements.txt
+```
+
+## Project Structure
+
+- `/api` - API endpoints and interfaces
+- `/core` - Core application logic
+- `/models` - Data models and schemas
+- `/static` - Static assets and resources
+- `/tests` - Test suite
+- `/ui` - User interface components
+- `/utils` - Utility functions and helpers
+
+## Configuration
+
+The application uses several configuration files:
+
+- `auth_config.json` - Authentication configuration
+- `app_settings.json` - Application settings
+- `tokens.json` - Encrypted token storage (do not edit manually)
 
 ## Development
 
-To run the application in debug mode:
+### Running Tests
 
-```
-python main.py --debug
+```bash
+python run_tests.py
 ```
 
-This will use the development token file (`tokens.json.dev`) and enable debug logging.
+Test coverage reports can be found in the `.coverage` file.
+
+### Development Environment
+
+The project includes configuration files for VS Code in the `.vscode` directory.
+
+## Security
+
+- All tokens are encrypted at rest using strong cryptography
+- No cloud storage or network transmission of tokens
+- Local-only storage with secure encryption
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Commit your changes
+4. Push to the branch
+5. Create a Pull Request
 
 ## License
 
-[MIT License](LICENSE)
+This project is licensed under the terms specified in the [LICENSE](LICENSE) file. Please refer to the LICENSE file for detailed licensing information and terms of use.
+
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for a detailed list of changes. 
