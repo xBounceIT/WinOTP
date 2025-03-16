@@ -922,6 +922,21 @@
             background-color: var(--error-color);
             color: white;
         }
+
+        /* Add new styles for info box */
+        .info-box {
+            background-color: var(--card-background);
+            border-left: 4px solid var(--primary-color);
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 4px;
+        }
+        
+        .info-box p {
+            margin: 0;
+            line-height: 1.5;
+            color: var(--text-color);
+        }
     </style>
 </head>
 <body>
@@ -965,6 +980,7 @@
                         <div class="setting-label">App Protection</div>
                         <div class="setting-description">Protect the app with a PIN or password</div>
                         <div id="settingsProtectionStatus" class="protection-status-badge"></div>
+                        <div class="setting-description" style="margin-top: 10px; font-style: italic;">When protection is enabled, your tokens are automatically encrypted using your PIN/password</div>
                     </div>
                     <button id="appProtectionBtn" class="btn">Configure</button>
                 </div>
@@ -1137,8 +1153,12 @@
                 <div id="protectionStatus" class="setting-item" style="margin-bottom: 20px;">
                     <div>
                         <div class="setting-label">Current Status</div>
-                        <div id="protectionStatusText" class="setting-description">Not protected</div>
+                        <div id="protectionStatusText" class="protection-status-badge"></div>
                     </div>
+                </div>
+                
+                <div class="info-box">
+                    <p>When you enable protection, your tokens will be automatically encrypted using your PIN/password. This ensures that only you can access your tokens when the app is locked.</p>
                 </div>
                 
                 <div class="protection-options">
@@ -2509,7 +2529,10 @@
                 settingsStatus.className = 'protection-status-badge ' + (status.is_enabled ? 'protected' : 'not-protected');
                 
                 // Update status in protection page
-                document.getElementById('protectionStatusText').textContent = statusText;
+                const protectionStatus = document.getElementById('protectionStatusText');
+                protectionStatus.textContent = statusText;
+                protectionStatus.className = 'protection-status-badge ' + (status.is_enabled ? 'protected' : 'not-protected');
+                
                 document.getElementById('disableProtectionSection').style.display = status.is_enabled ? 'block' : 'none';
             } catch (error) {
                 console.error('Error getting protection status:', error);

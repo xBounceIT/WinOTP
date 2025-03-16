@@ -17,12 +17,14 @@ from utils.asset_manager import initialize_assets
 from utils.ntp_sync import start_ntp_sync, get_accurate_time, get_sync_status
 from utils.auth import (
     set_pin, set_password, clear_auth, verify_pin, verify_password, 
-    is_auth_enabled, get_auth_type
+    is_auth_enabled, get_auth_type, hash_password
 )
+from utils.crypto import encrypt_tokens_file, decrypt_tokens_file
 from models.token import Token  # Import Token class directly
 
 # Global variables
 tokens_path = "tokens.json"  # Default path
+AUTH_CONFIG_PATH = "auth_config.json"  # Auth config file path
 tokens = {}  # Store tokens data
 sort_ascending = True  # Default sort order
 last_tokens_update = 0  # Track when tokens were last updated from disk
@@ -142,7 +144,18 @@ class Api:
         """Load tokens from the tokens file"""
         global tokens, last_tokens_update
         try:
-            tokens_data = read_json(tokens_path)
+            # Get current auth type and credentials
+            auth_type = get_auth_type()
+            config = read_json(AUTH_CONFIG_PATH) or {}
+            
+            # Try to decrypt tokens if auth is enabled
+            if auth_type == "pin":
+                tokens_data = decrypt_tokens_file(tokens_path, config.get("pin_hash", ""))
+            elif auth_type == "password":
+                tokens_data = decrypt_tokens_file(tokens_path, config.get("password_hash", ""))
+            else:
+                tokens_data = read_json(tokens_path)
+            
             if tokens_data:
                 tokens = tokens_data
                 last_tokens_update = time.time()
@@ -159,9 +172,24 @@ class Api:
         global tokens, last_tokens_update
         try:
             with file_write_lock:
-                write_json(tokens_path, tokens)
-                last_tokens_update = time.time()
-            return {"status": "success", "message": "Tokens saved successfully"}
+                # Get current auth type and credentials
+                auth_type = get_auth_type()
+                config = read_json(AUTH_CONFIG_PATH) or {}
+                
+                # Encrypt tokens if auth is enabled
+                if auth_type == "pin":
+                    success = encrypt_tokens_file(tokens_path, config.get("pin_hash", ""))
+                elif auth_type == "password":
+                    success = encrypt_tokens_file(tokens_path, config.get("password_hash", ""))
+                else:
+                    write_json(tokens_path, tokens)
+                    success = True
+                
+                if success:
+                    last_tokens_update = time.time()
+                    return {"status": "success", "message": "Tokens saved successfully"}
+                else:
+                    return {"status": "error", "message": "Failed to save tokens"}
         except Exception as e:
             return {"status": "error", "message": f"Failed to save tokens: {str(e)}"}
     
@@ -471,7 +499,13 @@ class Api:
             
         # Set the PIN
         if set_pin(pin):
-            return {"status": "success", "message": "PIN protection enabled"}
+            # Encrypt the tokens file with the new PIN
+            if encrypt_tokens_file(tokens_path, hash_password(pin)):
+                return {"status": "success", "message": "PIN protection enabled"}
+            else:
+                # If encryption fails, clear the PIN
+                clear_auth()
+                return {"status": "error", "message": "Failed to encrypt tokens with PIN"}
         else:
             return {"status": "error", "message": "Failed to set PIN protection"}
     
@@ -482,14 +516,37 @@ class Api:
             
         # Set the password
         if set_password(password):
-            return {"status": "success", "message": "Password protection enabled"}
+            # Encrypt the tokens file with the new password
+            if encrypt_tokens_file(tokens_path, hash_password(password)):
+                return {"status": "success", "message": "Password protection enabled"}
+            else:
+                # If encryption fails, clear the password
+                clear_auth()
+                return {"status": "error", "message": "Failed to encrypt tokens with password"}
         else:
             return {"status": "error", "message": "Failed to set password protection"}
     
     def disable_protection(self):
         """Disable PIN/password protection"""
+        # Load the current tokens before disabling protection
+        auth_type = get_auth_type()
+        config = read_json(AUTH_CONFIG_PATH) or {}
+        
+        if auth_type == "pin":
+            current_tokens = decrypt_tokens_file(tokens_path, config.get("pin_hash", ""))
+        elif auth_type == "password":
+            current_tokens = decrypt_tokens_file(tokens_path, config.get("password_hash", ""))
+        else:
+            current_tokens = read_json(tokens_path)
+        
+        # Clear the protection
         if clear_auth():
-            return {"status": "success", "message": "Protection disabled"}
+            # Save the tokens without encryption
+            try:
+                write_json(tokens_path, current_tokens)
+                return {"status": "success", "message": "Protection disabled"}
+            except Exception as e:
+                return {"status": "error", "message": f"Failed to save unencrypted tokens: {str(e)}"}
         else:
             return {"status": "error", "message": "Failed to disable protection"}
     
