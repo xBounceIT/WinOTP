@@ -8,6 +8,8 @@ import time
 from datetime import datetime
 import base64
 import io
+import pystray
+from PIL import Image
 
 # Import utilities
 from utils.file_io import read_json, write_json
@@ -25,6 +27,53 @@ tokens = {}  # Store tokens data
 sort_ascending = True  # Default sort order
 last_tokens_update = 0  # Track when tokens were last updated from disk
 file_write_lock = threading.Lock()  # Lock for thread-safe file operations
+settings_path = "app_settings.json"  # Settings file path
+tray_icon = None  # Global tray icon instance
+
+def load_settings():
+    """Load application settings"""
+    try:
+        if os.path.exists(settings_path):
+            return read_json(settings_path)
+        return {"minimize_to_tray": False}
+    except Exception as e:
+        print(f"Error loading settings: {e}")
+        return {"minimize_to_tray": False}
+
+def save_settings(settings):
+    """Save application settings"""
+    try:
+        write_json(settings_path, settings)
+        return True
+    except Exception as e:
+        print(f"Error saving settings: {e}")
+        return False
+
+def create_tray_icon(window):
+    """Create system tray icon"""
+    try:
+        # Load the icon image
+        icon_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "icons", "app.png")
+        image = Image.open(icon_path)
+
+        def show_window():
+            window.show()
+            window.restore()
+
+        def quit_app():
+            window.destroy()
+            tray_icon.stop()
+
+        # Create the tray icon
+        menu = (
+            pystray.MenuItem("Show", show_window),
+            pystray.MenuItem("Quit", quit_app)
+        )
+        icon = pystray.Icon("WinOTP", image, "WinOTP", menu)
+        return icon
+    except Exception as e:
+        print(f"Error creating tray icon: {e}")
+        return None
 
 # Lazy imports for modules not needed at startup
 def import_lazy_modules():
@@ -44,6 +93,7 @@ lazy_import_thread = None
 class Api:
     def __init__(self):
         self._window = None
+        self._settings = load_settings()
         # Initialize assets in the background
         initialize_assets()
         # Start NTP sync in the background with delayed initialization
@@ -78,8 +128,15 @@ class Api:
         return id(self)
     
     def set_window(self, window):
-        # Store window reference as a weak reference to avoid Rectangle.op_Equality issues
+        # Store window reference
         self._window = window
+        
+        # Create tray icon if minimize to tray is enabled
+        if self._settings.get("minimize_to_tray", False):
+            global tray_icon
+            tray_icon = create_tray_icon(window)
+            if tray_icon:
+                threading.Thread(target=tray_icon.run, daemon=True).start()
     
     def load_tokens(self):
         """Load tokens from the tokens file"""
@@ -498,6 +555,32 @@ class Api:
         except Exception as e:
             return {"status": "error", "message": f"Failed to export tokens: {str(e)}"}
 
+    def get_minimize_to_tray(self):
+        """Get minimize to tray setting"""
+        try:
+            return {"status": "success", "enabled": self._settings.get("minimize_to_tray", False)}
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
+
+    def set_minimize_to_tray(self, enabled):
+        """Set minimize to tray setting"""
+        try:
+            self._settings["minimize_to_tray"] = enabled
+            if save_settings(self._settings):
+                # Create or destroy tray icon based on setting
+                global tray_icon
+                if enabled and not tray_icon and self._window:
+                    tray_icon = create_tray_icon(self._window)
+                    if tray_icon:
+                        threading.Thread(target=tray_icon.run, daemon=True).start()
+                elif not enabled and tray_icon:
+                    tray_icon.stop()
+                    tray_icon = None
+                return {"status": "success", "message": "Setting updated successfully"}
+            return {"status": "error", "message": "Failed to save setting"}
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
+
 def set_tokens_path(path):
     """Set the path to the tokens file"""
     global tokens_path
@@ -528,11 +611,23 @@ def main():
         width=500, 
         height=600, 
         resizable=False,
-        js_api=api
+        js_api=api,
+        on_top=False,
+        minimized=False
     )
     
     # Set window reference in API
     api.set_window(window)
+
+    # Set up closing event handler
+    def on_closing():
+        minimize_to_tray = api._settings.get("minimize_to_tray", False)
+        if minimize_to_tray and tray_icon:
+            window.hide()
+            return False  # Prevent window from closing
+        return True  # Allow window to close
+    
+    window.events.closing += on_closing
     
     # Start webview
     webview.start(debug=debug_mode)

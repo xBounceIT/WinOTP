@@ -987,6 +987,20 @@
                     <button id="exportTokensBtn" class="btn">Export</button>
                 </div>
             </div>
+
+            <div class="settings-section">
+                <h2>Application</h2>
+                <div class="setting-item">
+                    <div>
+                        <div class="setting-label">Minimize to Tray</div>
+                        <div class="setting-description">Keep the app running in the system tray when minimized</div>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" id="minimizeToTrayToggle">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -1233,6 +1247,54 @@
             document.getElementById('searchInput').addEventListener('input', async (e) => {
                 searchTerm = e.target.value.toLowerCase();
                 await renderTokens();
+            });
+
+            // Load minimize to tray setting
+            async function loadMinimizeToTraySetting() {
+                try {
+                    // Wait for pywebview API to be ready
+                    await waitForPywebviewApi();
+                    const result = await window.pywebview.api.get_minimize_to_tray();
+                    if (result.status === 'success') {
+                        document.getElementById('minimizeToTrayToggle').checked = result.enabled;
+                    }
+                } catch (error) {
+                    console.error('Error loading minimize to tray setting:', error);
+                }
+            }
+
+            // Helper function to wait for pywebview API
+            function waitForPywebviewApi() {
+                return new Promise((resolve, reject) => {
+                    const checkApi = () => {
+                        if (window.pywebview && window.pywebview.api) {
+                            resolve();
+                        } else {
+                            setTimeout(checkApi, 100);
+                        }
+                    };
+                    checkApi();
+                });
+            }
+
+            // Initialize minimize to tray setting and set up event listener
+            loadMinimizeToTraySetting();
+            
+            // Minimize to tray toggle
+            document.getElementById('minimizeToTrayToggle').addEventListener('change', async function(e) {
+                try {
+                    const result = await window.pywebview.api.set_minimize_to_tray(e.target.checked);
+                    if (result.status === 'success') {
+                        showNotification(result.message, 'success');
+                    } else {
+                        showNotification(result.message, 'error');
+                        e.target.checked = !e.target.checked;
+                    }
+                } catch (error) {
+                    console.error('Error setting minimize to tray:', error);
+                    showNotification('Failed to update minimize to tray setting', 'error');
+                    e.target.checked = !e.target.checked;
+                }
             });
 
             // Import tokens button in settings

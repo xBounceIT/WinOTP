@@ -7,4 +7,5 @@ pytest-cov
 qrcode
 coverage
 pillow
-ntplib 
+ntplib
+pystray 
