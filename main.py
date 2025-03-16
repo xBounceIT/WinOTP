@@ -116,6 +116,8 @@ class Api:
         global lazy_import_thread
         lazy_import_thread = threading.Thread(target=import_lazy_modules, daemon=True)
         lazy_import_thread.start()
+        
+        self._tokens_lock = threading.Lock()
     
     def __eq__(self, other):
         # Completely rewritten equality method to avoid Rectangle.op_Equality error
@@ -156,15 +158,30 @@ class Api:
             else:
                 tokens_data = read_json(tokens_path)
             
-            if tokens_data:
-                tokens = tokens_data
+            # Validate tokens data
+            if isinstance(tokens_data, dict):
+                # Verify each token has the required structure
+                valid_tokens = {}
+                for token_id, token_data in tokens_data.items():
+                    if isinstance(token_data, dict) and "secret" in token_data:
+                        valid_tokens[token_id] = {
+                            "issuer": token_data.get("issuer", "Unknown"),
+                            "name": token_data.get("name", "Unknown"),
+                            "secret": token_data["secret"],
+                            "created": token_data.get("created", datetime.now().isoformat())
+                        }
+                
+                tokens = valid_tokens
                 last_tokens_update = time.time()
                 print(f"Successfully loaded {len(tokens)} tokens from {tokens_path}")
                 return {"status": "success", "message": f"Loaded {len(tokens)} tokens"}
-            print(f"No tokens found or empty file: {tokens_path}")
-            return {"status": "warning", "message": "No tokens found or empty file"}
+            
+            print(f"No valid tokens found in file: {tokens_path}")
+            tokens = {}  # Reset to empty dict if invalid data
+            return {"status": "warning", "message": "No valid tokens found"}
         except Exception as e:
             print(f"Failed to load tokens: {str(e)}")
+            tokens = {}  # Reset to empty dict on error
             return {"status": "error", "message": f"Failed to load tokens: {str(e)}"}
     
     def save_tokens(self):
@@ -176,13 +193,15 @@ class Api:
                 auth_type = get_auth_type()
                 config = read_json(AUTH_CONFIG_PATH) or {}
                 
-                # Encrypt tokens if auth is enabled
+                # First write tokens to file without encryption
+                write_json(tokens_path, tokens)
+                
+                # Then encrypt if auth is enabled
                 if auth_type == "pin":
                     success = encrypt_tokens_file(tokens_path, config.get("pin_hash", ""))
                 elif auth_type == "password":
                     success = encrypt_tokens_file(tokens_path, config.get("password_hash", ""))
                 else:
-                    write_json(tokens_path, tokens)
                     success = True
                 
                 if success:
@@ -285,16 +304,17 @@ class Api:
         except Exception as e:
             return {"status": "error", "message": f"Failed to add token: {str(e)}"}
     
-    def update_token(self, token_id, token_data):
-        """Update an existing token"""
+    def update_token(self, token_id, data):
+        """Update token details"""
         global tokens
         try:
             # Check if token exists
             if token_id not in tokens:
                 return {"status": "error", "message": "Token not found"}
             
-            # Update token data
-            tokens[token_id].update(token_data)
+            # Update token details
+            tokens[token_id]["issuer"] = data.get("issuer", tokens[token_id]["issuer"])
+            tokens[token_id]["name"] = data.get("name", tokens[token_id]["name"])
             
             # Save tokens
             save_result = self.save_tokens()
