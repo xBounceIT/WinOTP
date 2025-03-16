@@ -1329,25 +1329,27 @@
                 </div>
                 
                 <div class="protection-options">
-                    <div class="form-group">
-                        <label for="pinInput">PIN Protection</label>
-                        <input type="password" id="pinInput" placeholder="Enter a PIN (at least 4 digits)" inputmode="numeric" pattern="[0-9]*">
-                        <div class="input-description">PIN must be at least 4 digits</div>
-                        <div class="form-actions" style="margin-top: 10px;">
-                            <button class="btn" id="setPinBtn">Set PIN</button>
+                    <div id="protectionForms" style="display: none;">
+                        <div class="form-group">
+                            <label for="pinInput">PIN Protection</label>
+                            <input type="password" id="pinInput" placeholder="Enter a PIN (at least 4 digits)" inputmode="numeric" pattern="[0-9]*">
+                            <div class="input-description">PIN must be at least 4 digits</div>
+                            <div class="form-actions" style="margin-top: 10px;">
+                                <button class="btn" id="setPinBtn">Set PIN</button>
+                            </div>
                         </div>
-                    </div>
-                    
-                    <div class="form-separator">
-                        <span>OR</span>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="passwordInput">Password Protection</label>
-                        <input type="password" id="passwordInput" placeholder="Enter a password (at least 6 characters)">
-                        <div class="input-description">Password must be at least 6 characters</div>
-                        <div class="form-actions" style="margin-top: 10px;">
-                            <button class="btn" id="setPasswordBtn">Set Password</button>
+                        
+                        <div class="form-separator">
+                            <span>OR</span>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="passwordInput">Password Protection</label>
+                            <input type="password" id="passwordInput" placeholder="Enter a password (at least 6 characters)">
+                            <div class="input-description">Password must be at least 6 characters</div>
+                            <div class="form-actions" style="margin-top: 10px;">
+                                <button class="btn" id="setPasswordBtn">Set Password</button>
+                            </div>
                         </div>
                     </div>
 
@@ -2795,6 +2797,8 @@
                     timeoutSelect.value = status.timeout_minutes.toString();
                 }
                 
+                // Show/hide protection forms and disable button based on status
+                document.getElementById('protectionForms').style.display = status.is_enabled ? 'none' : 'block';
                 document.getElementById('disableProtectionSection').style.display = status.is_enabled ? 'block' : 'none';
             } catch (error) {
                 console.error('Error getting protection status:', error);
