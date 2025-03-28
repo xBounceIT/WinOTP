@@ -1,3 +1,6 @@
+# 0.2
+- Added update checker function with button redirect to release page
+
 # 0.1
 - Beta release
 

@@ -21,6 +21,7 @@ from utils.auth import (
 )
 from utils.crypto import encrypt_tokens_file, decrypt_tokens_file
 from models.token import Token  # Import Token class directly
+from utils import asset_manager # Import asset_manager
 
 # --- Define Application Data Directory ---
 # Get user's Documents folder
@@ -585,27 +586,43 @@ class Api:
             return {"status": "error", "message": "Failed to disable protection"}
     
     def verify_authentication(self, credential):
-        """Verify PIN or password"""
+        """Verify PIN or password and check for updates on success."""
         auth_type = get_auth_type()
-        
+        authenticated = False
+        message = ""
+
         if auth_type == "pin":
             if verify_pin(credential):
-                self.is_authenticated = True
-                self.last_auth_time = time.time()
-                return {"status": "success", "message": "Authentication successful"}
+                authenticated = True
+                message = "Authentication successful"
             else:
-                return {"status": "error", "message": "Incorrect PIN"}
+                message = "Incorrect PIN"
         elif auth_type == "password":
             if verify_password(credential):
-                self.is_authenticated = True
-                self.last_auth_time = time.time()
-                return {"status": "success", "message": "Authentication successful"}
+                authenticated = True
+                message = "Authentication successful"
             else:
-                return {"status": "error", "message": "Incorrect password"}
-        else:
+                message = "Incorrect password"
+        else: # No auth enabled
+            authenticated = True
+            message = "No authentication required"
+
+        if authenticated:
             self.is_authenticated = True
             self.last_auth_time = time.time()
-            return {"status": "success", "message": "No authentication required"}
+            print("Authentication successful. Checking for updates...")
+            
+            # Check for updates after successful authentication
+            update_status = asset_manager.get_update_status()
+            if update_status.get("available"):
+                print("Update available, including status in auth response.")
+            else:
+                print("No update available or already up-to-date.")
+                
+            # Return success message AND update status
+            return {"status": "success", "message": message, "update_info": update_status}
+        else:
+            return {"status": "error", "message": message}
     
     def get_auth_status(self):
         """Get current authentication status"""
@@ -662,6 +679,16 @@ class Api:
             return {"status": "success", "enabled": self._settings.get("minimize_to_tray", False)}
         except Exception as e:
             return {"status": "error", "message": str(e)}
+
+    def get_setting(self, key):
+        """Get a specific setting value"""
+        try:
+            # Return the value of the requested key, or None if not found
+            return self._settings.get(key)
+        except Exception as e:
+            # This should ideally not happen if _settings is always a dict
+            print(f"Error retrieving setting '{key}': {e}")
+            return None
 
     def set_minimize_to_tray(self, enabled):
         """Set minimize to tray setting"""
@@ -734,6 +761,11 @@ def main():
 
     # --- Set the authentication file path for the auth utility module ---
     set_auth_path(AUTH_CONFIG_PATH) 
+
+    # Start update check in a background thread
+    print("Starting background update check...")
+    update_thread = threading.Thread(target=asset_manager.check_for_updates, daemon=True)
+    update_thread.start()
 
     # Create API instance (which will load settings and tokens based on the set paths)
     api = Api()

@@ -1072,6 +1072,59 @@
         .token-edit-form .btn-secondary:hover {
             background-color: var(--hover-color);
         }
+
+        /* Custom styles for Update Modal */
+        .update-modal-content {
+            border-radius: 4px; /* Match other elements */
+            background-color: var(--card-background);
+        }
+
+        .update-modal-content .modal-header {
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .update-modal-content .modal-footer {
+            border-top: 1px solid var(--border-color);
+        }
+
+        .update-modal-content h5#updateNotificationModalLabel {
+             font-size: 18px; /* Slightly smaller than page h1 */
+             font-weight: 600;
+        }
+
+        #update-notes {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            max-height: 300px;
+            overflow-y: auto;
+            background-color: var(--background-color); /* Lighter background */
+            padding: 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            font-family: 'Segoe UI', sans-serif; /* Match body font */
+            font-size: 14px;
+            color: var(--text-color);
+            margin-top: 5px;
+        }
+
+        /* Add new styles for update available button */
+        .btn-update-available {
+            background-color: var(--success-color);
+            color: white;
+            border-radius: 16px; /* Pill shape */
+            padding: 6px 12px;
+            font-weight: 600;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-left: 10px; /* Add some space */
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .btn-update-available:hover {
+            background-color: #106a10; /* Darker green */
+        }
     </style>
 </head>
 <body>
@@ -1079,6 +1132,7 @@
         <div class="header">
             <h1>WinOTP</h1>
             <div class="header-actions">
+                <button id="updateAvailableBtn" class="btn btn-update-available" style="display: none;">UPDATE AVAILABLE</button>
                 <button id="addTokenBtn" class="btn btn-icon"><img id="plusIcon" alt="Add Token" width="20" height="20"></button>
                 <button id="toggleSortBtn" class="btn btn-icon" title="Toggle Sort Order"><img id="sortIcon" alt="Sort Order" width="20" height="20"></button>
                 <button id="settingsBtn" class="btn btn-icon">⚙️</button>
@@ -1410,6 +1464,7 @@
     <!-- Notification -->
     <div id="notification" class="notification"></div>
 
+    <script src="../static/js/bootstrap.bundle.min.js"></script>
     <script>
         // Global variables
         let tokens = [];
@@ -1613,10 +1668,66 @@
                 
                 // Load tokens
                 loadTokens();
+
+                // Check for updates on main page load (if enabled)
+                checkUpdatesOnLoad();
             }, 300);
         }
 
-        // Update login function to start auth check after successful login
+        // Function to check for updates on page load
+        async function checkUpdatesOnLoad() {
+            try {
+                // Wait until API is ready before proceeding
+                if (!apiReady) {
+                    console.log("API not ready yet for update check, will retry when ready or during login.");
+                    // Optionally, schedule a retry or rely on login check
+                    return;
+                }
+
+                // Check if update checking is enabled in settings
+                const updateCheckEnabled = await window.pywebview.api.get_setting('update_check_enabled');
+                if (!updateCheckEnabled) {
+                    console.log("Update check is disabled in settings.");
+                    return;
+                }
+
+                if (apiReady) {
+                    const updateInfo = await window.pywebview.api.check_for_updates();
+                    if (updateInfo && updateInfo.available) {
+                        console.log("Update available on load, showing update button...");
+                        const updateButton = document.getElementById('updateAvailableBtn');
+                        if (updateButton) {
+                            // Define the action to open the URL
+                            const openAction = () => {
+                                try {
+                                    if (window.pywebview && window.pywebview.api) {
+                                        window.pywebview.api.open_url('https://github.com/xBounceIT/WinOTP/releases');
+                                    } else {
+                                        console.warn("Pywebview API not available, using window.open fallback.");
+                                        window.open('https://github.com/xBounceIT/WinOTP/releases', '_blank');
+                                    }
+                                } catch (error) {
+                                    console.error("Error opening URL:", error);
+                                    window.open('https://github.com/xBounceIT/WinOTP/releases', '_blank');
+                                }
+                            };
+                            // Clone the button to remove any previous listeners before adding a new one
+                            const newUpdateButton = updateButton.cloneNode(true);
+                            newUpdateButton.addEventListener('click', openAction);
+                            updateButton.parentNode.replaceChild(newUpdateButton, updateButton);
+                            // Ensure the new button is visible
+                            newUpdateButton.style.display = 'inline-block';
+                        } else {
+                           console.error("Update button element not found!");
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('Error checking for updates on load:', error);
+            }
+        }
+
+        // Update login function to handle update notification
         async function login() {
             const credential = document.getElementById('loginCredential').value;
             
@@ -1626,9 +1737,42 @@
                     document.getElementById('loginCredential').value = '';
                     isAuthenticated = true;
                     showMainPage();
-                    startAuthCheck();  // Start auth check after successful login
+                    startAuthCheck();
+
+                    // Check for update info in the response
+                    if (result.update_info && result.update_info.available) {
+                        console.log("Update info found in auth response, showing update button...");
+                        const updateButton = document.getElementById('updateAvailableBtn');
+                        if (updateButton) {
+                            // Define the action to open the URL
+                            const openAction = () => {
+                                try {
+                                    if (window.pywebview && window.pywebview.api) {
+                                        window.pywebview.api.open_url('https://github.com/xBounceIT/WinOTP/releases');
+                                    } else {
+                                        console.warn("Pywebview API not available, using window.open fallback.");
+                                        window.open('https://github.com/xBounceIT/WinOTP/releases', '_blank');
+                                    }
+                                } catch (error) {
+                                    console.error("Error opening URL:", error);
+                                    window.open('https://github.com/xBounceIT/WinOTP/releases', '_blank');
+                                }
+                            };
+                            // Clone the button to remove any previous listeners before adding a new one
+                            const newUpdateButton = updateButton.cloneNode(true);
+                            newUpdateButton.addEventListener('click', openAction);
+                            updateButton.parentNode.replaceChild(newUpdateButton, updateButton);
+                            // Ensure the new button is visible
+                            newUpdateButton.style.display = 'inline-block';
+                        } else {
+                           console.error("Update button element not found!");
+                        }
+                    } else {
+                        console.log("No update info found or update not available.");
+                    }
                 } else {
-                    showNotification(result.message, 'error');
+                    // Use showNotification for login errors
+                    showNotification(result.message, 'error'); 
                 }
             } catch (error) {
                 console.error('Error during login:', error);
@@ -2334,9 +2478,12 @@
             notification.className = 'notification ' + type;
             notification.classList.add('show');
             
+            // Keep the notification visible until manually dismissed or another notification appears
+            // You might want to add a close button or different timeout logic if needed.
+            // For now, let's use a longer timeout as an example, or remove it for persistence.
             setTimeout(() => {
                 notification.classList.remove('show');
-            }, 3000);
+            }, 5000); // 5 seconds example timeout
         }
 
         // Escape HTML to prevent XSS
@@ -3082,6 +3229,53 @@
                 showNotification('Error saving token: ' + error, 'error');
             }
         }
+
+        // Function to display the update notification modal
+        function showUpdateNotification(updateInfo) {
+            console.log("showUpdateNotification called with:", updateInfo);
+            if (!updateInfo || !updateInfo.available) {
+                console.log("No update available or invalid info.");
+                return;
+            }
+
+            const updateButton = document.getElementById('updateAvailableBtn');
+            if (!updateButton) {
+                console.error("Update button element not found!");
+                return;
+            }
+
+            // Make the button visible
+            updateButton.style.display = 'inline-block';
+
+            // Remove any existing listener to avoid duplicates
+            updateButton.removeEventListener('click', openReleasesPage);
+            
+            // Add click listener to open the GitHub releases page
+            updateButton.addEventListener('click', openReleasesPage);
+        }
+
+        // Function to open the GitHub releases page
+        function openReleasesPage() {
+            try {
+                if (window.pywebview && window.pywebview.api) {
+                    // Use pywebview API to open the URL in the default browser
+                    window.pywebview.api.open_url('https://github.com/xBounceIT/WinOTP/releases');
+                } else {
+                    // Fallback if API not ready or available
+                    console.warn("Pywebview API not available, using window.open fallback.");
+                    window.open('https://github.com/xBounceIT/WinOTP/releases', '_blank');
+                }
+            } catch (error) {
+                console.error("Error opening URL:", error);
+                // Fallback if API call fails
+                window.open('https://github.com/xBounceIT/WinOTP/releases', '_blank');
+            }
+        }
     </script>
+
+    <!-- Add jQuery and Bootstrap JS includes here -->
+    <script src="../static/js/jquery-3.6.0.min.js"></script>
+    <script src="../static/js/bootstrap.bundle.min.js"></script> 
+
 </body>
 </html>
