@@ -1,3 +1,6 @@
+# v0.3
+- Fixed settings page 'Import Tokens' button to navigate to the import page instead of immediately opening the file explorer.
+
 # v0.2.1
 - Fixed About page to display the correct dynamic version instead of a hardcoded value.
 
