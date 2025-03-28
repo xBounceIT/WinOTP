@@ -65,7 +65,7 @@ def create_tray_icon(window):
     """Create system tray icon"""
     try:
         # Load the icon image
-        icon_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "icons", "app.png")
+        icon_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ui", "static", "icons", "app.png")
         image = Image.open(icon_path)
 
         def show_window():
@@ -835,6 +835,16 @@ class Api:
                 elif not enabled and tray_icon:
                     tray_icon.stop()
                     tray_icon = None
+                return {"status": "success", "message": "Setting updated successfully"}
+            return {"status": "error", "message": "Failed to save setting"}
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
+
+    def set_update_check_enabled(self, enabled):
+        """Set the update check enabled setting"""
+        try:
+            self._settings["update_check_enabled"] = enabled
+            if save_settings(self._settings):
                 return {"status": "success", "message": "Setting updated successfully"}
             return {"status": "error", "message": "Failed to save setting"}
         except Exception as e:
