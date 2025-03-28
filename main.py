@@ -22,14 +22,21 @@ from utils.auth import (
 from utils.crypto import encrypt_tokens_file, decrypt_tokens_file
 from models.token import Token  # Import Token class directly
 
-# Global variables
-tokens_path = "tokens.json"  # Default path
-AUTH_CONFIG_PATH = "auth_config.json"  # Auth config file path
+# --- Define Application Data Directory ---
+# Get user's Documents folder
+documents_path = os.path.join(os.path.expanduser("~"), "Documents")
+# Define the application-specific directory within Documents
+winotp_data_dir = os.path.join(documents_path, "WinOTP")
+
+# --- Global variables ---
+tokens_path = os.path.join(winotp_data_dir, "tokens.json")  # Default path
+AUTH_CONFIG_PATH = os.path.join(winotp_data_dir, "auth_config.json")  # Auth config file path
+settings_path = os.path.join(winotp_data_dir, "app_settings.json")  # Settings file path
+
 tokens = {}  # Store tokens data
 sort_ascending = True  # Default sort order
 last_tokens_update = 0  # Track when tokens were last updated from disk
 file_write_lock = threading.Lock()  # Lock for thread-safe file operations
-settings_path = "app_settings.json"  # Settings file path
 tray_icon = None  # Global tray icon instance
 
 def load_settings():
@@ -690,21 +697,40 @@ def set_tokens_path(path):
     tokens_path = path
 
 def main():
+    # --- Ensure Application Data Directory Exists (for production mode) ---
+    try:
+        os.makedirs(winotp_data_dir, exist_ok=True)
+        print(f"Production data directory: {winotp_data_dir}")
+    except OSError as e:
+        print(f"Error creating data directory {winotp_data_dir}: {e}")
+        # Potentially critical error if not in debug mode
+        pass # Or sys.exit(1)
+
     # Check if debug mode is enabled via command line arguments
     debug_mode = "--debug" in sys.argv or "-d" in sys.argv
-    
-    # Select the appropriate tokens file
+
+    # Select the appropriate file paths based on mode
+    global tokens_path, settings_path, AUTH_CONFIG_PATH # Declare globals to modify them
     if debug_mode:
+        # Use local .dev files for debug mode
         tokens_path = "tokens.json.dev"
-        print("Running in DEBUG mode with tokens.json.dev")
+        settings_path = "app_settings.json.dev"
+        AUTH_CONFIG_PATH = "auth_config.json.dev"
+        print(f"DEBUG MODE: Using local development files:")
+        print(f"  - Tokens: {tokens_path}")
+        print(f"  - Settings: {settings_path}")
+        print(f"  - Auth Config: {AUTH_CONFIG_PATH}")
     else:
-        tokens_path = "tokens.json"
-        print("Running in PRODUCTION mode with tokens.json")
-    
-    # Set the tokens path
-    set_tokens_path(tokens_path)
-    
-    # Create API instance
+        # Use data directory paths for production mode (already set globally)
+        # tokens_path = os.path.join(winotp_data_dir, "tokens.json") # Already default
+        # settings_path = os.path.join(winotp_data_dir, "app_settings.json") # Already default
+        # AUTH_CONFIG_PATH = os.path.join(winotp_data_dir, "auth_config.json") # Already default
+        print(f"PRODUCTION MODE: Using files in {winotp_data_dir}:")
+        print(f"  - Tokens: {tokens_path}")
+        print(f"  - Settings: {settings_path}")
+        print(f"  - Auth Config: {AUTH_CONFIG_PATH}")
+
+    # Create API instance (which will load settings and tokens based on the set paths)
     api = Api()
     
     # Create window with HTML file
