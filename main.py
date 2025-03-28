@@ -17,7 +17,7 @@ from utils.ntp_sync import start_ntp_sync, get_accurate_time, get_sync_status
 from utils.auth import (
     set_pin, set_password, clear_auth, verify_pin, verify_password, 
     is_auth_enabled, get_auth_type, hash_password, set_timeout,
-    get_timeout, check_timeout
+    get_timeout, check_timeout, set_auth_path
 )
 from utils.crypto import encrypt_tokens_file, decrypt_tokens_file
 from models.token import Token  # Import Token class directly
@@ -150,6 +150,11 @@ class Api:
     
     def load_tokens(self):
         """Load tokens from the tokens file"""
+        print(f"--- Enter load_tokens --- ")
+        print(f"    Current tokens_path: {tokens_path}")
+        print(f"    Current settings_path: {settings_path}")
+        print(f"    Current AUTH_CONFIG_PATH: {AUTH_CONFIG_PATH}")
+        
         global tokens, last_tokens_update
         try:
             # Get current auth type and credentials
@@ -179,7 +184,7 @@ class Api:
                 
                 tokens = valid_tokens
                 last_tokens_update = time.time()
-                print(f"Successfully loaded {len(tokens)} tokens from {tokens_path}")
+                print(f"Successfully processed {len(tokens)} tokens loaded from {tokens_path}")
                 return {"status": "success", "message": f"Loaded {len(tokens)} tokens"}
             
             print(f"No valid tokens found in file: {tokens_path}")
@@ -717,18 +722,18 @@ def main():
         settings_path = "app_settings.json.dev"
         AUTH_CONFIG_PATH = "auth_config.json.dev"
         print(f"DEBUG MODE: Using local development files:")
-        print(f"  - Tokens: {tokens_path}")
-        print(f"  - Settings: {settings_path}")
-        print(f"  - Auth Config: {AUTH_CONFIG_PATH}")
+        print(f"  - Tokens: {os.path.abspath(tokens_path)}")
+        print(f"  - Settings: {os.path.abspath(settings_path)}")
+        print(f"  - Auth Config: {os.path.abspath(AUTH_CONFIG_PATH)}")
     else:
-        # Use data directory paths for production mode (already set globally)
-        # tokens_path = os.path.join(winotp_data_dir, "tokens.json") # Already default
-        # settings_path = os.path.join(winotp_data_dir, "app_settings.json") # Already default
-        # AUTH_CONFIG_PATH = os.path.join(winotp_data_dir, "auth_config.json") # Already default
+        # Use data directory paths for production mode (paths are already set globally)
         print(f"PRODUCTION MODE: Using files in {winotp_data_dir}:")
         print(f"  - Tokens: {tokens_path}")
         print(f"  - Settings: {settings_path}")
         print(f"  - Auth Config: {AUTH_CONFIG_PATH}")
+
+    # --- Set the authentication file path for the auth utility module ---
+    set_auth_path(AUTH_CONFIG_PATH) 
 
     # Create API instance (which will load settings and tokens based on the set paths)
     api = Api()

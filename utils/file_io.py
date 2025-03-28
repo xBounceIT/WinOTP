@@ -56,10 +56,11 @@ def read_json(file_path):
                     cache_key = f"{file_path}:{os.path.getmtime(file_path)}"
                     _file_cache[cache_key] = data
             
-            print(f"Successfully loaded {len(data)} tokens from {file_path}")
+            # Use a more generic log message
+            print(f"Successfully read JSON data ({len(data)} items) from {file_path}")
             return data
     except FileNotFoundError:
-        print(f"File not found: {file_path}, creating empty token storage")
+        print(f"File not found: {file_path}, returning empty dict")
         return {}
     except json.JSONDecodeError as e:
         print(f"Error parsing JSON from {file_path}: {e}")

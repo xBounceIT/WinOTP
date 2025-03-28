@@ -3,8 +3,23 @@ import json
 import hashlib
 from .file_io import read_json, write_json
 
-# Path to the auth configuration file
-AUTH_CONFIG_PATH = "auth_config.json"
+# Path to the auth configuration file - This will be set by main.py
+# AUTH_CONFIG_PATH = "auth_config.json" # REMOVED
+_current_auth_path = None
+
+def set_auth_path(path):
+    """Sets the path for the authentication configuration file.
+    This should be called by the main application entry point.
+    """
+    global _current_auth_path
+    _current_auth_path = path
+    print(f"Auth module path set to: {_current_auth_path}") # Debug print
+
+def _get_auth_path():
+    """Helper to get the auth path, ensuring it's set."""
+    if _current_auth_path is None:
+        raise RuntimeError("Authentication configuration path has not been set.")
+    return _current_auth_path
 
 def hash_password(password):
     """
@@ -29,18 +44,19 @@ def set_pin(pin):
         bool: True if successful, False otherwise
     """
     try:
+        auth_path = _get_auth_path()
         # Hash the PIN
         hashed_pin = hash_password(pin)
         
         # Read existing config or create new one
-        config = read_json(AUTH_CONFIG_PATH) or {}
+        config = read_json(auth_path) or {}
         
         # Update the config
         config["pin_hash"] = hashed_pin
         config["auth_type"] = "pin"
         
         # Write the config
-        write_json(AUTH_CONFIG_PATH, config)
+        write_json(auth_path, config)
         return True
     except Exception as e:
         print(f"Error setting PIN: {e}")
@@ -57,18 +73,19 @@ def set_password(password):
         bool: True if successful, False otherwise
     """
     try:
+        auth_path = _get_auth_path()
         # Hash the password
         hashed_password = hash_password(password)
         
         # Read existing config or create new one
-        config = read_json(AUTH_CONFIG_PATH) or {}
+        config = read_json(auth_path) or {}
         
         # Update the config
         config["password_hash"] = hashed_password
         config["auth_type"] = "password"
         
         # Write the config
-        write_json(AUTH_CONFIG_PATH, config)
+        write_json(auth_path, config)
         return True
     except Exception as e:
         print(f"Error setting password: {e}")
@@ -82,8 +99,9 @@ def clear_auth():
         bool: True if successful, False otherwise
     """
     try:
+        auth_path = _get_auth_path()
         # Read existing config
-        config = read_json(AUTH_CONFIG_PATH) or {}
+        config = read_json(auth_path) or {}
         
         # Remove auth settings
         if "pin_hash" in config:
@@ -94,7 +112,7 @@ def clear_auth():
             del config["auth_type"]
         
         # Write the config
-        write_json(AUTH_CONFIG_PATH, config)
+        write_json(auth_path, config)
         return True
     except Exception as e:
         print(f"Error clearing authentication: {e}")
@@ -111,8 +129,9 @@ def verify_pin(pin):
         bool: True if PIN is correct, False otherwise
     """
     try:
+        auth_path = _get_auth_path()
         # Read config
-        config = read_json(AUTH_CONFIG_PATH) or {}
+        config = read_json(auth_path) or {}
         
         # Check if PIN is set
         if "pin_hash" not in config or config.get("auth_type") != "pin":
@@ -138,8 +157,9 @@ def verify_password(password):
         bool: True if password is correct, False otherwise
     """
     try:
+        auth_path = _get_auth_path()
         # Read config
-        config = read_json(AUTH_CONFIG_PATH) or {}
+        config = read_json(auth_path) or {}
         
         # Check if password is set
         if "password_hash" not in config or config.get("auth_type") != "password":
@@ -162,8 +182,9 @@ def is_auth_enabled():
         bool: True if authentication is enabled, False otherwise
     """
     try:
+        auth_path = _get_auth_path()
         # Read config
-        config = read_json(AUTH_CONFIG_PATH) or {}
+        config = read_json(auth_path) or {}
         
         # Check if auth is enabled
         has_auth = "auth_type" in config and (
@@ -171,7 +192,7 @@ def is_auth_enabled():
             ("password_hash" in config and config["auth_type"] == "password")
         )
         
-        print(f"Auth enabled check: {has_auth}, config: {config}")
+        print(f"Auth enabled check (using {_current_auth_path}): {has_auth}, config: {config}") # Updated log
         return has_auth
     except Exception as e:
         print(f"Error checking auth status: {e}")
@@ -185,8 +206,9 @@ def get_auth_type():
         str: "pin", "password", or None if not set
     """
     try:
+        auth_path = _get_auth_path()
         # Read config
-        config = read_json(AUTH_CONFIG_PATH) or {}
+        config = read_json(auth_path) or {}
         
         # Return auth type
         return config.get("auth_type")
@@ -205,14 +227,15 @@ def set_timeout(timeout_minutes):
         bool: True if successful, False otherwise
     """
     try:
+        auth_path = _get_auth_path()
         # Read existing config
-        config = read_json(AUTH_CONFIG_PATH) or {}
+        config = read_json(auth_path) or {}
         
         # Update the config
         config["timeout_minutes"] = timeout_minutes
         
         # Write the config
-        write_json(AUTH_CONFIG_PATH, config)
+        write_json(auth_path, config)
         return True
     except Exception as e:
         print(f"Error setting timeout: {e}")
@@ -226,8 +249,9 @@ def get_timeout():
         int: Number of minutes until re-authentication is required, 0 for never
     """
     try:
+        auth_path = _get_auth_path()
         # Read config
-        config = read_json(AUTH_CONFIG_PATH) or {}
+        config = read_json(auth_path) or {}
         
         # Return timeout setting
         return config.get("timeout_minutes", 0)
