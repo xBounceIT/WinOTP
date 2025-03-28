@@ -1666,9 +1666,12 @@
                 // Wait for pywebview API to be ready
                 await waitForPywebviewApi();
                 const enabled = await window.pywebview.api.get_setting('update_check_enabled');
-                document.getElementById('updateCheckerToggle').checked = enabled;
+                // Default to true if the value is undefined
+                document.getElementById('updateCheckerToggle').checked = enabled !== undefined ? enabled : true;
             } catch (error) {
                 console.error('Error loading update checker setting:', error);
+                // Default to true if there's an error
+                document.getElementById('updateCheckerToggle').checked = true;
             }
         }
 
@@ -1793,41 +1796,41 @@
 
                 // Check if update checking is enabled in settings
                 const updateCheckEnabled = await window.pywebview.api.get_setting('update_check_enabled');
-                if (!updateCheckEnabled) {
-                    console.log("Update check is disabled in settings.");
-                    return;
-                }
-
-                if (apiReady) {
-                    const updateInfo = await window.pywebview.api.check_for_updates();
-                    if (updateInfo && updateInfo.available) {
-                        console.log("Update available on load, showing update button...");
-                        const updateButton = document.getElementById('updateAvailableBtn');
-                        if (updateButton) {
-                            // Define the action to open the URL
-                            const openAction = () => {
-                                try {
-                                    if (window.pywebview && window.pywebview.api) {
-                                        window.pywebview.api.open_url('https://github.com/xBounceIT/WinOTP/releases');
-                                    } else {
-                                        console.warn("Pywebview API not available, using window.open fallback.");
+                // Default to true if undefined
+                if (updateCheckEnabled === undefined || updateCheckEnabled) {
+                    if (apiReady) {
+                        const updateInfo = await window.pywebview.api.check_for_updates();
+                        if (updateInfo && updateInfo.available) {
+                            console.log("Update available on load, showing update button...");
+                            const updateButton = document.getElementById('updateAvailableBtn');
+                            if (updateButton) {
+                                // Define the action to open the URL
+                                const openAction = () => {
+                                    try {
+                                        if (window.pywebview && window.pywebview.api) {
+                                            window.pywebview.api.open_url('https://github.com/xBounceIT/WinOTP/releases');
+                                        } else {
+                                            console.warn("Pywebview API not available, using window.open fallback.");
+                                            window.open('https://github.com/xBounceIT/WinOTP/releases', '_blank');
+                                        }
+                                    } catch (error) {
+                                        console.error("Error opening URL:", error);
                                         window.open('https://github.com/xBounceIT/WinOTP/releases', '_blank');
                                     }
-                                } catch (error) {
-                                    console.error("Error opening URL:", error);
-                                    window.open('https://github.com/xBounceIT/WinOTP/releases', '_blank');
-                                }
-                            };
-                            // Clone the button to remove any previous listeners before adding a new one
-                            const newUpdateButton = updateButton.cloneNode(true);
-                            newUpdateButton.addEventListener('click', openAction);
-                            updateButton.parentNode.replaceChild(newUpdateButton, updateButton);
-                            // Ensure the new button is visible
-                            newUpdateButton.style.display = 'inline-block';
-                        } else {
-                           console.error("Update button element not found!");
+                                };
+                                // Clone the button to remove any previous listeners before adding a new one
+                                const newUpdateButton = updateButton.cloneNode(true);
+                                newUpdateButton.addEventListener('click', openAction);
+                                updateButton.parentNode.replaceChild(newUpdateButton, updateButton);
+                                // Ensure the new button is visible
+                                newUpdateButton.style.display = 'inline-block';
+                            } else {
+                               console.error("Update button element not found!");
+                            }
                         }
                     }
+                } else {
+                    console.log("Update check is disabled in settings.");
                 }
             } catch (error) {
                 console.error('Error checking for updates on load:', error);

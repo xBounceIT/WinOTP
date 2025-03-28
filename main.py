@@ -47,10 +47,10 @@ def load_settings():
     try:
         if os.path.exists(settings_path):
             return read_json(settings_path)
-        return {"minimize_to_tray": False}
+        return {"minimize_to_tray": False, "update_check_enabled": True}
     except Exception as e:
         print(f"Error loading settings: {e}")
-        return {"minimize_to_tray": False}
+        return {"minimize_to_tray": False, "update_check_enabled": True}
 
 def save_settings(settings):
     """Save application settings"""
@@ -815,6 +815,13 @@ class Api:
         """Get a specific application setting"""
         print(f"Getting setting: {key}")
         self._settings = load_settings() # Ensure latest settings are loaded
+        
+        # Return appropriate defaults for known settings
+        if key == "update_check_enabled" and key not in self._settings:
+            return True
+        elif key == "minimize_to_tray" and key not in self._settings:
+            return False
+            
         return self._settings.get(key)
 
     def get_current_version(self):
