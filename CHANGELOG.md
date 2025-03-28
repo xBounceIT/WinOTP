@@ -1,3 +1,6 @@
+# 0.1
+- Beta release
+
 # ALPHA24
 - Added strict validation for manually entered TOTP tokens
 - Added base32 format validation for secret keys
