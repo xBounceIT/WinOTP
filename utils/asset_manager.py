@@ -4,6 +4,8 @@ import threading
 import time
 import requests
 
+CURRENT_VERSION = "0.1"  # Define version at module level
+
 def check_for_updates():
     """Check for the latest release on GitHub."""
     repo_url = "https://api.github.com/repos/xBounceIT/WinOTP/releases/latest"
@@ -20,8 +22,7 @@ def check_for_updates():
         print(f"Release notes:\n{release_notes}")
 
         # Compare with the current version
-        current_version = "0.1"  # Replace with dynamic version retrieval if available
-        if latest_version != current_version:
+        if latest_version != CURRENT_VERSION:
             print("A new version is available! Please update.")
         else:
             print("You are using the latest version.")

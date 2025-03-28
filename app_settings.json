@@ -1,5 +1,4 @@
 {
     "minimize_to_tray": false,
-    "check_update": true,
-    "version": "0.0.1"
+    "check_update": true
 }
