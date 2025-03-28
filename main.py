@@ -13,7 +13,6 @@ from PIL import Image
 
 # Import utilities
 from utils.file_io import read_json, write_json
-from utils.asset_manager import initialize_assets
 from utils.ntp_sync import start_ntp_sync, get_accurate_time, get_sync_status
 from utils.auth import (
     set_pin, set_password, clear_auth, verify_pin, verify_password, 
@@ -97,8 +96,6 @@ class Api:
     def __init__(self):
         self._window = None
         self._settings = load_settings()
-        # Initialize assets in the background
-        initialize_assets()
         # Start NTP sync in the background with delayed initialization
         start_ntp_sync()
         # Load tokens
