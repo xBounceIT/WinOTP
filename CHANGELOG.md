@@ -1,3 +1,6 @@
+# v0.2.1
+- Fixed About page to display the correct dynamic version instead of a hardcoded value.
+
 # 0.2
 - Added update checker function with button redirect to release page
 

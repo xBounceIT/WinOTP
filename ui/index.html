@@ -1251,7 +1251,7 @@
             <div class="about-section">
                 <h2>WinOTP Authenticator</h2>
                 <p>A modern, secure, and feature-rich TOTP authenticator designed specifically for Windows, offering a user-friendly interface and robust security features.</p>
-                <p>Version: 0.1</p>
+                <p id="appVersion">Version: Loading...</p>
             </div>
             <div class="about-section">
                 <h2>Features</h2>
@@ -2543,12 +2543,17 @@
         // Show about page
         function showAboutPage() {
             // Add transition classes
+            document.getElementById('mainPage').classList.remove('fade-in');
+            document.getElementById('mainPage').classList.add('fade-out');
             document.getElementById('settingsPage').classList.remove('fade-in');
             document.getElementById('settingsPage').classList.add('fade-out');
             
             setTimeout(() => {
+                document.getElementById('mainPage').style.display = 'none';
                 document.getElementById('settingsPage').style.display = 'none';
-                document.getElementById('loginPage').style.display = 'none';
+                document.getElementById('addTokenPage').style.display = 'none';
+                document.getElementById('importTokensPage').style.display = 'none';
+                document.getElementById('appProtectionPage').style.display = 'none';
                 document.getElementById('aboutPage').style.display = 'block';
                 
                 // Force reflow
@@ -2556,9 +2561,27 @@
                 
                 document.getElementById('aboutPage').classList.add('fade-in');
                 
-                // Load back icon for about page
+                // Load back icon
                 loadBackIconForAbout();
-            }, 300);
+
+                // Fetch and display the version
+                loadAppVersion();
+
+                // Stop auth check when navigating away from main page
+                stopAuthCheck();
+            }, 300); // Match transition duration
+        }
+
+        // Function to fetch and display the app version
+        async function loadAppVersion() {
+            try {
+                await waitForPywebviewApi(); // Ensure API is ready
+                const version = await window.pywebview.api.get_current_version();
+                document.getElementById('appVersion').textContent = `Version: ${version}`;
+            } catch (error) {
+                console.error('Error loading app version:', error);
+                document.getElementById('appVersion').textContent = 'Version: Unknown';
+            }
         }
 
         // Show add token page

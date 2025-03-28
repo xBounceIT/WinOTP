@@ -681,17 +681,17 @@ class Api:
             return {"status": "error", "message": str(e)}
 
     def get_setting(self, key):
-        """Get a specific setting value"""
-        try:
-            # Return the value of the requested key, or None if not found
-            return self._settings.get(key)
-        except Exception as e:
-            # This should ideally not happen if _settings is always a dict
-            print(f"Error retrieving setting '{key}': {e}")
-            return None
+        """Get a specific application setting"""
+        print(f"Getting setting: {key}")
+        self._settings = load_settings() # Ensure latest settings are loaded
+        return self._settings.get(key)
+
+    def get_current_version(self):
+        """Get the current application version"""
+        return asset_manager.CURRENT_VERSION
 
     def set_minimize_to_tray(self, enabled):
-        """Set minimize to tray setting"""
+        """Set the minimize to tray setting"""
         try:
             self._settings["minimize_to_tray"] = enabled
             if save_settings(self._settings):
