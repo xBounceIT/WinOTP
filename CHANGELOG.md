@@ -6,6 +6,8 @@
 - Fixed progress bar not becoming red
 - Moved static folders into UI folder
 - Updated bootstrap to 5.3.3
+- Fixed the update check enable / disable toggle not saving state
+- Fixed tray icon not appearing
 
 # v0.2.1
 - Fixed About page to display the correct dynamic version instead of a hardcoded value.
