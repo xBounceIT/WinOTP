@@ -854,6 +854,19 @@ class Api:
         except ValueError:
             return {"status": "error", "message": "Invalid timeout value"}
 
+    def check_for_updates(self):
+        """Get the current update status from asset_manager"""
+        return asset_manager.get_update_status()
+        
+    def open_url(self, url):
+        """Open a URL in the default web browser"""
+        try:
+            import webbrowser
+            webbrowser.open(url)
+            return {"status": "success", "message": "URL opened successfully"}
+        except Exception as e:
+            return {"status": "error", "message": f"Failed to open URL: {str(e)}"}
+
 def set_tokens_path(path):
     """Set the path to the tokens file"""
     global tokens_path
