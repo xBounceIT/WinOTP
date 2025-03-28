@@ -1125,6 +1125,55 @@
         .btn-update-available:hover {
             background-color: #106a10; /* Darker green */
         }
+
+        /* --- Import Progress Page Styles --- */
+        #importProgressPage .settings-content {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: calc(100vh - 60px); /* Adjust based on header height */
+            text-align: center;
+        }
+
+        .progress-bar-container {
+            width: 80%;
+            max-width: 400px; /* Max width for progress bar */
+            height: 20px;
+            background-color: var(--secondary-bg-color); /* Use CSS variable */
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 20px 0;
+            border: 1px solid var(--border-color); /* Add subtle border */
+        }
+
+        .progress-bar {
+            height: 100%;
+            background-color: var(--primary-color); /* Use theme color */
+            width: 0%;
+            transition: width 0.2s ease-in-out;
+            border-radius: 10px; /* Match container radius */
+        }
+
+        #importProgressStatus {
+             margin-top: 10px;
+             font-size: 1.1em;
+             color: var(--text-color); /* Use theme text color */
+        }
+        
+        #importProgressCount {
+             margin-top: 5px;
+             font-size: 0.9em;
+             color: var(--secondary-text-color); /* Use secondary text color */
+        }
+        /* --- End Import Progress Page Styles --- */
+
+        /* Media Queries for Responsiveness */
+        @media (max-width: 600px) {
+            .settings-content {
+                padding: 10px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -1305,8 +1354,30 @@
                         </div>
                     </button>
                     <!-- Additional import options can be added here in the future -->
+                    <button id="importFrom2FASBtn" class="btn btn-block">
+                        <div class="import-option-content">
+                            <span class="import-option-title">2FAS Backup</span>
+                            <span class="import-option-desc">Import from a 2FAS backup file (.2fas)</span>
+                        </div>
+                    </button>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- Import Progress Page -->
+    <div class="container" id="importProgressPage" style="display: none;">
+        <div class="header">
+            <h1>Importing Tokens...</h1>
+            <!-- No back button needed here -->
+        </div>
+        <div class="settings-content">
+            <p id="importProgressStatus">Starting import...</p>
+            <div class="progress-bar-container">
+                <div class="progress-bar" id="importProgressBar" style="width: 0%;"></div>
+            </div>
+            <p id="importProgressCount">(0/0)</p>
+             <p style="margin-top: 20px; font-size: 0.8em; color: var(--secondary-text-color);">Please wait, this may take a moment for large files.</p>
         </div>
     </div>
 
@@ -1518,6 +1589,7 @@
             document.getElementById('backFromImportBtn').addEventListener('click', showSettingsPage);
             // Import from WinOTP button
             document.getElementById('importFromWinOTPBtn').addEventListener('click', importFromWinOTP);
+            document.getElementById('importFrom2FASBtn').addEventListener('click', importFrom2FAS);
             
             // App protection settings
             document.getElementById('appProtectionBtn').addEventListener('click', showAppProtectionPage);
@@ -2915,6 +2987,102 @@
             fileInput.click();
         }
 
+        // Import from 2FAS (Modified for Progress UI)
+        function importFrom2FAS() {
+            // Create a hidden file input element
+            const fileInput = document.createElement('input');
+            fileInput.type = 'file';
+            fileInput.accept = '.2fas'; // Accept .2fas files
+            fileInput.style.display = 'none';
+            document.body.appendChild(fileInput);
+
+            // Add event listener for file selection
+            fileInput.addEventListener('change', async function(event) {
+                const file = event.target.files[0];
+                if (!file) {
+                    if (document.body.contains(fileInput)) { // Check if exists before removing
+                         document.body.removeChild(fileInput);
+                    }
+                    return;
+                }
+
+                const reader = new FileReader();
+                reader.onload = async function(e) {
+                    // --- Show Progress UI ---
+                    console.log("Showing import progress UI");
+                    document.getElementById('importTokensPage').style.display = 'none'; // Hide import options
+                    const progressPage = document.getElementById('importProgressPage');
+                    if(progressPage) {
+                        progressPage.style.display = 'block'; // Show progress page
+                        // Reset progress bar/text initially
+                        updateImportProgress(0, '?', 0); 
+                    } else {
+                         console.error("Import progress page element not found!");
+                         // Don't proceed if UI is broken
+                         if (document.body.contains(fileInput)) {
+                             document.body.removeChild(fileInput);
+                         }
+                         showNotification("UI Error: Cannot display import progress.", "error");
+                         return;
+                    }
+
+                    try {
+                        if (!window.pywebview || !window.pywebview.api) {
+                            console.error("pywebview API not available");
+                            throw new Error("API not available"); // Throw error to be caught below
+                        }
+
+                        // --- Call API (now reports progress) ---
+                        console.log("Calling backend import_tokens_from_2fas");
+                        const result = await window.pywebview.api.import_tokens_from_2fas(e.target.result);
+                        console.log("Backend import finished, result:", result);
+
+                        // --- Hide Progress UI ---
+                        if(progressPage) progressPage.style.display = 'none';
+
+                        // --- Handle Result ---
+                        showNotification(result.message || 'Import finished', result.status === 'success' ? 'success' : (result.status === 'warning' ? 'warning' : 'error'));
+
+                        if (result.status === 'success') {
+                            // Go back to main page to show the imported tokens
+                            console.log("Import successful, showing main page.");
+                            showMainPage();
+                            await loadTokens(); // Ensure tokens are reloaded AFTER navigation
+                        } else {
+                            // Go back to the import selection page on failure/warning
+                            console.log("Import failed or warning, showing import tokens page.");
+                            showImportTokensPage();
+                        }
+                    } catch (error) {
+                         console.error("Error during 2FAS import process:", error);
+                        // --- Hide Progress UI on error ---
+                         if(progressPage) progressPage.style.display = 'none';
+                         showNotification('Error importing from 2FAS: ' + (error.message || error), 'error');
+                         // Go back to the import selection page on critical error
+                         showImportTokensPage();
+                    } finally { // Ensure file input is always removed
+                        if (document.body.contains(fileInput)) {
+                             document.body.removeChild(fileInput);
+                        }
+                    }
+                };
+                
+                reader.onerror = (err) => {
+                     console.error("FileReader error:", err);
+                      if (document.body.contains(fileInput)) {
+                           document.body.removeChild(fileInput);
+                      }
+                     showNotification("Error reading the selected file.", "error");
+                     showImportTokensPage(); // Go back if file reading fails
+                };
+
+                reader.readAsText(file); // Read file as text
+            });
+
+            // Trigger file selection dialog
+            fileInput.click();
+        }
+
         // Show app protection page
         function showAppProtectionPage() {
             // Add transition classes
@@ -3292,6 +3460,42 @@
                 // Fallback if API call fails
                 window.open('https://github.com/xBounceIT/WinOTP/releases', '_blank');
             }
+        }
+
+        // Function called by Python backend to update progress
+        function updateImportProgress(current, total, percent) {
+            const statusElement = document.getElementById('importProgressStatus');
+            const countElement = document.getElementById('importProgressCount');
+            const barElement = document.getElementById('importProgressBar');
+
+            // Ensure elements exist before updating
+            if (statusElement) statusElement.textContent = `Processing token ${current} of ${total}...`;
+            if (countElement) countElement.textContent = `(${current}/${total})`;
+            if (barElement) barElement.style.width = `${percent}%`;
+        }
+
+        // Function called by Python backend to hide progress on critical backend error
+        function hideImportProgressOnError() {
+            console.log("hideImportProgressOnError called from backend.");
+            const progressPage = document.getElementById('importProgressPage');
+            if(progressPage) progressPage.style.display = 'none';
+            
+            // Attempt to show import page again, fallback to main page if needed
+            try {
+                showImportTokensPage(); // Go back to import selection
+            } catch(e) {
+                 console.error("Failed to show import tokens page, showing main page instead.", e);
+                 showMainPage();
+            }
+        }
+
+        // Function called by Python backend to hide progress when import completes (success or handled failure)
+        function hideImportProgressOnCompletion() {
+            console.log("hideImportProgressOnCompletion called from backend.");
+            const progressPage = document.getElementById('importProgressPage');
+            if(progressPage) progressPage.style.display = 'none';
+            // Note: Unlike the error case, we likely stay on the import page or main page
+            // which should have been updated by the import result message already.
         }
     </script>
 

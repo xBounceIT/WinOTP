@@ -1,4 +1,6 @@
 # v0.3
+- Added functionality to import tokens from 2FAS backup files (`.2fas`).
+- Implemented a progress indicator during 2FAS import for better user experience.
 - Fixed settings page 'Import Tokens' button to navigate to the import page instead of immediately opening the file explorer.
 
 # v0.2.1
