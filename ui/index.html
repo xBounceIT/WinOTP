@@ -223,26 +223,30 @@
 
         .token-footer {
             display: flex;
-            justify-content: space-between;
             align-items: center;
+            margin-top: 10px;
         }
 
-        .progress-bar {
+        .token-progress-container {
             flex-grow: 1;
+            margin-right: 10px;
             height: 4px;
             background-color: var(--border-color);
             border-radius: 2px;
-            overflow: hidden;
-            margin-right: 10px;
+            position: relative;
         }
 
-        .progress-fill {
+        .token-progress-bar {
+            position: absolute;
+            left: 0;
+            top: 0;
             height: 100%;
             background-color: var(--primary-color);
-            transition: width 0.1s linear, background-color 0.3s ease;
+            border-radius: 2px;
+            transition: width 0.1s linear;
         }
 
-        .progress-fill.warning {
+        .token-progress-bar.warning {
             background-color: var(--error-color);
         }
 
@@ -1535,7 +1539,7 @@
     <!-- Notification -->
     <div id="notification" class="notification"></div>
 
-    <script src="../static/js/bootstrap.bundle.min.js"></script>
+    <script src="static/js/bootstrap.bundle.min.js"></script>
     <script>
         // Global variables
         let tokens = [];
@@ -2014,6 +2018,7 @@
                 }
                 
                 const result = await window.pywebview.api.get_tokens();
+                console.log('API get_tokens result:', result); // <-- Add log here
                 tokens = result;
                 await renderTokens();
                 
@@ -2047,6 +2052,7 @@
                 }
 
                 const result = await window.pywebview.api.get_tokens();
+                console.log('API get_tokens result:', result); // <-- Add log here
                 let newTokens = [];
                 
                 // Check if result is an array (direct token list) or an object with status
@@ -2096,8 +2102,9 @@
                 const timeRemaining = token.timeRemaining;
                 const progressPercentage = (timeRemaining / 30) * 100;
                 
+                // Set width directly
                 progressElement.style.width = `${progressPercentage}%`;
-                progressElement.className = `progress-fill${timeRemaining <= 5 ? ' warning' : ''}`;
+                progressElement.className = `token-progress-bar${timeRemaining <= 5 ? ' warning' : ''}`;
                 timerElement.textContent = `${Math.ceil(timeRemaining)}s`;
             }
         }
@@ -2190,13 +2197,24 @@
                         </button>
                     </div>
                     <div class="token-footer">
-                        <div class="progress-bar">
-                            <div class="progress-fill" id="progress-${token.id}"></div>
+                        <div class="token-progress-container">
+                            <div class="token-progress-bar" id="progress-${token.id}" style="width: ${(token.timeRemaining / 30) * 100}%"></div>
                         </div>
-                        <div class="time-remaining" id="timer-${token.id}"></div>
+                        <div class="time-remaining" id="timer-${token.id}">${Math.ceil(token.timeRemaining)}s</div>
                     </div>
                 `;
                 tokenList.appendChild(tokenCard);
+                
+                // Direct styling for progress bar instead of relying on updateTokenDisplay
+                const progressBar = document.getElementById(`progress-${token.id}`);
+                const timeRemaining = token.timeRemaining;
+                const progressPercentage = (timeRemaining / 30) * 100;
+                
+                if (progressBar) {
+                    progressBar.style.width = `${progressPercentage}%`;
+                    console.log(`Set initial progress for ${token.id} to ${progressPercentage}%`);
+                }
+                
                 updateTokenDisplay(token);
             });
         }
@@ -3500,8 +3518,8 @@
     </script>
 
     <!-- Add jQuery and Bootstrap JS includes here -->
-    <script src="../static/js/jquery-3.6.0.min.js"></script>
-    <script src="../static/js/bootstrap.bundle.min.js"></script> 
+    <script src="/static/js/jquery-3.6.0.min.js"></script>
+    <script src="/static/js/bootstrap.bundle.min.js"></script> 
 
 </body>
 </html>

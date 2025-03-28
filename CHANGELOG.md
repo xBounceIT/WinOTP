@@ -2,6 +2,10 @@
 - Added functionality to import tokens from 2FAS backup files (`.2fas`).
 - Implemented a progress indicator during 2FAS import for better user experience.
 - Fixed settings page 'Import Tokens' button to navigate to the import page instead of immediately opening the file explorer.
+- Fixed progress bar not showing
+- Fixed progress bar not becoming red
+- Moved static folders into UI folder
+- Updated bootstrap to 5.3.3
 
 # v0.2.1
 - Fixed About page to display the correct dynamic version instead of a hardcoded value.

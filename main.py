@@ -618,21 +618,31 @@ class Api:
     def get_icon_base64(self, icon_name):
         """Get base64 encoded icon data"""
         try:
-            # Define the path to the icon
-            icon_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "icons", icon_name)
-            print(f"Looking for icon at: {icon_path}")
+            # First try to find the icon in the ui/static/icons directory
+            base_dir = os.path.dirname(os.path.abspath(__file__))
+            icon_paths = [
+                os.path.join(base_dir, "ui", "static", "icons", icon_name),  # First try ui/static/icons
+                os.path.join(base_dir, "static", "icons", icon_name)         # Fall back to static/icons
+            ]
             
-            # Check if the file exists
-            if not os.path.exists(icon_path):
-                print(f"Icon not found: {icon_path}")
-                return {"status": "error", "message": f"Icon not found: {icon_name}"}
+            # Try each path until we find the icon
+            for icon_path in icon_paths:
+                print(f"Looking for icon at: {icon_path}")
+                
+                # Check if the file exists
+                if os.path.exists(icon_path):
+                    # Read the file and encode as base64
+                    with open(icon_path, "rb") as f:
+                        icon_data = base64.b64encode(f.read()).decode("utf-8")
+                    
+                    print(f"Successfully loaded icon: {icon_name} from {icon_path}")
+                    return {"status": "success", "data": icon_data}
+                else:
+                    print(f"Icon not found at: {icon_path}")
             
-            # Read the file and encode as base64
-            with open(icon_path, "rb") as f:
-                icon_data = base64.b64encode(f.read()).decode("utf-8")
+            # If we reach here, the icon was not found in any location
+            return {"status": "error", "message": f"Icon not found: {icon_name}"}
             
-            print(f"Successfully loaded icon: {icon_name}")
-            return {"status": "success", "data": icon_data}
         except Exception as e:
             print(f"Error loading icon {icon_name}: {str(e)}")
             return {"status": "error", "message": f"Failed to load icon: {str(e)}"}
@@ -890,6 +900,49 @@ def main():
 
     # Create API instance (which will load settings and tokens based on the set paths)
     api = Api()
+
+    # Copy static files to ui directory if they don't exist - this ensures the web server can find them
+    ui_static_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ui", "static")
+    static_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
+    
+    # Ensure ui/static directories exist
+    os.makedirs(os.path.join(ui_static_dir, "js"), exist_ok=True)
+    os.makedirs(os.path.join(ui_static_dir, "css"), exist_ok=True)
+    os.makedirs(os.path.join(ui_static_dir, "icons"), exist_ok=True)
+    
+    # List of files to copy if they don't exist in ui/static
+    files_to_copy = [
+        ("js", "bootstrap.bundle.min.js"),
+        ("js", "jquery-3.6.0.min.js"),
+        ("css", "bootstrap.min.css"),
+    ]
+    
+    # Copy each file if it doesn't exist in ui/static
+    for subdir, filename in files_to_copy:
+        src = os.path.join(static_dir, subdir, filename)
+        dst = os.path.join(ui_static_dir, subdir, filename)
+        if os.path.exists(src) and not os.path.exists(dst):
+            try:
+                import shutil
+                shutil.copy2(src, dst)
+                print(f"Copied {src} to {dst}")
+            except Exception as e:
+                print(f"Error copying {src} to {dst}: {e}")
+    
+    # Also copy all icon files
+    icon_src_dir = os.path.join(static_dir, "icons")
+    icon_dst_dir = os.path.join(ui_static_dir, "icons")
+    if os.path.exists(icon_src_dir):
+        for icon_file in os.listdir(icon_src_dir):
+            src = os.path.join(icon_src_dir, icon_file)
+            dst = os.path.join(icon_dst_dir, icon_file)
+            if os.path.isfile(src) and not os.path.exists(dst):
+                try:
+                    import shutil
+                    shutil.copy2(src, dst)
+                    print(f"Copied icon {src} to {dst}")
+                except Exception as e:
+                    print(f"Error copying icon {src} to {dst}: {e}")
     
     # Create window with HTML file
     window = webview.create_window(
