@@ -255,6 +255,57 @@ class TestApi(unittest.TestCase):
         # Verify the sort order was toggled
         self.assertNotEqual(initial_sort_order["ascending"], new_sort_order["ascending"])
     
+    def test_import_tokens_from_google_auth_qr(self):
+        """Test importing tokens from Google Authenticator QR code"""
+        # Create a test migration payload
+        from utils.google_auth_pb2 import MigrationPayload, OtpParameters
+        import base64
+        
+        payload = MigrationPayload()
+        
+        # Add a test token
+        otp_param = OtpParameters()
+        otp_param.secret = b"JBSWY3DPEHPK3PXP"  # Test secret in bytes
+        otp_param.name = "test@example.com"
+        otp_param.issuer = "Test Issuer"
+        payload.otp_parameters.append(otp_param)
+        
+        # Serialize and encode the payload
+        serialized = payload.SerializeToString()
+        encoded = base64.b64encode(serialized).decode('utf-8')
+        qr_data = f"otpauth-migration://offline?data={encoded}"
+        
+        # Import the tokens
+        result = self.api.import_tokens_from_google_auth_qr(qr_data)
+        
+        # Verify the result
+        self.assertEqual(result["status"], "success")
+        self.assertTrue("Successfully imported" in result["message"])
+        
+        # Verify the token was added
+        tokens = self.api.get_tokens()["data"]
+        self.assertEqual(len(tokens), 1)
+        self.assertEqual(tokens[0]["issuer"], "Test Issuer")
+        self.assertEqual(tokens[0]["name"], "test@example.com")
+    
+    def test_import_tokens_from_google_auth_qr_invalid_data(self):
+        """Test importing tokens from invalid Google Authenticator QR code"""
+        # Test with invalid QR code format
+        result = self.api.import_tokens_from_google_auth_qr("invalid-data")
+        self.assertEqual(result["status"], "error")
+        self.assertTrue("Invalid Google Authenticator QR code" in result["message"])
+        
+        # Test with invalid base64 data
+        result = self.api.import_tokens_from_google_auth_qr("otpauth-migration://offline?data=invalid-base64")
+        self.assertEqual(result["status"], "error")
+        self.assertTrue("Invalid QR code data" in result["message"])
+        
+        # Test with invalid protobuf data
+        invalid_data = base64.b64encode(b"invalid-protobuf").decode('utf-8')
+        result = self.api.import_tokens_from_google_auth_qr(f"otpauth-migration://offline?data={invalid_data}")
+        self.assertEqual(result["status"], "error")
+        self.assertTrue("Failed to import tokens" in result["message"])
+    
     @unittest.skip("This test requires more complex mocking of pyotp module")
     @patch('main.pyotp')
     def test_add_token_from_uri(self, mock_pyotp):

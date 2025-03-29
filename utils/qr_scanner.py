@@ -3,18 +3,26 @@ from pyzbar.pyzbar import decode
 import re
 from urllib.parse import unquote
 
-def scan_qr_image(image_path):
+def scan_qr_image(image_input):
     """Scan a QR code image and extract TOTP information
     
     Args:
-        image_path (str): Path to the QR code image
+        image_input (str or PIL.Image): Path to the QR code image or a PIL Image object
         
     Returns:
         tuple: (issuer, secret, name) or None if invalid
     """
     try:
-        # Open the image
-        img = Image.open(image_path)
+        # Handle both file path and PIL Image input
+        if isinstance(image_input, str):
+            # Open the image from file path
+            img = Image.open(image_input)
+        elif isinstance(image_input, Image.Image):
+            # Use the provided PIL Image directly
+            img = image_input
+        else:
+            print(f"Invalid image input type: {type(image_input)}")
+            return None
         
         # Decode QR code
         decoded_objects = decode(img)

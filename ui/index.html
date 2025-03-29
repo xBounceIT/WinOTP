@@ -1249,6 +1249,37 @@
                 padding: 10px;
             }
         }
+
+        .instructions-list {
+            margin-bottom: 30px;
+            padding-left: 20px;
+            line-height: 1.6;
+        }
+
+        .instructions-list li {
+            margin-bottom: 10px;
+            color: var(--text-color);
+        }
+
+        .qr-scanner-container {
+            margin-top: 30px;
+            border-radius: 8px;
+            overflow: hidden;
+            background: var(--card-background);
+        }
+
+        #qrScannerArea {
+            width: 100%;
+            height: 300px;
+            background: black;
+        }
+
+        .scanner-controls {
+            padding: 15px;
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+        }
     </style>
 </head>
 <body>
@@ -1445,6 +1476,12 @@
                             <span class="import-option-desc">Import from a 2FAS backup file (.2fas)</span>
                         </div>
                     </button>
+                    <button id="importFromGoogleAuthBtn" class="btn btn-block">
+                        <div class="import-option-content">
+                            <span class="import-option-title">Google Authenticator</span>
+                            <span class="import-option-desc">Import tokens by scanning QR codes from Google Authenticator app</span>
+                        </div>
+                    </button>
                 </div>
             </div>
         </div>
@@ -1466,6 +1503,38 @@
         </div>
     </div>
 
+    <!-- Google Authenticator Import Page -->
+    <div class="container" id="googleAuthImportPage" style="display: none;">
+        <div class="header">
+            <div class="header-left">
+                <button id="backFromGoogleAuthBtn" class="btn btn-icon"><img id="backFromGoogleAuthIcon" alt="Back" width="20" height="20"></button>
+                <h1>Import from Google Authenticator</h1>
+            </div>
+        </div>
+        
+        <div class="settings-content">
+            <div class="import-section">
+                <h2>Instructions</h2>
+                <ol class="instructions-list">
+                    <li>Open Google Authenticator app</li>
+                    <li>Tap the menu icon (three dots) in the top right</li>
+                    <li>Tap on "Transfer accounts"</li>
+                    <li>Tap on "Export accounts"</li>
+                    <li>Select the accounts you want to export</li>
+                    <li>Tap "Next"</li>
+                    <li>Start scanning the QR codes below</li>
+                </ol>
+                
+                <div class="qr-scanner-container">
+                    <div id="qrScannerArea"></div>
+                    <div class="scanner-controls">
+                        <button id="finishGoogleAuthImportBtn" class="btn">Finish Import</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Add Token Page -->
     <div class="container" id="addTokenPage" style="display: none;">
         <div class="header">
@@ -1484,14 +1553,11 @@
                 <div class="tab" data-tab="manualEntry">Manual Entry</div>
             </div>
             <div id="scanQr" class="tab-content active">
-                <div class="qr-scanner">
-                    <video id="qrVideo" playsinline></video>
-                    <canvas id="qrCanvas"></canvas>
-                    <div class="qr-scanner-overlay">
-                        <div class="qr-scanner-target"></div>
-                    </div>
+                <div class="info-box" id="cameraPermissionInfo" style="margin-bottom: 20px;">
+                    <p>Click "Start Scanning" to open your camera and scan a QR code.</p>
                 </div>
                 <div class="form-actions">
+                    <button class="btn" id="startScanBtn">Start Scanning</button>
                     <button class="btn" id="uploadQrBtn">Upload QR Image</button>
                     <input type="file" id="qrFileInput" accept="image/*" style="display: none;">
                 </div>
@@ -1621,6 +1687,8 @@
     <div id="notification" class="notification"></div>
 
     <script src="static/js/bootstrap.bundle.min.js"></script>
+    <script src="/static/js/jquery-3.6.0.min.js"></script>
+    <script src="/static/js/bootstrap.bundle.min.js"></script>
     <script>
         // Global variables
         let tokens = [];
@@ -1639,6 +1707,7 @@
         let cachedAboutIcon = ''; // Cache for the about icon
         let cachedEditIcon = null;
         let apiReady = false; // Flag to track API readiness
+        let currentQRScanner = null; // Add this at the top level of your script
 
         // Initialize the application
         document.addEventListener('DOMContentLoaded', function() {
@@ -1681,6 +1750,7 @@
             // Import from WinOTP button
             document.getElementById('importFromWinOTPBtn').addEventListener('click', importFromWinOTP);
             document.getElementById('importFrom2FASBtn').addEventListener('click', importFrom2FAS);
+            document.getElementById('importFromGoogleAuthBtn').addEventListener('click', importFromGoogleAuth);
             
             // App protection settings
             document.getElementById('appProtectionBtn').addEventListener('click', showAppProtectionPage);
@@ -1714,6 +1784,14 @@
 
             // Start periodic auth check
             startAuthCheck();
+
+            // Google Auth import page
+            document.getElementById('importFromGoogleAuthBtn').addEventListener('click', importFromGoogleAuth);
+            document.getElementById('backFromGoogleAuthBtn').addEventListener('click', backFromGoogleAuth);
+            document.getElementById('finishGoogleAuthImportBtn').addEventListener('click', finishGoogleAuthImport);
+
+            // Add event listener for start scan button
+            document.getElementById('startScanBtn').addEventListener('click', initializeQrScanner);
         });
 
         // Helper function to wait for pywebview API
@@ -2534,38 +2612,35 @@
             const file = event.target.files[0];
             if (!file) return;
 
-            const reader = new FileReader();
-            reader.onload = async function(e) {
-                try {
-                    if (!window.pywebview || !window.pywebview.api) {
-                        console.error("pywebview API not available");
-                        showNotification('Error: API not available', 'error');
-                        return;
-                    }
-                    
-                    const result = await window.pywebview.api.scan_qr_code(e.target.result);
-                    if (result.status === 'success') {
-                        const tokenData = result.data;
-                        const addResult = await window.pywebview.api.add_token(tokenData);
-                        
-                        if (addResult.status === 'success') {
-                            showNotification(addResult.message, 'success');
-                            showMainPage();
-                            loadTokens();
-                        } else {
-                            showNotification(addResult.message, 'error');
-                        }
-                    } else {
-                        showNotification(result.message, 'error');
-                    }
-                } catch (error) {
-                    showNotification('Error processing QR code: ' + error, 'error');
+            try {
+                if (!window.pywebview || !window.pywebview.api) {
+                    console.error("pywebview API not available");
+                    showNotification('Error: API not available', 'error');
+                    return;
                 }
                 
-                // Reset file input
-                event.target.value = '';
-            };
-            reader.readAsDataURL(file);
+                // Call API to scan QR code from file
+                const result = await window.pywebview.api.scan_qr_from_file(file.path);
+                if (result.status === 'success') {
+                    const tokenData = result.data;
+                    const addResult = await window.pywebview.api.add_token(tokenData);
+                    
+                    if (addResult.status === 'success') {
+                        showNotification(addResult.message, 'success');
+                        showMainPage();
+                        loadTokens();
+                    } else {
+                        showNotification(addResult.message, 'error');
+                    }
+                } else {
+                    showNotification(result.message, 'error');
+                }
+            } catch (error) {
+                showNotification('Error processing QR code: ' + error, 'error');
+            }
+            
+            // Reset file input
+            event.target.value = '';
         }
 
         // Toggle sort order
@@ -3317,6 +3392,133 @@
             fileInput.click();
         }
 
+        // Import from Google Authenticator
+        function importFromGoogleAuth() {
+            // Hide import tokens page
+            document.getElementById('importTokensPage').style.display = 'none';
+            
+            // Show Google Auth import page
+            const googleAuthPage = document.getElementById('googleAuthImportPage');
+            googleAuthPage.style.display = 'block';
+            
+            // Start camera scanning
+            startGoogleAuthScanning();
+            
+            // Load back icon
+            loadBackIconForGoogleAuth();
+        }
+
+        // Function to start camera scanning for Google Auth import
+        async function startGoogleAuthScanning() {
+            try {
+                if (!window.pywebview || !window.pywebview.api) {
+                    showNotification('Error: API not available', 'error');
+                    return;
+                }
+
+                const qrScannerArea = document.getElementById('qrScannerArea');
+                if (!qrScannerArea) {
+                    showNotification('Error: QR scanner container not found', 'error');
+                    return;
+                }
+
+                // Clear any existing content
+                qrScannerArea.innerHTML = '';
+
+                // Create a video element for the camera feed
+                const videoElement = document.createElement('video');
+                videoElement.style.width = '100%';
+                videoElement.style.height = '100%';
+                videoElement.style.objectFit = 'cover';
+                qrScannerArea.appendChild(videoElement);
+
+                // Start the camera through the Python backend
+                const result = await window.pywebview.api.start_camera_scan();
+                if (result.status === 'success') {
+                    // Get user media and start streaming with more specific constraints
+                    try {
+                        // Try first with environment camera (back camera)
+                        try {
+                            const stream = await navigator.mediaDevices.getUserMedia({
+                                video: {
+                                    facingMode: { exact: "environment" },
+                                    width: { min: 640, ideal: 1280, max: 1920 },
+                                    height: { min: 480, ideal: 720, max: 1080 }
+                                }
+                            });
+                            videoElement.srcObject = stream;
+                            await videoElement.play();
+                            showNotification('Camera started successfully', 'success');
+                        } catch (envError) {
+                            // If environment camera fails, try with any available camera
+                            console.log('Failed to access back camera, trying default camera:', envError);
+                            const stream = await navigator.mediaDevices.getUserMedia({
+                                video: {
+                                    width: { min: 640, ideal: 1280, max: 1920 },
+                                    height: { min: 480, ideal: 720, max: 1080 }
+                                }
+                            });
+                            videoElement.srcObject = stream;
+                            await videoElement.play();
+                            showNotification('Using default camera', 'success');
+                        }
+
+                        // Add error event listener to video element
+                        videoElement.onerror = (error) => {
+                            console.error('Video element error:', error);
+                            showNotification('Video stream error: ' + error.message, 'error');
+                        };
+
+                    } catch (err) {
+                        console.error('Camera access error:', err);
+                        showNotification('Failed to access camera. Please ensure camera permissions are granted and no other application is using the camera.', 'error');
+                        stopGoogleAuthScanning();
+                    }
+                } else {
+                    showNotification(result.message || 'Failed to start camera', 'error');
+                }
+            } catch (error) {
+                console.error('Camera initialization error:', error);
+                showNotification('Failed to initialize camera: ' + error.message, 'error');
+            }
+        }
+        
+        // Back from Google Auth import page
+        function backFromGoogleAuth() {
+            // Stop the camera scanning
+            stopGoogleAuthScanning();
+            
+            // Hide Google Auth import page
+            document.getElementById('googleAuthImportPage').style.display = 'none';
+            
+            // Show import tokens page
+            document.getElementById('importTokensPage').style.display = 'block';
+        }
+
+        // Function to stop Google Auth scanning
+        function stopGoogleAuthScanning() {
+            const qrScannerArea = document.getElementById('qrScannerArea');
+            if (qrScannerArea) {
+                const videoElement = qrScannerArea.querySelector('video');
+                if (videoElement && videoElement.srcObject) {
+                    const tracks = videoElement.srcObject.getTracks();
+                    tracks.forEach(track => track.stop());
+                    videoElement.srcObject = null;
+                }
+                qrScannerArea.innerHTML = '';
+            }
+        }
+        
+        // Finish Google Auth import
+        function finishGoogleAuthImport() {
+            // Show success message
+            showNotification('Import completed successfully', 'success');
+            
+            // Go back to main page
+            showMainPage();
+            loadTokens();
+        }
+
         // Show app protection page
         function showAppProtectionPage() {
             // Add transition classes
@@ -3356,6 +3558,24 @@
                 }
             }).catch(function(error) {
                 console.error('Error loading back icon for protection page:', error);
+            });
+        }
+
+        // Load back icon for Google Auth import page
+        function loadBackIconForGoogleAuth() {
+            if (!apiReady || !window.pywebview || !window.pywebview.api) {
+                console.error("API not available for loading back icon");
+                return;
+            }
+            
+            window.pywebview.api.get_icon_base64('back_arrow.png').then(function(result) {
+                if (result && result.status === 'success' && result.data) {
+                    document.getElementById('backFromGoogleAuthIcon').src = 'data:image/png;base64,' + result.data;
+                } else {
+                    console.error('Error loading back icon:', result);
+                }
+            }).catch(function(error) {
+                console.error('Error loading back icon for Google Auth page:', error);
             });
         }
 
@@ -3731,11 +3951,92 @@
             // Note: Unlike the error case, we likely stay on the import page or main page
             // which should have been updated by the import result message already.
         }
+
+        // Function to initialize QR scanner
+        async function initializeQrScanner() {
+            try {
+                if (!window.pywebview || !window.pywebview.api) {
+                    showNotification('Error: API not available', 'error');
+                    return;
+                }
+
+                // Start the camera through the Python backend
+                const result = await window.pywebview.api.start_camera_scan();
+                if (result.status === 'success') {
+                    showNotification('Scanning QR code...', 'success');
+                } else {
+                    showNotification(result.message || 'Failed to start camera', 'error');
+                }
+            } catch (error) {
+                showNotification('Failed to start camera: ' + error, 'error');
+            }
+        }
+
+        // Function to stop QR scanner
+        function stopQrScanner() {
+            if (currentQRScanner) {
+                try {
+                    currentQRScanner.clear();
+                } catch (error) {
+                    console.error('Error stopping scanner:', error);
+                }
+                currentQRScanner = null;
+
+                // Reset UI
+                document.getElementById('cameraPermissionInfo').style.display = 'block';
+                document.querySelector('.qr-scanner').style.display = 'none';
+                const startScanBtn = document.getElementById('startScanBtn');
+                startScanBtn.style.display = 'block';
+                startScanBtn.textContent = 'Start Scanning';
+            }
+        }
+
+        // Add cleanup when leaving the add token page
+        function showMainPage() {
+            stopQrScanner();
+            // Add transition classes
+            if (document.getElementById('settingsPage').style.display === 'block') {
+                document.getElementById('settingsPage').classList.remove('fade-in');
+                document.getElementById('settingsPage').classList.add('fade-out');
+            } else if (document.getElementById('addTokenPage').style.display === 'block') {
+                document.getElementById('addTokenPage').classList.remove('fade-in');
+                document.getElementById('addTokenPage').classList.add('fade-out');
+            } else if (document.getElementById('aboutPage').style.display === 'block') {
+                document.getElementById('aboutPage').classList.remove('fade-in');
+                document.getElementById('aboutPage').classList.add('fade-out');
+            } else if (document.getElementById('importTokensPage').style.display === 'block') {
+                document.getElementById('importTokensPage').classList.remove('fade-in');
+                document.getElementById('importTokensPage').classList.add('fade-out');
+            }
+            
+            setTimeout(() => {
+                document.getElementById('settingsPage').style.display = 'none';
+                document.getElementById('addTokenPage').style.display = 'none';
+                document.getElementById('aboutPage').style.display = 'none';
+                document.getElementById('importTokensPage').style.display = 'none';
+                document.getElementById('loginPage').style.display = 'none';
+                document.getElementById('mainPage').style.display = 'block';
+                
+                // Force reflow
+                void document.getElementById('mainPage').offsetWidth;
+                
+                document.getElementById('mainPage').classList.add('fade-in');
+                
+                // Load icons
+                loadPlusIcon();
+                loadSettingsIcon();
+                loadSortIcon();
+                
+                // Start auth check when returning to main page
+                startAuthCheck();
+                
+                // Load tokens
+                loadTokens();
+
+                // Check for updates on main page load (if enabled)
+                checkUpdatesOnLoad();
+            }, 300);
+        }
     </script>
-
-    <!-- Add jQuery and Bootstrap JS includes here -->
-    <script src="/static/js/jquery-3.6.0.min.js"></script>
-    <script src="/static/js/bootstrap.bundle.min.js"></script> 
-
 </body>
 </html>

@@ -386,6 +386,96 @@ class Api:
             return {"status": "success", "data": result}
         except Exception as e:
             return {"status": "error", "message": f"Failed to scan QR code: {str(e)}"}
+
+    def scan_qr_from_file(self, file_path):
+        """Scan a QR code from a file"""
+        try:
+            # Ensure scan_qr_image is imported
+            if 'scan_qr_image' not in globals():
+                from utils.qr_scanner import scan_qr_image
+                print("Imported scan_qr_image directly for QR scanning")
+            
+            # Scan QR code
+            result = scan_qr_image(file_path)
+            
+            if not result:
+                return {"status": "error", "message": "No QR code found"}
+            
+            return {"status": "success", "data": result}
+        except Exception as e:
+            return {"status": "error", "message": f"Failed to scan QR code: {str(e)}"}
+
+    def start_camera_scan(self):
+        """Start camera-based QR code scanning"""
+        try:
+            # Import required modules
+            import cv2
+            from utils.qr_scanner import scan_qr_image
+            from PIL import Image
+            import io
+            import numpy as np
+            import threading
+            
+            def scan_camera():
+                # Initialize camera
+                cap = cv2.VideoCapture(0)
+                if not cap.isOpened():
+                    return {"status": "error", "message": "Failed to open camera"}
+                
+                try:
+                    while True:
+                        # Read frame from camera
+                        ret, frame = cap.read()
+                        if not ret:
+                            break
+                        
+                        # Convert frame to PIL Image
+                        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                        pil_image = Image.fromarray(frame_rgb)
+                        
+                        # Scan for QR code
+                        result = scan_qr_image(pil_image)
+                        if result:
+                            # Found a QR code, process it
+                            issuer, secret, name = result
+                            # Add token
+                            add_result = self.add_token({
+                                'issuer': issuer,
+                                'name': name,
+                                'secret': secret
+                            })
+                            
+                            if add_result["status"] == "success":
+                                # Show success notification
+                                if self._window:
+                                    self._window.evaluate_js(f'showNotification("{add_result["message"]}", "success")')
+                                    self._window.evaluate_js('showMainPage()')
+                            else:
+                                # Show error notification
+                                if self._window:
+                                    self._window.evaluate_js(f'showNotification("{add_result["message"]}", "error")')
+                            break
+                        
+                        # Show preview window
+                        cv2.imshow('QR Code Scanner', frame)
+                        
+                        # Check for exit key (ESC)
+                        if cv2.waitKey(1) & 0xFF == 27:
+                            break
+                
+                finally:
+                    # Clean up
+                    cap.release()
+                    cv2.destroyAllWindows()
+            
+            # Start scanning in a separate thread
+            thread = threading.Thread(target=scan_camera)
+            thread.daemon = True
+            thread.start()
+            
+            return {"status": "success", "message": "Camera started"}
+        except Exception as e:
+            return {"status": "error", "message": f"Failed to start camera: {str(e)}"}
     
     def get_ntp_status(self):
         """Get NTP synchronization status"""
@@ -931,6 +1021,66 @@ class Api:
         except Exception as e:
             print(f"Error getting next code for token {token_id}: {str(e)}")
             return {"status": "error", "message": str(e)}
+
+    def import_tokens_from_google_auth_qr(self, qr_data):
+        """Import tokens from Google Authenticator QR code"""
+        try:
+            # Ensure pyotp is imported
+            if 'pyotp' not in globals():
+                import pyotp
+                print("Imported pyotp directly for Google Auth import")
+
+            # Parse the QR code data
+            # Google Authenticator export QR codes use the format:
+            # otpauth-migration://offline?data=<base64-encoded-protobuf>
+            if not qr_data.startswith('otpauth-migration://offline?data='):
+                return {"status": "error", "message": "Invalid Google Authenticator QR code"}
+
+            # Extract the base64 data
+            data = qr_data.replace('otpauth-migration://offline?data=', '')
+            
+            # Decode the base64 data
+            try:
+                decoded_data = base64.b64decode(data)
+            except:
+                return {"status": "error", "message": "Invalid QR code data"}
+
+            # Import the protobuf definition
+            from utils.google_auth_pb2 import MigrationPayload
+            
+            # Parse the protobuf data
+            migration_payload = MigrationPayload()
+            migration_payload.ParseFromString(decoded_data)
+            
+            tokens_added = 0
+            
+            # Add each token
+            for otp_param in migration_payload.otp_parameters:
+                try:
+                    # Convert secret from bytes to base32 string
+                    secret = base64.b32encode(otp_param.secret).decode('utf-8').rstrip('=')
+                    
+                    # Create TOTP object to validate secret
+                    totp = pyotp.TOTP(secret)
+                    
+                    # Add token to database
+                    self.add_token({
+                        'issuer': otp_param.issuer or 'Unknown',
+                        'name': otp_param.name or 'Unknown',
+                        'secret': secret
+                    })
+                    tokens_added += 1
+                except Exception as e:
+                    print(f"Error adding token: {str(e)}")
+                    continue
+
+            if tokens_added > 0:
+                return {"status": "success", "message": f"Successfully imported {tokens_added} tokens"}
+            else:
+                return {"status": "error", "message": "No valid tokens found in QR code"}
+
+        except Exception as e:
+            return {"status": "error", "message": f"Failed to import tokens: {str(e)}"}
 
 def set_tokens_path(path):
     """Set the path to the tokens file"""
