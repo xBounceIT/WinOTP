@@ -127,6 +127,7 @@ class Api:
         lazy_import_thread.start()
         
         self._tokens_lock = threading.Lock()
+        self._settings_lock = threading.Lock()  # Add lock for thread-safe settings access
     
     def __eq__(self, other):
         # Completely rewritten equality method to avoid Rectangle.op_Equality error
@@ -813,16 +814,24 @@ class Api:
 
     def get_setting(self, key):
         """Get a specific application setting"""
-        print(f"Getting setting: {key}")
-        self._settings = load_settings() # Ensure latest settings are loaded
-        
-        # Return appropriate defaults for known settings
-        if key == "update_check_enabled" and key not in self._settings:
-            return True
-        elif key == "minimize_to_tray" and key not in self._settings:
+        with self._settings_lock:
+            # Return appropriate defaults for known settings if not in cache
+            if key == "update_check_enabled" and key not in self._settings:
+                return True
+            elif key == "minimize_to_tray" and key not in self._settings:
+                return False
+                
+            return self._settings.get(key)
+
+    def _save_settings(self):
+        """Internal method to save settings and handle errors"""
+        try:
+            if save_settings(self._settings):
+                return True
             return False
-            
-        return self._settings.get(key)
+        except Exception as e:
+            print(f"Error saving settings: {e}")
+            return False
 
     def get_current_version(self):
         """Get the current application version"""
@@ -831,39 +840,42 @@ class Api:
     def set_minimize_to_tray(self, enabled):
         """Set the minimize to tray setting"""
         try:
-            self._settings["minimize_to_tray"] = enabled
-            if save_settings(self._settings):
-                # Create or destroy tray icon based on setting
-                global tray_icon
-                if enabled and not tray_icon and self._window:
-                    tray_icon = create_tray_icon(self._window)
-                    if tray_icon:
-                        threading.Thread(target=tray_icon.run, daemon=True).start()
-                elif not enabled and tray_icon:
-                    tray_icon.stop()
-                    tray_icon = None
-                return {"status": "success", "message": "Setting updated successfully"}
-            return {"status": "error", "message": "Failed to save setting"}
+            with self._settings_lock:
+                self._settings["minimize_to_tray"] = enabled
+                if self._save_settings():
+                    # Create or destroy tray icon based on setting
+                    global tray_icon
+                    if enabled and not tray_icon and self._window:
+                        tray_icon = create_tray_icon(self._window)
+                        if tray_icon:
+                            threading.Thread(target=tray_icon.run, daemon=True).start()
+                    elif not enabled and tray_icon:
+                        tray_icon.stop()
+                        tray_icon = None
+                    return {"status": "success", "message": "Setting updated successfully"}
+                return {"status": "error", "message": "Failed to save setting"}
         except Exception as e:
             return {"status": "error", "message": str(e)}
 
     def set_update_check_enabled(self, enabled):
         """Set the update check enabled setting"""
         try:
-            self._settings["update_check_enabled"] = enabled
-            if save_settings(self._settings):
-                return {"status": "success", "message": "Setting updated successfully"}
-            return {"status": "error", "message": "Failed to save setting"}
+            with self._settings_lock:
+                self._settings["update_check_enabled"] = enabled
+                if self._save_settings():
+                    return {"status": "success", "message": "Setting updated successfully"}
+                return {"status": "error", "message": "Failed to save setting"}
         except Exception as e:
             return {"status": "error", "message": str(e)}
 
     def set_next_code_preview(self, enabled):
         """Set the next code preview setting"""
         try:
-            self._settings["next_code_preview_enabled"] = enabled
-            if save_settings(self._settings):
-                return {"status": "success", "message": "Setting updated successfully"}
-            return {"status": "error", "message": "Failed to save setting"}
+            with self._settings_lock:
+                self._settings["next_code_preview_enabled"] = enabled
+                if self._save_settings():
+                    return {"status": "success", "message": "Setting updated successfully"}
+                return {"status": "error", "message": "Failed to save setting"}
         except Exception as e:
             return {"status": "error", "message": str(e)}
 
