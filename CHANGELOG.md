@@ -1,3 +1,6 @@
+# v0.4
+- Added next code preview functionality
+
 # v0.3
 - Added functionality to import tokens from 2FAS backup files (`.2fas`).
 - Implemented a progress indicator during 2FAS import for better user experience.

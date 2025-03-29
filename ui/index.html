@@ -153,14 +153,52 @@
         }
 
         .token-code {
-            font-family: 'Consolas', monospace;
             font-size: 24px;
-            font-weight: 600;
-            letter-spacing: 2px;
-            margin-bottom: 10px;
+            font-family: monospace;
+            font-weight: 500;
+            margin: 10px 0;
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            width: 100%;
+        }
+
+        .codes-container {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 4px;
+        }
+
+        .code-line {
             display: flex;
             align-items: center;
             gap: 10px;
+        }
+
+        .current-code {
+            color: var(--text-color);
+            font-size: 24px;
+            font-weight: 500;
+        }
+
+        .next-code-container {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            opacity: 0.7;
+            font-size: 16px;
+            color: var(--text-color);
+        }
+
+        .code-arrow {
+            color: var(--text-color);
+            font-size: 14px;
+        }
+
+        .next-code {
+            color: var(--text-color);
+            font-size: 16px;
         }
 
         .copy-button {
@@ -203,7 +241,7 @@
 
         .copy-button .copy-text {
             position: absolute;
-            color: rgba(0, 0, 0, 0.9);
+            color: rgba(255, 255, 255, 0.9);
             font-size: 12px;
             font-weight: 700;
             text-transform: uppercase;
@@ -1273,6 +1311,16 @@
                         <span class="slider"></span>
                     </label>
                 </div>
+                <div class="setting-item">
+                    <div>
+                        <div class="setting-label">Next Code Preview</div>
+                        <div class="setting-description">Show the next TOTP code when the current code has 5 seconds left</div>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" id="nextCodePreviewToggle">
+                        <span class="slider"></span>
+                    </label>
+                </div>
             </div>
 
             <div class="settings-section">
@@ -1590,6 +1638,9 @@
             // Load update checker setting
             loadUpdateCheckerSetting();
 
+            // Load next code preview setting
+            loadNextCodePreviewSetting();
+
             // Import tokens button in settings
             document.getElementById('importTokensBtn').addEventListener('click', showImportTokensPage);
             // Back button from import page
@@ -1675,6 +1726,21 @@
             }
         }
 
+        // Function to load next code preview setting
+        async function loadNextCodePreviewSetting() {
+            try {
+                // Wait for pywebview API to be ready
+                await waitForPywebviewApi();
+                const enabled = await window.pywebview.api.get_setting('next_code_preview_enabled');
+                // Default to false if the value is undefined
+                document.getElementById('nextCodePreviewToggle').checked = enabled !== undefined ? enabled : false;
+            } catch (error) {
+                console.error('Error loading next code preview setting:', error);
+                // Default to false if there's an error
+                document.getElementById('nextCodePreviewToggle').checked = false;
+            }
+        }
+
         // Minimize to tray toggle
         document.getElementById('minimizeToTrayToggle').addEventListener('change', async function(e) {
             try {
@@ -1705,6 +1771,23 @@
             } catch (error) {
                 console.error('Error setting update checker:', error);
                 showNotification('Failed to update the update checker setting', 'error');
+                e.target.checked = !e.target.checked;
+            }
+        });
+
+        // Next code preview toggle
+        document.getElementById('nextCodePreviewToggle').addEventListener('change', async function(e) {
+            try {
+                const result = await window.pywebview.api.set_next_code_preview(e.target.checked);
+                if (result.status === 'success') {
+                    showNotification(result.message, 'success');
+                } else {
+                    showNotification(result.message, 'error');
+                    e.target.checked = !e.target.checked;
+                }
+            } catch (error) {
+                console.error('Error setting next code preview:', error);
+                showNotification('Failed to update setting', 'error');
                 e.target.checked = !e.target.checked;
             }
         });
@@ -2120,27 +2203,73 @@
             }
         }
 
-        // Update individual token display
-        function updateTokenDisplay(token) {
+        // Update token display
+        async function updateTokenDisplay(token) {
             const codeElement = document.getElementById(`code-${token.id}`);
             const progressElement = document.getElementById(`progress-${token.id}`);
             const timerElement = document.getElementById(`timer-${token.id}`);
             
             if (codeElement && progressElement && timerElement) {
-                // Update TOTP code
-                const codeContent = codeElement.firstChild;
-                if (codeContent) {
-                    codeContent.textContent = formatCode(token.code);
+                // First time setup if needed
+                if (!codeElement.querySelector('.codes-container')) {
+                    const copyButton = codeElement.querySelector('.copy-button');
+                    codeElement.innerHTML = '';
+                    
+                    const codesContainer = document.createElement('div');
+                    codesContainer.className = 'codes-container';
+                    
+                    // Create the current code line with copy button
+                    const codeLine = document.createElement('div');
+                    codeLine.className = 'code-line';
+                    
+                    const currentCodeSpan = document.createElement('span');
+                    currentCodeSpan.className = 'current-code';
+                    codeLine.appendChild(currentCodeSpan);
+                    
+                    if (copyButton) {
+                        codeLine.appendChild(copyButton);
+                    }
+                    
+                    codesContainer.appendChild(codeLine);
+                    codeElement.appendChild(codesContainer);
                 }
+
+                const codesContainer = codeElement.querySelector('.codes-container');
+                const currentCodeSpan = codesContainer.querySelector('.current-code');
+                currentCodeSpan.textContent = formatCode(token.code);
                 
                 // Update progress bar and timer
                 const timeRemaining = token.timeRemaining;
                 const progressPercentage = (timeRemaining / 30) * 100;
                 
-                // Set width directly
                 progressElement.style.width = `${progressPercentage}%`;
                 progressElement.className = `token-progress-bar${timeRemaining <= 5 ? ' warning' : ''}`;
                 timerElement.textContent = `${Math.ceil(timeRemaining)}s`;
+
+                // Handle next code preview
+                const nextCodePreviewEnabled = await window.pywebview.api.get_setting('next_code_preview_enabled');
+                let nextCodeContainer = codesContainer.querySelector('.next-code-container');
+
+                if (nextCodePreviewEnabled && timeRemaining <= 5) {
+                    const nextCode = await window.pywebview.api.get_next_code(token.id);
+                    if (nextCode && nextCode.code) {
+                        if (!nextCodeContainer) {
+                            nextCodeContainer = document.createElement('div');
+                            nextCodeContainer.className = 'next-code-container';
+                            
+                            const nextCodeSpan = document.createElement('span');
+                            nextCodeSpan.className = 'next-code';
+                            nextCodeContainer.appendChild(nextCodeSpan);
+                            
+                            codesContainer.appendChild(nextCodeContainer);
+                        }
+                        
+                        const nextCodeSpan = nextCodeContainer.querySelector('.next-code');
+                        nextCodeSpan.textContent = formatCode(nextCode.code);
+                    }
+                } else if (nextCodeContainer) {
+                    nextCodeContainer.remove();
+                }
             }
         }
 
@@ -2272,15 +2401,21 @@
                     copyText.className = 'copy-text';
                     copyText.textContent = 'COPIED';
                     
-                    if (!copyButton.querySelector('.copy-text')) {
-                        copyButton.appendChild(copyText);
+                    // Remove any existing copy-text element
+                    const existingCopyText = copyButton.querySelector('.copy-text');
+                    if (existingCopyText) {
+                        copyButton.removeChild(existingCopyText);
                     }
                     
+                    copyButton.appendChild(copyText);
                     await navigator.clipboard.writeText(token.code);
                     copyButton.classList.add('copied');
                     
                     setTimeout(() => {
                         copyButton.classList.remove('copied');
+                        setTimeout(() => {
+                            copyText.remove();
+                        }, 300); // Wait for the fade out animation
                     }, 2000);
                 } catch (error) {
                     showNotification('Failed to copy code', 'error');

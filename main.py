@@ -857,6 +857,16 @@ class Api:
         except Exception as e:
             return {"status": "error", "message": str(e)}
 
+    def set_next_code_preview(self, enabled):
+        """Set the next code preview setting"""
+        try:
+            self._settings["next_code_preview_enabled"] = enabled
+            if save_settings(self._settings):
+                return {"status": "success", "message": "Setting updated successfully"}
+            return {"status": "error", "message": "Failed to save setting"}
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
+
     def set_protection_timeout(self, timeout_minutes):
         """Set the protection timeout duration"""
         try:
@@ -883,6 +893,32 @@ class Api:
             return {"status": "success", "message": "URL opened successfully"}
         except Exception as e:
             return {"status": "error", "message": f"Failed to open URL: {str(e)}"}
+
+    def get_next_code(self, token_id):
+        """Get the next TOTP code for a token"""
+        global tokens
+        try:
+            if token_id not in tokens:
+                return {"status": "error", "message": "Token not found"}
+
+            token_data = tokens[token_id]
+            token_obj = Token(
+                token_data.get("issuer", "Unknown"),
+                token_data.get("secret", ""),
+                token_data.get("name", "Unknown")
+            )
+
+            # Get the current time and calculate the next interval
+            current_time = get_accurate_time()
+            next_interval = current_time + (30 - (current_time % 30))
+
+            # Get the next code
+            next_code = token_obj.totp.at(next_interval)
+
+            return {"status": "success", "code": next_code}
+        except Exception as e:
+            print(f"Error getting next code for token {token_id}: {str(e)}")
+            return {"status": "error", "message": str(e)}
 
 def set_tokens_path(path):
     """Set the path to the tokens file"""
