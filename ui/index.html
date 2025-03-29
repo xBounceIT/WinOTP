@@ -168,6 +168,7 @@
             flex-direction: column;
             align-items: flex-start;
             gap: 4px;
+            transition: height 0.3s ease;
         }
 
         .code-line {
@@ -186,9 +187,21 @@
             display: flex;
             align-items: center;
             gap: 4px;
-            opacity: 0.7;
+            opacity: 0;
             font-size: 16px;
             color: var(--text-color);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            max-height: 0;
+            overflow: hidden;
+            transform: translateY(10px);
+            margin-top: 0;
+        }
+
+        .next-code-container.show {
+            opacity: 0.7;
+            max-height: 30px;
+            transform: translateY(0);
+            margin-top: 4px;
         }
 
         .code-arrow {
@@ -2262,13 +2275,22 @@
                             nextCodeContainer.appendChild(nextCodeSpan);
                             
                             codesContainer.appendChild(nextCodeContainer);
+                            // Force reflow before adding show class
+                            void nextCodeContainer.offsetHeight;
+                            nextCodeContainer.classList.add('show');
                         }
                         
                         const nextCodeSpan = nextCodeContainer.querySelector('.next-code');
                         nextCodeSpan.textContent = formatCode(nextCode.code);
                     }
                 } else if (nextCodeContainer) {
-                    nextCodeContainer.remove();
+                    nextCodeContainer.classList.remove('show');
+                    // Wait for animation to complete before removing
+                    setTimeout(() => {
+                        if (nextCodeContainer && nextCodeContainer.parentNode) {
+                            nextCodeContainer.remove();
+                        }
+                    }, 300);
                 }
             }
         }
