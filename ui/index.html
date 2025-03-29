@@ -506,8 +506,8 @@
         .setting-item {
             display: flex;
             justify-content: space-between;
-            align-items: center;
-            padding: 10px 0;
+            align-items: flex-start;
+            padding: 15px 0;
             border-bottom: 1px solid var(--border-color);
         }
 
@@ -515,14 +515,21 @@
             border-bottom: none;
         }
 
+        .setting-item > div {
+            flex: 1;
+            margin-right: 20px;
+        }
+
         .setting-label {
             font-weight: 500;
+            margin-bottom: 4px;
         }
 
         .setting-description {
             font-size: 14px;
             color: #666;
             margin-top: 5px;
+            line-height: 1.4;
         }
 
         .form-separator {
@@ -557,6 +564,8 @@
             display: inline-block;
             width: 40px;
             height: 24px;
+            flex-shrink: 0;
+            margin-top: 4px;
         }
 
         .switch input {
@@ -894,8 +903,17 @@
         .setting-item {
             display: flex;
             justify-content: space-between;
-            align-items: center;
-            padding: 10px 0;
+            align-items: flex-start;
+            padding: 15px 0;
+        }
+
+        .setting-item:last-child {
+            border-bottom: none;
+        }
+
+        .setting-item > div {
+            flex: 1;
+            margin-right: 20px;
         }
 
         .setting-label {
@@ -906,6 +924,8 @@
         .setting-description {
             font-size: 14px;
             color: #666;
+            margin-top: 5px;
+            line-height: 1.4;
         }
 
         .ntp-status {
