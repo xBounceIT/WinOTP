@@ -1,6 +1,6 @@
 # v0.4
 - Added next code preview functionality
-- Optimized settings access to prevent unnecessary disk reads and reduce console logging
+- Optimized settings access to prevent unnecessary disk reads
 - Added thread-safe settings handling with proper locking mechanism
 
 # v0.3
