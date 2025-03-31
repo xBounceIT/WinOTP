@@ -1,3 +1,6 @@
+# v0.5
+- Added functionality to import tokens from Google Authenticator migration QR codes.
+
 # v0.4
 - Added next code preview functionality
 - Optimized settings access to prevent unnecessary disk reads
