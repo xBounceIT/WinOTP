@@ -1,4 +1,5 @@
 {
     "minimize_to_tray": false,
-    "update_check_enabled": true
+    "update_check_enabled": true,
+    "run_at_startup": false
 }

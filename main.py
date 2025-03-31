@@ -52,14 +52,30 @@ tray_icon = None  # Global tray icon instance
 def load_settings():
     """Load application settings"""
     try:
+        default_settings = {
+            "minimize_to_tray": False,
+            "update_check_enabled": True,
+            "run_at_startup": False,
+            "next_code_preview_enabled": False
+        }
+        
         if os.path.exists(settings_path):
-            return read_json(settings_path)
-        # Add default for run_at_startup
-        return {"minimize_to_tray": False, "update_check_enabled": True, "run_at_startup": False}
+            current_settings = read_json(settings_path)
+            # Ensure all default settings exist
+            for key, value in default_settings.items():
+                if key not in current_settings:
+                    current_settings[key] = value
+            # Save if any defaults were added
+            if len(current_settings) > len(read_json(settings_path)):
+                write_json(settings_path, current_settings)
+            return current_settings
+        
+        # If file doesn't exist, create it with default settings
+        write_json(settings_path, default_settings)
+        return default_settings
     except Exception as e:
         print(f"Error loading settings: {e}")
-        # Add default for run_at_startup
-        return {"minimize_to_tray": False, "update_check_enabled": True, "run_at_startup": False}
+        return default_settings
 
 def save_settings(settings):
     """Save application settings"""
@@ -1084,17 +1100,29 @@ class Api:
     def get_setting(self, key):
         """Get a specific application setting"""
         with self._settings_lock:
-            # Return appropriate defaults for known settings if not in cache
-            if key == "update_check_enabled" and key not in self._settings:
-                return True
-            elif key == "minimize_to_tray" and key not in self._settings:
-                return False
-            # For run_at_startup, check the actual registry state
-            elif key == "run_at_startup":
-                # Return the actual state from registry, default to False on error
-                return startup.is_in_startup()
-
-            return self._settings.get(key)
+            # Define default values for known settings
+            default_values = {
+                "update_check_enabled": True,
+                "minimize_to_tray": False,
+                "run_at_startup": False,
+                "next_code_preview_enabled": False
+            }
+            
+            # If the key is not in settings but has a default value, add it
+            if key in default_values and key not in self._settings:
+                self._settings[key] = default_values[key]
+                # Save the updated settings to file
+                self._save_settings()
+            
+            # Special handling for run_at_startup to ensure registry sync
+            if key == "run_at_startup":
+                registry_state = startup.is_in_startup()
+                if key not in self._settings or self._settings[key] != registry_state:
+                    self._settings[key] = registry_state
+                    self._save_settings()
+                return registry_state
+            
+            return self._settings.get(key, default_values.get(key))
 
     def _save_settings(self):
         """Internal method to save settings and handle errors"""
@@ -1356,7 +1384,12 @@ class Api:
         """Synchronizes the registry startup state with the saved setting."""
         try:
             with self._settings_lock:
-                should_run_at_startup = self._settings.get("run_at_startup", False)
+                # Ensure the setting exists in the JSON file
+                if "run_at_startup" not in self._settings:
+                    self._settings["run_at_startup"] = startup.is_in_startup()
+                    self._save_settings()
+                
+                should_run_at_startup = self._settings["run_at_startup"]
                 is_currently_in_startup = startup.is_in_startup()
 
                 logging.info(f"Startup sync: Saved setting={should_run_at_startup}, Registry state={is_currently_in_startup}")
@@ -1365,44 +1398,43 @@ class Api:
                     logging.info("Adding app to startup based on saved setting.")
                     if not startup.add_to_startup():
                         logging.error("Failed to add app to startup during sync.")
-                        # Optionally revert the setting if adding fails?
-                        # self._settings["run_at_startup"] = False
-                        # self._save_settings()
                 elif not should_run_at_startup and is_currently_in_startup:
                     logging.info("Removing app from startup based on saved setting.")
                     if not startup.remove_from_startup():
                         logging.error("Failed to remove app from startup during sync.")
-                        # Optionally revert the setting if removal fails?
-                        # self._settings["run_at_startup"] = True
-                        # self._save_settings()
         except Exception as e:
             logging.error(f"Error during startup setting sync: {e}")
 
     def set_run_at_startup(self, enabled):
         """Sets the application's run at startup behavior."""
         try:
-            success = False
             with self._settings_lock:
-                # Update the setting value first
-                self._settings["run_at_startup"] = enabled
-                if not self._save_settings():
-                    return {"status": "error", "message": "Failed to save setting locally."}
+                # First try to modify the startup shortcut
+                if enabled:
+                    operation_success = startup.add_to_startup()
+                    message = "Added shortcut to startup folder." if operation_success else "Failed to add shortcut to startup folder."
+                else:
+                    operation_success = startup.remove_from_startup()
+                    message = "Removed shortcut from startup folder." if operation_success else "Failed to remove shortcut from startup folder."
 
-            # Now attempt to modify the registry
-            if enabled:
-                success = startup.add_to_startup()
-                message = "Added to startup." if success else "Failed to add to startup (check logs/permissions)."
-            else:
-                success = startup.remove_from_startup()
-                message = "Removed from startup." if success else "Failed to remove from startup (check logs/permissions)."
-
-            if success:
-                return {"status": "success", "message": message}
-            else:
-                # If registry modification failed, should we revert the saved setting?
-                # For now, we leave the setting as the user intended, but report the registry error.
-                logging.error(f"Registry operation failed for run_at_startup={enabled}. Setting saved, but registry state may be inconsistent.")
-                return {"status": "error", "message": message}
+                if operation_success:
+                    # Only update and save settings if shortcut operation was successful
+                    self._settings["run_at_startup"] = enabled
+                    save_success = self._save_settings()
+                    
+                    if save_success:
+                        return {"status": "success", "message": message}
+                    else:
+                        # If settings save failed, try to revert shortcut change
+                        if enabled:
+                            startup.remove_from_startup()
+                        else:
+                            startup.add_to_startup()
+                        return {"status": "error", "message": "Failed to save setting to file"}
+                else:
+                    # Include specific error message from startup functions if possible
+                    # (Currently the startup functions log errors but return bool)
+                    return {"status": "error", "message": message}
 
         except Exception as e:
             logging.error(f"Error in set_run_at_startup: {e}")

@@ -11,3 +11,4 @@ ntplib
 pystray
 protobuf
 opencv-python
+pywin32
