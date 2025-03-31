@@ -43,7 +43,7 @@ def read_json(file_path):
         with _cache_lock:
             cache_key = f"{file_path}:{os.path.getmtime(file_path)}"
             if cache_key in _file_cache:
-                print(f"Using cached data for {file_path}")
+                # print(f"Using cached data for {file_path}") # Commented out to reduce log noise
                 return _file_cache[cache_key]
     
     try:
