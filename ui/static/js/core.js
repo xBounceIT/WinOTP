@@ -7,223 +7,236 @@ let updateInterval;
 let apiCheckInterval;
 let authCheckInterval;  // Interval for checking auth timeout
 let apiReady = false; // Flag to track API readiness
+let pagesLoaded = false; // Flag to track if pages are loaded
 let currentQRScanner = null; // QR scanner instance
 
 // Initialize the application
 document.addEventListener('DOMContentLoaded', function() {
-    // Wait for API to be ready
+    // Wait for API and pages to be ready
     waitForApi();
+});
+
+// Listen for pages being loaded
+document.addEventListener('allPagesLoaded', function() {
+    console.log("All pages loaded");
+    pagesLoaded = true;
+    
+    console.log("Setting up event listeners for all elements");
     
     // Set up event listeners for elements in the main page
-    document.getElementById('settingsBtn').addEventListener('click', showSettingsPage);
-    document.getElementById('addTokenBtn').addEventListener('click', showAddTokenPage);
-    document.getElementById('toggleSortBtn').addEventListener('click', toggleSortOrder);
-    document.getElementById('searchInput').addEventListener('input', async (e) => {
-        searchTerm = e.target.value.toLowerCase();
-        await renderTokens();
+    const settingsBtn = document.getElementById('settingsBtn');
+    if (settingsBtn) {
+        settingsBtn.addEventListener('click', showSettingsPage);
+    }
+    
+    const addTokenBtn = document.getElementById('addTokenBtn');
+    if (addTokenBtn) {
+        addTokenBtn.addEventListener('click', showAddTokenPage);
+    }
+    
+    const toggleSortBtn = document.getElementById('toggleSortBtn');
+    if (toggleSortBtn) {
+        toggleSortBtn.addEventListener('click', toggleSortOrder);
+    }
+    
+    const searchInput = document.getElementById('searchInput');
+    if (searchInput) {
+        searchInput.addEventListener('input', async (e) => {
+            searchTerm = e.target.value.toLowerCase();
+            await renderTokens();
+        });
+    }
+    
+    // Set up event listeners for elements in dynamically loaded pages
+    const backToMainBtn = document.getElementById('backToMainBtn');
+    if (backToMainBtn) {
+        backToMainBtn.addEventListener('click', showMainPage);
+    }
+    
+    const backFromAddTokenBtn = document.getElementById('backFromAddTokenBtn');
+    if (backFromAddTokenBtn) {
+        backFromAddTokenBtn.addEventListener('click', showMainPage);
+    }
+    
+    const aboutBtnSettings = document.getElementById('aboutBtnSettings'); 
+    if (aboutBtnSettings) {
+        aboutBtnSettings.addEventListener('click', showAboutPage);
+    }
+    
+    const backFromAboutBtn = document.getElementById('backFromAboutBtn');
+    if (backFromAboutBtn) {
+        backFromAboutBtn.addEventListener('click', showSettingsPage);
+    }
+
+    const uploadQrBtn = document.getElementById('uploadQrBtn');
+    if (uploadQrBtn) {
+        uploadQrBtn.addEventListener('click', function() {
+            document.getElementById('qrFileInput').click();
+        });
+    }
+    
+    // Import tokens button in settings
+    const importTokensBtn = document.getElementById('importTokensBtn');
+    if (importTokensBtn) {
+        importTokensBtn.addEventListener('click', showImportTokensPage);
+    }
+    
+    // Back button from import page
+    const backFromImportBtn = document.getElementById('backFromImportBtn');
+    if (backFromImportBtn) {
+        backFromImportBtn.addEventListener('click', showSettingsPage);
+    }
+    
+    // Import buttons
+    const importFromWinOTPBtn = document.getElementById('importFromWinOTPBtn');
+    if (importFromWinOTPBtn) {
+        importFromWinOTPBtn.addEventListener('click', importFromWinOTP);
+    }
+    
+    const importFrom2FASBtn = document.getElementById('importFrom2FASBtn');
+    if (importFrom2FASBtn) {
+        importFrom2FASBtn.addEventListener('click', importFrom2FAS);
+    }
+    
+    const importFromAuthenticatorPluginBtn = document.getElementById('importFromAuthenticatorPluginBtn');
+    if (importFromAuthenticatorPluginBtn) {
+        importFromAuthenticatorPluginBtn.addEventListener('click', importFromAuthenticatorPlugin);
+    }
+    
+    const importFromGoogleAuthBtn = document.getElementById('importFromGoogleAuthBtn');
+    if (importFromGoogleAuthBtn) {
+        importFromGoogleAuthBtn.addEventListener('click', importFromGoogleAuth);
+    }
+    
+    // App protection settings
+    const appProtectionBtn = document.getElementById('appProtectionBtn');
+    if (appProtectionBtn) {
+        appProtectionBtn.addEventListener('click', showAppProtectionPage);
+    }
+    
+    const backFromProtectionBtn = document.getElementById('backFromProtectionBtn');
+    if (backFromProtectionBtn) {
+        backFromProtectionBtn.addEventListener('click', showSettingsPage);
+    }
+    
+    const setPinBtn = document.getElementById('setPinBtn');
+    if (setPinBtn) {
+        setPinBtn.addEventListener('click', setPin);
+    }
+    
+    const setPasswordBtn = document.getElementById('setPasswordBtn');
+    if (setPasswordBtn) {
+        setPasswordBtn.addEventListener('click', setPassword);
+    }
+    
+    const disableProtectionBtn = document.getElementById('disableProtectionBtn');
+    if (disableProtectionBtn) {
+        disableProtectionBtn.addEventListener('click', disableProtection);
+    }
+    
+    // Login page
+    const loginBtn = document.getElementById('loginBtn');
+    if (loginBtn) {
+        loginBtn.addEventListener('click', login);
+    }
+    
+    const loginCredential = document.getElementById('loginCredential');
+    if (loginCredential) {
+        loginCredential.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                login();
+            }
+        });
+    }
+    
+    // Set up tabs
+    document.querySelectorAll('.tab').forEach(tab => {
+        tab.addEventListener('click', function() {
+            const tabId = this.getAttribute('data-tab');
+            
+            // Remove active class from all tabs and tab contents
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            
+            // Add active class to selected tab and tab content
+            this.classList.add('active');
+            document.getElementById(tabId).classList.add('active');
+        });
     });
     
-    // Wait for all pages to be loaded (including dynamic ones)
-    document.addEventListener('allPagesLoaded', function() {
-        console.log("All pages loaded, setting up event listeners for dynamically loaded elements");
-        
-        // Set up event listeners for elements in dynamically loaded pages
-        const backToMainBtn = document.getElementById('backToMainBtn');
-        if (backToMainBtn) {
-            backToMainBtn.addEventListener('click', showMainPage);
-        } else {
-            console.error("Could not find element with ID 'backToMainBtn'");
-        }
-        
-        const backFromAddTokenBtn = document.getElementById('backFromAddTokenBtn');
-        if (backFromAddTokenBtn) {
-            backFromAddTokenBtn.addEventListener('click', showMainPage);
-        }
-        
-        const aboutBtnSettings = document.getElementById('aboutBtnSettings'); 
-        if (aboutBtnSettings) {
-            aboutBtnSettings.addEventListener('click', showAboutPage);
-        }
-        
-        const backFromAboutBtn = document.getElementById('backFromAboutBtn');
-        if (backFromAboutBtn) {
-            backFromAboutBtn.addEventListener('click', showSettingsPage);
-        }
-
-        const uploadQrBtn = document.getElementById('uploadQrBtn');
-        if (uploadQrBtn) {
-            uploadQrBtn.addEventListener('click', function() {
-                document.getElementById('qrFileInput').click();
-            });
-        }
-        
-        // Import tokens button in settings
-        const importTokensBtn = document.getElementById('importTokensBtn');
-        if (importTokensBtn) {
-            importTokensBtn.addEventListener('click', showImportTokensPage);
-        }
-        
-        // Back button from import page
-        const backFromImportBtn = document.getElementById('backFromImportBtn');
-        if (backFromImportBtn) {
-            backFromImportBtn.addEventListener('click', showSettingsPage);
-        }
-        
-        // Import buttons
-        const importFromWinOTPBtn = document.getElementById('importFromWinOTPBtn');
-        if (importFromWinOTPBtn) {
-            importFromWinOTPBtn.addEventListener('click', importFromWinOTP);
-        }
-        
-        const importFrom2FASBtn = document.getElementById('importFrom2FASBtn');
-        if (importFrom2FASBtn) {
-            importFrom2FASBtn.addEventListener('click', importFrom2FAS);
-        }
-        
-        const importFromAuthenticatorPluginBtn = document.getElementById('importFromAuthenticatorPluginBtn');
-        if (importFromAuthenticatorPluginBtn) {
-            importFromAuthenticatorPluginBtn.addEventListener('click', importFromAuthenticatorPlugin);
-        }
-        
-        const importFromGoogleAuthBtn = document.getElementById('importFromGoogleAuthBtn');
-        if (importFromGoogleAuthBtn) {
-            importFromGoogleAuthBtn.addEventListener('click', importFromGoogleAuth);
-        }
-        
-        // App protection settings
-        const appProtectionBtn = document.getElementById('appProtectionBtn');
-        if (appProtectionBtn) {
-            appProtectionBtn.addEventListener('click', showAppProtectionPage);
-        }
-        
-        const backFromProtectionBtn = document.getElementById('backFromProtectionBtn');
-        if (backFromProtectionBtn) {
-            backFromProtectionBtn.addEventListener('click', showSettingsPage);
-        }
-        
-        const setPinBtn = document.getElementById('setPinBtn');
-        if (setPinBtn) {
-            setPinBtn.addEventListener('click', setPin);
-        }
-        
-        const setPasswordBtn = document.getElementById('setPasswordBtn');
-        if (setPasswordBtn) {
-            setPasswordBtn.addEventListener('click', setPassword);
-        }
-        
-        const disableProtectionBtn = document.getElementById('disableProtectionBtn');
-        if (disableProtectionBtn) {
-            disableProtectionBtn.addEventListener('click', disableProtection);
-        }
-        
-        // Login page
-        const loginBtn = document.getElementById('loginBtn');
-        if (loginBtn) {
-            loginBtn.addEventListener('click', login);
-        }
-        
-        const loginCredential = document.getElementById('loginCredential');
-        if (loginCredential) {
-            loginCredential.addEventListener('keypress', function(e) {
-                if (e.key === 'Enter') {
-                    login();
-                }
-            });
-        }
-        
-        // Set up tabs
-        document.querySelectorAll('.tab').forEach(tab => {
-            tab.addEventListener('click', function() {
-                const tabId = this.getAttribute('data-tab');
-                
-                // Remove active class from all tabs and tab contents
-                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-                
-                // Add active class to selected tab and tab content
-                this.classList.add('active');
-                document.getElementById(tabId).classList.add('active');
-            });
+    // Google Auth import page
+    const backFromGoogleAuthBtn = document.getElementById('backFromGoogleAuthBtn');
+    if (backFromGoogleAuthBtn) {
+        backFromGoogleAuthBtn.addEventListener('click', backFromGoogleAuth);
+    }
+    
+    const finishGoogleAuthImportBtn = document.getElementById('finishGoogleAuthImportBtn');
+    if (finishGoogleAuthImportBtn) {
+        finishGoogleAuthImportBtn.addEventListener('click', finishGoogleAuthImport);
+    }
+    
+    // Add event listener for start scan button
+    const startScanBtn = document.getElementById('startScanBtn');
+    if (startScanBtn) {
+        startScanBtn.addEventListener('click', initializeQrScanner);
+    }
+    
+    // Update page elements
+    const backFromUpdateBtn = document.getElementById('backFromUpdateBtn');
+    const cancelUpdateBtn = document.getElementById('cancelUpdateBtn');
+    
+    if (backFromUpdateBtn) {
+        backFromUpdateBtn.addEventListener('click', function() {
+            document.getElementById('updatePage').style.display = 'none';
+            showMainPage();
         });
-        
-        // Google Auth import page
-        const backFromGoogleAuthBtn = document.getElementById('backFromGoogleAuthBtn');
-        if (backFromGoogleAuthBtn) {
-            backFromGoogleAuthBtn.addEventListener('click', backFromGoogleAuth);
-        }
-        
-        const finishGoogleAuthImportBtn = document.getElementById('finishGoogleAuthImportBtn');
-        if (finishGoogleAuthImportBtn) {
-            finishGoogleAuthImportBtn.addEventListener('click', finishGoogleAuthImport);
-        }
-        
-        // Add event listener for start scan button
-        const startScanBtn = document.getElementById('startScanBtn');
-        if (startScanBtn) {
-            startScanBtn.addEventListener('click', initializeQrScanner);
-        }
-        
-        // Update page elements
-        const backFromUpdateBtn = document.getElementById('backFromUpdateBtn');
-        const cancelUpdateBtn = document.getElementById('cancelUpdateBtn');
-        
-        if (backFromUpdateBtn) {
-            backFromUpdateBtn.addEventListener('click', function() {
-                document.getElementById('updatePage').style.display = 'none';
-                showMainPage();
-            });
-        }
-        
-        if (cancelUpdateBtn) {
-            cancelUpdateBtn.addEventListener('click', function() {
-                document.getElementById('updatePage').style.display = 'none';
-                showMainPage();
-            });
-        }
-        
-        const downloadUpdateBtn = document.getElementById('downloadUpdateBtn');
-        if (downloadUpdateBtn) {
-            downloadUpdateBtn.addEventListener('click', downloadUpdate);
-        }
-        
-        // Start periodic auth check
-        startAuthCheck();
+    }
+    
+    if (cancelUpdateBtn) {
+        cancelUpdateBtn.addEventListener('click', function() {
+            document.getElementById('updatePage').style.display = 'none';
+            showMainPage();
+        });
+    }
+    
+    const downloadUpdateBtn = document.getElementById('downloadUpdateBtn');
+    if (downloadUpdateBtn) {
+        downloadUpdateBtn.addEventListener('click', downloadUpdate);
+    }
+    
+    // Start periodic auth check
+    startAuthCheck();
 
-        // Add the event listeners that were previously outside
-        const qrFileInput = document.getElementById('qrFileInput');
-        if (qrFileInput) {
-            qrFileInput.addEventListener('change', handleQrFileUpload);
-        }
+    // Add the event listeners that were previously outside
+    const qrFileInput = document.getElementById('qrFileInput');
+    if (qrFileInput) {
+        qrFileInput.addEventListener('change', handleQrFileUpload);
+    }
 
-        const saveTokenBtn = document.getElementById('saveTokenBtn');
-        if (saveTokenBtn) {
-            saveTokenBtn.addEventListener('click', saveManualToken);
-        }
+    const saveTokenBtn = document.getElementById('saveTokenBtn');
+    if (saveTokenBtn) {
+        saveTokenBtn.addEventListener('click', saveManualToken);
+    }
 
-        const saveUriTokenBtn = document.getElementById('saveUriTokenBtn');
-        if (saveUriTokenBtn) {
-            saveUriTokenBtn.addEventListener('click', saveUriToken);
-        }
+    const saveUriTokenBtn = document.getElementById('saveUriTokenBtn');
+    if (saveUriTokenBtn) {
+        saveUriTokenBtn.addEventListener('click', saveUriToken);
+    }
 
-        const exportTokensBtn = document.getElementById('exportTokensBtn');
-        if (exportTokensBtn) {
-            exportTokensBtn.addEventListener('click', exportTokens);
-        }
+    const exportTokensBtn = document.getElementById('exportTokensBtn');
+    if (exportTokensBtn) {
+        exportTokensBtn.addEventListener('click', exportTokens);
+    }
 
-        // Load settings
-        loadMinimizeToTraySetting();
-        loadUpdateCheckerSetting();
-        loadNextCodePreviewSetting();
-    });
+    // Load settings
+    loadMinimizeToTraySetting();
+    loadUpdateCheckerSetting();
+    loadNextCodePreviewSetting();
 });
 
 // Wait for API to be ready
 function waitForApi() {
-    console.log("Waiting for API to be ready...");
-    
-    // Show a loading indicator
-    document.getElementById('mainPage').style.display = 'none';
-    document.getElementById('loginPage').style.display = 'none';
+    console.log("Waiting for API and pages to be ready...");
     
     // Create a loading element if it doesn't exist
     if (!document.getElementById('loadingIndicator')) {
@@ -264,10 +277,10 @@ function waitForApi() {
         document.body.appendChild(loadingDiv);
     }
     
-    // Check if API is available
-    const checkApi = () => {
-        if (window.pywebview && window.pywebview.api) {
-            console.log("API is ready!");
+    // Check if both API and pages are available
+    const checkReadiness = () => {
+        if (window.pywebview && window.pywebview.api && pagesLoaded) {
+            console.log("API and pages are ready!");
             apiReady = true;
             
             // Preload all icons as soon as the API is ready
@@ -286,13 +299,13 @@ function waitForApi() {
             // Check authentication status
             checkAuthStatus();
         } else {
-            console.log("API not ready yet, retrying...");
-            setTimeout(checkApi, 100);
+            console.log("Still waiting for API and pages...");
+            setTimeout(checkReadiness, 100);
         }
     };
     
-    // Start checking for API
-    checkApi();
+    // Start checking for readiness
+    checkReadiness();
 }
 
 // Helper function to wait for pywebview API
