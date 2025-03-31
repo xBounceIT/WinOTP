@@ -69,24 +69,53 @@ def save_settings(settings):
 def create_tray_icon(window):
     """Create system tray icon"""
     try:
-        # Load the icon image
+        # Load the icon image container
         icon_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ui", "static", "icons", "app.ico")
-        image = Image.open(icon_path)
+        image_container = Image.open(icon_path)
+        
+        # Print original container size (usually largest frame)
+        print(f"Pillow loaded ICO container, largest frame size: {image_container.size}")
+
+        # --- Explicitly extract the 32x32 frame --- 
+        icon_32 = None
+        try:
+            # Get the specific 32x32 image frame from the ICO container
+            icon_32 = image_container.ico.getimage((32, 32))
+            print(f"Successfully extracted 32x32 frame. Size: {icon_32.size}")
+        except KeyError:
+            print("Warning: 32x32 frame not found in ICO. Falling back to largest and resizing.")
+            # Fallback: Resize the largest image if 32x32 is missing
+            target_size = (32, 32)
+            icon_32 = image_container.resize(target_size, Image.Resampling.LANCZOS)
+            print(f"Resized largest frame to: {icon_32.size}")
+        except Exception as e_extract:
+             print(f"Error extracting 32x32 frame: {e_extract}. Falling back to largest and resizing.")
+             target_size = (32, 32)
+             icon_32 = image_container.resize(target_size, Image.Resampling.LANCZOS)
+             print(f"Resized largest frame to: {icon_32.size}")
+        # --- End frame extraction ---
+
+        if not icon_32:
+             print("Error: Could not obtain a 32x32 icon image.")
+             return None
 
         def show_window():
             window.show()
             window.restore()
 
         def quit_app():
+            # Use the global tray_icon reference if available
+            global tray_icon
             window.destroy()
-            tray_icon.stop()
+            if tray_icon:
+                tray_icon.stop()
 
-        # Create the tray icon
+        # Create the tray icon using the 32x32 image
         menu = (
             pystray.MenuItem("Show", show_window),
             pystray.MenuItem("Quit", quit_app)
         )
-        icon = pystray.Icon("WinOTP", image, "WinOTP", menu)
+        icon = pystray.Icon("WinOTP", icon_32, "WinOTP", menu) # Use the extracted/resized 32x32 image
         return icon
     except Exception as e:
         print(f"Error creating tray icon: {e}")
