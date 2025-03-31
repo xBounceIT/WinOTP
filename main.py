@@ -32,7 +32,7 @@ pyzbar = None
 Image = None
 
 # Path to the user's app data directory
-winotp_data_dir = os.path.join(os.path.expanduser('~'), 'AppData', 'Local', 'WinOTP')
+winotp_data_dir = os.path.join(os.path.expanduser('~'), 'Documents', 'WinOTP')
 
 # Global file paths with default values for app data directory
 tokens_path = os.path.join(winotp_data_dir, 'tokens.json')

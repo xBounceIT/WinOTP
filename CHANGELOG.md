@@ -1,3 +1,6 @@
+# v0.5.1
+- Fixed a critical issue which moved the app settings, config and tokens folder into the AppData/Local folder instead of the User Documents folder.
+
 # v0.5
 - Added functionality to import tokens from Google Authenticator migration QR codes.
 - UI Refactor
