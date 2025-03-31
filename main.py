@@ -26,21 +26,25 @@ from utils.importers.winotp_importer import parse_winotp_json
 from utils.importers.twofas_importer import parse_2fas_json
 from utils.importers.authenticator_plugin import parse_authenticator_plugin_export
 
-# --- Define Application Data Directory ---
-# Get user's Documents folder
-documents_path = os.path.join(os.path.expanduser("~"), "Documents")
-# Define the application-specific directory within Documents
-winotp_data_dir = os.path.join(documents_path, "WinOTP")
+# Globals for on-demand imports
+pyotp = None
+pyzbar = None
+Image = None
 
-# --- Global variables ---
-tokens_path = os.path.join(winotp_data_dir, "tokens.json")  # Default path
-AUTH_CONFIG_PATH = os.path.join(winotp_data_dir, "auth_config.json")  # Auth config file path
-settings_path = os.path.join(winotp_data_dir, "app_settings.json")  # Settings file path
+# Path to the user's app data directory
+winotp_data_dir = os.path.join(os.path.expanduser('~'), 'AppData', 'Local', 'WinOTP')
+
+# Global file paths with default values for app data directory
+tokens_path = os.path.join(winotp_data_dir, 'tokens.json')
+settings_path = os.path.join(winotp_data_dir, 'app_settings.json')
+AUTH_CONFIG_PATH = os.path.join(winotp_data_dir, 'auth_config.json')
+
+# Lock for file operations
+file_write_lock = threading.Lock()
 
 tokens = {}  # Store tokens data
 sort_ascending = True  # Default sort order
 last_tokens_update = 0  # Track when tokens were last updated from disk
-file_write_lock = threading.Lock()  # Lock for thread-safe file operations
 tray_icon = None  # Global tray icon instance
 
 def load_settings():
@@ -1218,12 +1222,135 @@ class Api:
                     continue
 
             if tokens_added > 0:
-                return {"status": "success", "message": f"Successfully imported {tokens_added} tokens"}
+                return {"status": "success", "message": f"Successfully imported {tokens_added} tokens", "tokens_count": tokens_added}
             else:
                 return {"status": "error", "message": "No valid tokens found in QR code"}
 
         except Exception as e:
             return {"status": "error", "message": f"Failed to import tokens: {str(e)}"}
+            
+    def initialize_google_auth_qr_scanner(self):
+        """Initialize Google Authenticator QR scanner"""
+        try:
+            print("Initializing Google Authenticator QR scanner")
+            # This is mainly a placeholder that just confirms the API call works
+            # Actual processing will happen when scan_google_auth_qr is called
+            return {"status": "success", "message": "QR scanner initialized"}
+        except Exception as e:
+            print(f"Error initializing Google Auth QR scanner: {str(e)}")
+            return {"status": "error", "message": str(e)}
+    
+    def scan_google_auth_qr(self, file_path):
+        """Scan a Google Authenticator QR code from a file"""
+        try:
+            print(f"Scanning Google Auth QR code from file: {file_path}")
+            
+            # Ensure pyzbar and PIL are imported
+            from pyzbar import pyzbar
+            from PIL import Image
+            
+            print("Imported pyzbar and PIL.Image for QR scanning")
+            
+            # Check if file_path is valid
+            if not file_path:
+                return {"status": "error", "message": "No file provided"}
+                
+            # We might be receiving base64 data directly instead of a file path
+            # Let's detect if the input is base64 data or a file path
+            import base64, io, re
+            
+            if isinstance(file_path, str) and re.match(r'^data:image\/(jpeg|png|gif|bmp);base64,', file_path):
+                # It's a base64 data URL
+                try:
+                    # Strip the prefix and decode
+                    base64_data = file_path.split(',', 1)[1]
+                    image_data = base64.b64decode(base64_data)
+                    image = Image.open(io.BytesIO(image_data))
+                except Exception as e:
+                    print(f"Error processing base64 image: {str(e)}")
+                    return {"status": "error", "message": f"Invalid image data: {str(e)}"}
+            else:
+                # Try to open as a file path
+                try:
+                    image = Image.open(file_path)
+                except Exception as e:
+                    print(f"Error opening image file: {str(e)}")
+                    return {"status": "error", "message": f"Could not open image file: {str(e)}"}
+            
+            # Decode QR codes in the image
+            print("Calling pyzbar.decode on the image...")
+            decoded_objects = pyzbar.decode(image)
+            print(f"QR scan result: {len(decoded_objects)} decoded objects found")
+            
+            if not decoded_objects:
+                return {"status": "error", "message": "No QR code found in the image"}
+            
+            # Debug info about the first decoded object
+            first_obj = decoded_objects[0]
+            print(f"First decoded object type: {type(first_obj)}")
+            print(f"First decoded object data type: {type(first_obj.data)}")
+            print(f"First decoded object attributes: {dir(first_obj)}")
+            
+            # Process each decoded object
+            for obj in decoded_objects:
+                # Debug print the raw object data
+                print(f"Processing object with data type: {type(obj.data)}")
+                
+                try:
+                    # Handle different types of data
+                    if isinstance(obj.data, bytes):
+                        data = obj.data.decode('utf-8')
+                        print("Decoded bytes data to UTF-8 string")
+                    elif isinstance(obj.data, str):
+                        data = obj.data
+                        print("Using string data directly")
+                    elif hasattr(obj, 'data') and isinstance(obj.data, dict):
+                        # If it's a dict, try to convert to string or extract data field
+                        print(f"Dictionary data found: {obj.data}")
+                        if 'data' in obj.data and isinstance(obj.data['data'], (str, bytes)):
+                            data = obj.data['data']
+                            if isinstance(data, bytes):
+                                data = data.decode('utf-8')
+                            print("Extracted 'data' field from dictionary")
+                        else:
+                            # Convert dict to string as fallback
+                            data = str(obj.data)
+                            print(f"Converted dictionary to string: {data[:50]}...")
+                    else:
+                        print(f"Unexpected data type: {type(obj.data)}")
+                        # Try string conversion as last resort
+                        data = str(obj.data)
+                        print(f"Converted to string: {data[:50]}...")
+                    
+                    print(f"Processed QR data: {data[:100]}...")  # Print first 100 chars for debugging
+                    
+                    # Check if it's a Google Authenticator QR code
+                    if data.startswith('otpauth-migration://offline?data='):
+                        # Process the QR code data
+                        result = self.import_tokens_from_google_auth_qr(data)
+                        return result
+                except Exception as e:
+                    print(f"Error processing individual QR object: {str(e)}")
+                    # Continue to the next object instead of failing completely
+                    continue
+            
+            return {"status": "error", "message": "No valid Google Authenticator QR code found"}
+            
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            print(f"Error scanning Google Auth QR: {str(e)}")
+            return {"status": "error", "message": f"Error scanning QR code: {str(e)}"}
+            
+    def finish_google_auth_import(self):
+        """Finish Google Authenticator import process"""
+        try:
+            # Save tokens
+            self.save_tokens()
+            
+            return {"status": "success", "message": "Google Authenticator import completed successfully"}
+        except Exception as e:
+            return {"status": "error", "message": f"Error completing import: {str(e)}"}
 
 def set_tokens_path(path):
     """Set the path to the tokens file"""

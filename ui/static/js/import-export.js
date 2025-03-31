@@ -311,48 +311,59 @@ function initializeGoogleAuthQrScanner() {
                         // Show loading indicator
                         qrScannerArea.innerHTML = '<div class="loading-spinner"></div><p>Processing QR code...</p>';
                         
-                        // Call API to scan QR code
-                        const result = await window.pywebview.api.scan_google_auth_qr(file.path);
-                        if (result.status === 'success') {
-                            // Show success message
-                            qrScannerArea.innerHTML = `<div class="success-message">QR Code scanned successfully! ${result.tokens_count} tokens found.</div>`;
-                            
-                            // Reset file input
-                            fileInput.value = '';
-                            
-                            // Show another upload button for adding more QR codes
-                            const anotherButton = document.createElement('button');
-                            anotherButton.className = 'btn';
-                            anotherButton.textContent = 'Scan Another QR Code';
-                            anotherButton.addEventListener('click', function() {
-                                setupQrScanner();
-                            });
-                            qrScannerArea.appendChild(anotherButton);
-                        } else {
-                            // Show error message
-                            qrScannerArea.innerHTML = `<div class="error-message">${result.message}</div>`;
-                            
-                            // Show retry button
-                            const retryButton = document.createElement('button');
-                            retryButton.className = 'btn';
-                            retryButton.textContent = 'Try Again';
-                            retryButton.addEventListener('click', function() {
-                                setupQrScanner();
-                            });
-                            qrScannerArea.appendChild(retryButton);
-                        }
-                    } catch (error) {
-                        console.error('Error scanning QR code:', error);
-                        qrScannerArea.innerHTML = `<div class="error-message">Error scanning QR code</div>`;
+                        // Read the file as a data URL
+                        const reader = new FileReader();
+                        reader.onload = async function(e) {
+                            try {
+                                // Call API to scan QR code with the data URL
+                                const result = await window.pywebview.api.scan_google_auth_qr(e.target.result);
+                                if (result.status === 'success') {
+                                    // Show success message
+                                    qrScannerArea.innerHTML = `<div class="success-message">QR Code scanned successfully! ${result.tokens_count} tokens found.</div>`;
+                                    
+                                    // Reset file input
+                                    fileInput.value = '';
+                                    
+                                    // Show another upload button for adding more QR codes
+                                    const anotherButton = document.createElement('button');
+                                    anotherButton.className = 'btn';
+                                    anotherButton.textContent = 'Scan Another QR Code';
+                                    anotherButton.addEventListener('click', function() {
+                                        setupQrScanner();
+                                    });
+                                    qrScannerArea.appendChild(anotherButton);
+                                } else {
+                                    // Show error message
+                                    qrScannerArea.innerHTML = `<div class="error-message">${result.message}</div>`;
+                                    
+                                    // Show retry button
+                                    const retryButton = document.createElement('button');
+                                    retryButton.className = 'btn';
+                                    retryButton.textContent = 'Try Again';
+                                    retryButton.addEventListener('click', function() {
+                                        setupQrScanner();
+                                    });
+                                    qrScannerArea.appendChild(retryButton);
+                                }
+                            } catch (error) {
+                                console.error('Error calling API to scan QR code:', error);
+                                qrScannerArea.innerHTML = `<div class="error-message">Error scanning QR code: ${error.message || error}</div>`;
+                                
+                                // Show retry button
+                                const retryButton = document.createElement('button');
+                                retryButton.className = 'btn';
+                                retryButton.textContent = 'Try Again';
+                                retryButton.addEventListener('click', function() {
+                                    setupQrScanner();
+                                });
+                                qrScannerArea.appendChild(retryButton);
+                            }
+                        };
                         
-                        // Show retry button
-                        const retryButton = document.createElement('button');
-                        retryButton.className = 'btn';
-                        retryButton.textContent = 'Try Again';
-                        retryButton.addEventListener('click', function() {
-                            setupQrScanner();
-                        });
-                        qrScannerArea.appendChild(retryButton);
+                        reader.readAsDataURL(file);
+                    } catch (error) {
+                        console.error('Error reading file:', error);
+                        qrScannerArea.innerHTML = `<div class="error-message">Error reading file</div>`;
                     }
                 });
             } catch (error) {
