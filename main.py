@@ -70,7 +70,7 @@ def create_tray_icon(window):
     """Create system tray icon"""
     try:
         # Load the icon image
-        icon_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ui", "static", "icons", "app.png")
+        icon_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ui", "static", "icons", "app.ico")
         image = Image.open(icon_path)
 
         def show_window():
