@@ -403,8 +403,10 @@ async function finishGoogleAuthImport() {
         // Call API to complete the import
         const result = await window.pywebview.api.finish_google_auth_import();
         if (result.status === 'success') {
-            showNotification(result.message, 'success');
-            // Go back to main page to show the imported tokens
+            // Hide Google Auth import page first
+            document.getElementById('googleAuthImportPage').style.display = 'none';
+            
+            // Go back to main page to show the imported tokens without showing success notification
             showMainPage();
             loadTokens();
         } else {

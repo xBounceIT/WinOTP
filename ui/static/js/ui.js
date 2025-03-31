@@ -13,6 +13,9 @@ function showMainPage() {
     } else if (document.getElementById('importTokensPage').style.display === 'block') {
         document.getElementById('importTokensPage').classList.remove('fade-in');
         document.getElementById('importTokensPage').classList.add('fade-out');
+    } else if (document.getElementById('googleAuthImportPage').style.display === 'block') {
+        document.getElementById('googleAuthImportPage').classList.remove('fade-in');
+        document.getElementById('googleAuthImportPage').classList.add('fade-out');
     }
     
     setTimeout(() => {
@@ -21,6 +24,8 @@ function showMainPage() {
         document.getElementById('aboutPage').style.display = 'none';
         document.getElementById('importTokensPage').style.display = 'none';
         document.getElementById('loginPage').style.display = 'none';
+        document.getElementById('googleAuthImportPage').style.display = 'none';
+        document.getElementById('importProgressPage').style.display = 'none';
         document.getElementById('mainPage').style.display = 'block';
         
         // Force reflow
