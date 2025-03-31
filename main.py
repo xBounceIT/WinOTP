@@ -10,6 +10,7 @@ import base64
 import io
 import pystray
 from PIL import Image
+import logging
 
 # Import utilities
 from utils.file_io import read_json, write_json
@@ -25,6 +26,7 @@ from utils import asset_manager # Import asset_manager
 from utils.importers.winotp_importer import parse_winotp_json
 from utils.importers.twofas_importer import parse_2fas_json
 from utils.importers.authenticator_plugin import parse_authenticator_plugin_export
+from app import startup # Import the startup module
 
 # Globals for on-demand imports
 pyotp = None
@@ -52,10 +54,12 @@ def load_settings():
     try:
         if os.path.exists(settings_path):
             return read_json(settings_path)
-        return {"minimize_to_tray": False, "update_check_enabled": True}
+        # Add default for run_at_startup
+        return {"minimize_to_tray": False, "update_check_enabled": True, "run_at_startup": False}
     except Exception as e:
         print(f"Error loading settings: {e}")
-        return {"minimize_to_tray": False, "update_check_enabled": True}
+        # Add default for run_at_startup
+        return {"minimize_to_tray": False, "update_check_enabled": True, "run_at_startup": False}
 
 def save_settings(settings):
     """Save application settings"""
@@ -165,6 +169,9 @@ class Api:
         
         self._tokens_lock = threading.Lock()
         self._settings_lock = threading.Lock()  # Add lock for thread-safe settings access
+
+        # Sync startup setting with registry on initialization
+        self._sync_startup_setting()
     
     def __eq__(self, other):
         # Completely rewritten equality method to avoid Rectangle.op_Equality error
@@ -1082,7 +1089,11 @@ class Api:
                 return True
             elif key == "minimize_to_tray" and key not in self._settings:
                 return False
-                
+            # For run_at_startup, check the actual registry state
+            elif key == "run_at_startup":
+                # Return the actual state from registry, default to False on error
+                return startup.is_in_startup()
+
             return self._settings.get(key)
 
     def _save_settings(self):
@@ -1340,6 +1351,62 @@ class Api:
             return {"status": "success", "message": "Google Authenticator import completed successfully"}
         except Exception as e:
             return {"status": "error", "message": f"Error completing import: {str(e)}"}
+
+    def _sync_startup_setting(self):
+        """Synchronizes the registry startup state with the saved setting."""
+        try:
+            with self._settings_lock:
+                should_run_at_startup = self._settings.get("run_at_startup", False)
+                is_currently_in_startup = startup.is_in_startup()
+
+                logging.info(f"Startup sync: Saved setting={should_run_at_startup}, Registry state={is_currently_in_startup}")
+
+                if should_run_at_startup and not is_currently_in_startup:
+                    logging.info("Adding app to startup based on saved setting.")
+                    if not startup.add_to_startup():
+                        logging.error("Failed to add app to startup during sync.")
+                        # Optionally revert the setting if adding fails?
+                        # self._settings["run_at_startup"] = False
+                        # self._save_settings()
+                elif not should_run_at_startup and is_currently_in_startup:
+                    logging.info("Removing app from startup based on saved setting.")
+                    if not startup.remove_from_startup():
+                        logging.error("Failed to remove app from startup during sync.")
+                        # Optionally revert the setting if removal fails?
+                        # self._settings["run_at_startup"] = True
+                        # self._save_settings()
+        except Exception as e:
+            logging.error(f"Error during startup setting sync: {e}")
+
+    def set_run_at_startup(self, enabled):
+        """Sets the application's run at startup behavior."""
+        try:
+            success = False
+            with self._settings_lock:
+                # Update the setting value first
+                self._settings["run_at_startup"] = enabled
+                if not self._save_settings():
+                    return {"status": "error", "message": "Failed to save setting locally."}
+
+            # Now attempt to modify the registry
+            if enabled:
+                success = startup.add_to_startup()
+                message = "Added to startup." if success else "Failed to add to startup (check logs/permissions)."
+            else:
+                success = startup.remove_from_startup()
+                message = "Removed from startup." if success else "Failed to remove from startup (check logs/permissions)."
+
+            if success:
+                return {"status": "success", "message": message}
+            else:
+                # If registry modification failed, should we revert the saved setting?
+                # For now, we leave the setting as the user intended, but report the registry error.
+                logging.error(f"Registry operation failed for run_at_startup={enabled}. Setting saved, but registry state may be inconsistent.")
+                return {"status": "error", "message": message}
+
+        except Exception as e:
+            logging.error(f"Error in set_run_at_startup: {e}")
+            return {"status": "error", "message": f"An unexpected error occurred: {str(e)}"}
 
 def set_tokens_path(path):
     """Set the path to the tokens file"""

@@ -68,19 +68,28 @@ async function showSettingsPage() {
         await new Promise(resolve => setTimeout(resolve, 50));
     }
     
-    // Hide other pages and show settings page immediately
+    // Hide all other pages
     document.getElementById('mainPage').style.display = 'none';
     document.getElementById('aboutPage').style.display = 'none';
     document.getElementById('importTokensPage').style.display = 'none';
     document.getElementById('appProtectionPage').style.display = 'none';
     document.getElementById('loginPage').style.display = 'none';
-    document.getElementById('settingsPage').style.display = 'block';
+    
+    // Show the settings page loaded from settings.html
+    const settingsPage = document.getElementById('settingsPage');
+    if (!settingsPage) {
+        console.error('Settings page not found! Make sure settings.html is properly loaded.');
+        showNotification('Error loading settings page', 'error');
+        return;
+    }
+    
+    settingsPage.style.display = 'block';
     
     // Force reflow before fade-in
-    void document.getElementById('settingsPage').offsetWidth;
+    void settingsPage.offsetWidth;
     
     // Start fade-in animation
-    document.getElementById('settingsPage').classList.add('fade-in');
+    settingsPage.classList.add('fade-in');
     
     // --- Load settings and icons concurrently --- 
     // (This part now runs immediately after the page is shown)
@@ -92,6 +101,7 @@ async function showSettingsPage() {
             minimizeResult,
             updateCheckEnabled,
             nextCodePreviewEnabled,
+            runAtStartupEnabled,
             backIconResult,
             aboutIconResult
         ] = await Promise.all([
@@ -99,6 +109,7 @@ async function showSettingsPage() {
             window.pywebview.api.get_minimize_to_tray(),
             window.pywebview.api.get_setting('update_check_enabled'),
             window.pywebview.api.get_setting('next_code_preview_enabled'),
+            window.pywebview.api.get_setting('run_at_startup'),
             window.pywebview.api.get_icon_base64('back_arrow.png'),
             window.pywebview.api.get_icon_base64('question.png')
         ]);
@@ -136,6 +147,14 @@ async function showSettingsPage() {
 
         // Apply next code preview setting
         document.getElementById('nextCodePreviewToggle').checked = nextCodePreviewEnabled !== undefined ? nextCodePreviewEnabled : false;
+
+        // Apply run at startup setting
+        const runAtStartupToggleElement = document.getElementById('runAtStartupToggle');
+        if (runAtStartupToggleElement) {
+            runAtStartupToggleElement.checked = runAtStartupEnabled !== undefined ? runAtStartupEnabled : false;
+        } else {
+            console.error("Could not find element with ID 'runAtStartupToggle' in settings page.");
+        }
 
         // Apply back icon
         if (backIconResult.status === 'success') {
@@ -394,4 +413,28 @@ function updateProgress(data) {
             progressStatus.textContent = data.status;
         }
     }
-} 
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    // ... other event listeners ...
+
+    // Add event listener for the run at startup toggle
+    const runAtStartupToggle = document.getElementById('runAtStartupToggle');
+    if (runAtStartupToggle) {
+        runAtStartupToggle.addEventListener('change', async (event) => {
+            try {
+                await waitForPywebviewApi();
+                const isEnabled = event.target.checked;
+                await window.pywebview.api.set_run_at_startup(isEnabled);
+                showNotification(`Run at startup ${isEnabled ? 'enabled' : 'disabled'}`, 'success');
+            } catch (error) {
+                console.error('Error setting run at startup:', error);
+                showNotification('Failed to update run at startup setting', 'error');
+                // Revert the toggle state on error
+                event.target.checked = !event.target.checked;
+            }
+        });
+    }
+
+    // ... other event listeners ...
+}); 

@@ -31,104 +31,7 @@
         </div>
     </div>
 
-    <!-- Settings Page -->
-    <div class="container" id="settingsPage" style="display: none;">
-        <div class="header">
-            <div class="header-left">
-                <button id="backToMainBtn" class="btn btn-icon"><img id="backIcon" src="static/icons/back_arrow.png" alt="Back" width="20" height="20"></button>
-                <h1>Settings</h1>
-            </div>
-            <div class="header-actions">
-                <button class="btn btn-icon" id="aboutBtnSettings"><img id="aboutIcon" src="static/icons/question.png" alt="About" width="20" height="20"></button>
-            </div>
-        </div>
-        
-        <div class="settings-content">
-            <div class="settings-section">
-                <h2>Security</h2>
-                <div class="setting-item">
-                    <div>
-                        <div class="setting-label">App Protection</div>
-                        <div class="setting-description">Protect the app with a PIN or password</div>
-                        <div id="settingsProtectionStatus" class="protection-status-badge"></div>
-                        <div class="setting-description" style="margin-top: 10px; font-style: italic;">When protection is enabled, your tokens are automatically encrypted using your PIN/password</div>
-                        <div class="form-group" style="margin-top: 15px;">
-                            <label for="timeoutSelect">Re-authentication Timeout</label>
-                            <select id="timeoutSelect" class="form-control">
-                                <option value="0">Never</option>
-                                <option value="5">5 minutes</option>
-                                <option value="15">15 minutes</option>
-                                <option value="30">30 minutes</option>
-                                <option value="60">1 hour</option>
-                                <option value="120">2 hours</option>
-                                <option value="360">6 hours</option>
-                                <option value="720">12 hours</option>
-                                <option value="1440">24 hours</option>
-                            </select>
-                            <div class="input-description">Choose how long until re-authentication is required</div>
-                        </div>
-                    </div>
-                    <button id="appProtectionBtn" class="btn">Configure</button>
-                </div>
-            </div>
-
-            <div class="settings-section">
-                <h2>Token Management</h2>
-                <div class="setting-item">
-                    <div>
-                        <div class="setting-label">Import Tokens</div>
-                        <div class="setting-description">Import authentication tokens from other sources</div>
-                    </div>
-                    <button id="importTokensBtn" class="btn">Import</button>
-                </div>
-                <div class="setting-item">
-                    <div>
-                        <div class="setting-label">Export Tokens</div>
-                        <div class="setting-description">Export your tokens to a backup file</div>
-                    </div>
-                    <button id="exportTokensBtn" class="btn">Export</button>
-                </div>
-            </div>
-
-            <div class="settings-section">
-                <h2>Application</h2>
-                <div class="setting-item">
-                    <div>
-                        <div class="setting-label">Minimize to Tray</div>
-                        <div class="setting-description">Keep the app running in the system tray when minimized</div>
-                    </div>
-                    <label class="switch">
-                        <input type="checkbox" id="minimizeToTrayToggle">
-                        <span class="slider"></span>
-                    </label>
-                </div>
-                <div class="setting-item">
-                    <div>
-                        <div class="setting-label">Next Code Preview</div>
-                        <div class="setting-description">Show the next TOTP code when the current code has 5 seconds left</div>
-                    </div>
-                    <label class="switch">
-                        <input type="checkbox" id="nextCodePreviewToggle">
-                        <span class="slider"></span>
-                    </label>
-                </div>
-            </div>
-
-            <div class="settings-section">
-                <h2>Update Checker</h2>
-                <div class="setting-item">
-                    <div>
-                        <div class="setting-label">Enable Update Checker</div>
-                        <div class="setting-description">Automatically check for updates to the application</div>
-                    </div>
-                    <label class="switch">
-                        <input type="checkbox" id="updateCheckerToggle" checked>
-                        <span class="slider"></span>
-                    </label>
-                </div>
-            </div>
-        </div>
-    </div>
+    <!-- Settings Page content moved to ui/pages/settings.html -->
 
     <!-- About Page -->
     <div class="container" id="aboutPage" style="display: none;">
@@ -437,7 +340,8 @@
                 'pages/google-auth-import.html',
                 'pages/import-progress.html',
                 'pages/login.html',
-                'pages/update.html'  // Add the update page to the list
+                'pages/update.html',  // Add the update page to the list
+                'pages/settings.html'  // Add the settings page to the list
             ];
             
             // Function to load HTML content

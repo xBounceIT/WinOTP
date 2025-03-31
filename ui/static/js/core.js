@@ -14,108 +14,207 @@ document.addEventListener('DOMContentLoaded', function() {
     // Wait for API to be ready
     waitForApi();
     
-    // Set up event listeners
+    // Set up event listeners for elements in the main page
     document.getElementById('settingsBtn').addEventListener('click', showSettingsPage);
-    document.getElementById('backToMainBtn').addEventListener('click', showMainPage);
     document.getElementById('addTokenBtn').addEventListener('click', showAddTokenPage);
-    document.getElementById('backFromAddTokenBtn').addEventListener('click', showMainPage);
-    document.getElementById('aboutBtnSettings').addEventListener('click', showAboutPage);
-    document.getElementById('backFromAboutBtn').addEventListener('click', showSettingsPage);
-    document.getElementById('uploadQrBtn').addEventListener('click', function() {
-        document.getElementById('qrFileInput').click();
-    });
-    
-    // Wait for all pages to be loaded (including dynamic ones)
-    document.addEventListener('allPagesLoaded', function() {
-        // Initialize update page elements once they're loaded
-        const backButton = document.getElementById('backFromUpdateBtn');
-        const cancelButton = document.getElementById('cancelUpdateBtn');
-        
-        if (backButton) {
-            backButton.addEventListener('click', function() {
-                document.getElementById('updatePage').style.display = 'none';
-                showMainPage();
-            });
-        }
-        
-        if (cancelButton) {
-            cancelButton.addEventListener('click', function() {
-                document.getElementById('updatePage').style.display = 'none';
-                showMainPage();
-            });
-        }
-        
-        const downloadButton = document.getElementById('downloadUpdateBtn');
-        if (downloadButton) {
-            downloadButton.addEventListener('click', downloadUpdate);
-        }
-    });
-    
-    // Rest of your initialization code
-    document.getElementById('qrFileInput').addEventListener('change', handleQrFileUpload);
-    document.getElementById('saveTokenBtn').addEventListener('click', saveManualToken);
-    document.getElementById('saveUriTokenBtn').addEventListener('click', saveUriToken);
     document.getElementById('toggleSortBtn').addEventListener('click', toggleSortOrder);
-    document.getElementById('exportTokensBtn').addEventListener('click', exportTokens);
     document.getElementById('searchInput').addEventListener('input', async (e) => {
         searchTerm = e.target.value.toLowerCase();
         await renderTokens();
     });
-
-    // Load settings
-    loadMinimizeToTraySetting();
-    loadUpdateCheckerSetting();
-    loadNextCodePreviewSetting();
-
-    // Import tokens button in settings
-    document.getElementById('importTokensBtn').addEventListener('click', showImportTokensPage);
-    // Back button from import page
-    document.getElementById('backFromImportBtn').addEventListener('click', showSettingsPage);
-    // Import buttons
-    document.getElementById('importFromWinOTPBtn').addEventListener('click', importFromWinOTP);
-    document.getElementById('importFrom2FASBtn').addEventListener('click', importFrom2FAS);
-    document.getElementById('importFromAuthenticatorPluginBtn').addEventListener('click', importFromAuthenticatorPlugin);
-    document.getElementById('importFromGoogleAuthBtn').addEventListener('click', importFromGoogleAuth);
     
-    // App protection settings
-    document.getElementById('appProtectionBtn').addEventListener('click', showAppProtectionPage);
-    document.getElementById('backFromProtectionBtn').addEventListener('click', showSettingsPage);
-    document.getElementById('setPinBtn').addEventListener('click', setPin);
-    document.getElementById('setPasswordBtn').addEventListener('click', setPassword);
-    document.getElementById('disableProtectionBtn').addEventListener('click', disableProtection);
-    
-    // Login page
-    document.getElementById('loginBtn').addEventListener('click', login);
-    document.getElementById('loginCredential').addEventListener('keypress', function(e) {
-        if (e.key === 'Enter') {
-            login();
+    // Wait for all pages to be loaded (including dynamic ones)
+    document.addEventListener('allPagesLoaded', function() {
+        console.log("All pages loaded, setting up event listeners for dynamically loaded elements");
+        
+        // Set up event listeners for elements in dynamically loaded pages
+        const backToMainBtn = document.getElementById('backToMainBtn');
+        if (backToMainBtn) {
+            backToMainBtn.addEventListener('click', showMainPage);
+        } else {
+            console.error("Could not find element with ID 'backToMainBtn'");
         }
-    });
+        
+        const backFromAddTokenBtn = document.getElementById('backFromAddTokenBtn');
+        if (backFromAddTokenBtn) {
+            backFromAddTokenBtn.addEventListener('click', showMainPage);
+        }
+        
+        const aboutBtnSettings = document.getElementById('aboutBtnSettings'); 
+        if (aboutBtnSettings) {
+            aboutBtnSettings.addEventListener('click', showAboutPage);
+        }
+        
+        const backFromAboutBtn = document.getElementById('backFromAboutBtn');
+        if (backFromAboutBtn) {
+            backFromAboutBtn.addEventListener('click', showSettingsPage);
+        }
 
-    // Set up tabs
-    document.querySelectorAll('.tab').forEach(tab => {
-        tab.addEventListener('click', function() {
-            const tabId = this.getAttribute('data-tab');
-            
-            // Remove active class from all tabs and tab contents
-            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-            
-            // Add active class to selected tab and tab content
-            this.classList.add('active');
-            document.getElementById(tabId).classList.add('active');
+        const uploadQrBtn = document.getElementById('uploadQrBtn');
+        if (uploadQrBtn) {
+            uploadQrBtn.addEventListener('click', function() {
+                document.getElementById('qrFileInput').click();
+            });
+        }
+        
+        // Import tokens button in settings
+        const importTokensBtn = document.getElementById('importTokensBtn');
+        if (importTokensBtn) {
+            importTokensBtn.addEventListener('click', showImportTokensPage);
+        }
+        
+        // Back button from import page
+        const backFromImportBtn = document.getElementById('backFromImportBtn');
+        if (backFromImportBtn) {
+            backFromImportBtn.addEventListener('click', showSettingsPage);
+        }
+        
+        // Import buttons
+        const importFromWinOTPBtn = document.getElementById('importFromWinOTPBtn');
+        if (importFromWinOTPBtn) {
+            importFromWinOTPBtn.addEventListener('click', importFromWinOTP);
+        }
+        
+        const importFrom2FASBtn = document.getElementById('importFrom2FASBtn');
+        if (importFrom2FASBtn) {
+            importFrom2FASBtn.addEventListener('click', importFrom2FAS);
+        }
+        
+        const importFromAuthenticatorPluginBtn = document.getElementById('importFromAuthenticatorPluginBtn');
+        if (importFromAuthenticatorPluginBtn) {
+            importFromAuthenticatorPluginBtn.addEventListener('click', importFromAuthenticatorPlugin);
+        }
+        
+        const importFromGoogleAuthBtn = document.getElementById('importFromGoogleAuthBtn');
+        if (importFromGoogleAuthBtn) {
+            importFromGoogleAuthBtn.addEventListener('click', importFromGoogleAuth);
+        }
+        
+        // App protection settings
+        const appProtectionBtn = document.getElementById('appProtectionBtn');
+        if (appProtectionBtn) {
+            appProtectionBtn.addEventListener('click', showAppProtectionPage);
+        }
+        
+        const backFromProtectionBtn = document.getElementById('backFromProtectionBtn');
+        if (backFromProtectionBtn) {
+            backFromProtectionBtn.addEventListener('click', showSettingsPage);
+        }
+        
+        const setPinBtn = document.getElementById('setPinBtn');
+        if (setPinBtn) {
+            setPinBtn.addEventListener('click', setPin);
+        }
+        
+        const setPasswordBtn = document.getElementById('setPasswordBtn');
+        if (setPasswordBtn) {
+            setPasswordBtn.addEventListener('click', setPassword);
+        }
+        
+        const disableProtectionBtn = document.getElementById('disableProtectionBtn');
+        if (disableProtectionBtn) {
+            disableProtectionBtn.addEventListener('click', disableProtection);
+        }
+        
+        // Login page
+        const loginBtn = document.getElementById('loginBtn');
+        if (loginBtn) {
+            loginBtn.addEventListener('click', login);
+        }
+        
+        const loginCredential = document.getElementById('loginCredential');
+        if (loginCredential) {
+            loginCredential.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    login();
+                }
+            });
+        }
+        
+        // Set up tabs
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', function() {
+                const tabId = this.getAttribute('data-tab');
+                
+                // Remove active class from all tabs and tab contents
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                
+                // Add active class to selected tab and tab content
+                this.classList.add('active');
+                document.getElementById(tabId).classList.add('active');
+            });
         });
+        
+        // Google Auth import page
+        const backFromGoogleAuthBtn = document.getElementById('backFromGoogleAuthBtn');
+        if (backFromGoogleAuthBtn) {
+            backFromGoogleAuthBtn.addEventListener('click', backFromGoogleAuth);
+        }
+        
+        const finishGoogleAuthImportBtn = document.getElementById('finishGoogleAuthImportBtn');
+        if (finishGoogleAuthImportBtn) {
+            finishGoogleAuthImportBtn.addEventListener('click', finishGoogleAuthImport);
+        }
+        
+        // Add event listener for start scan button
+        const startScanBtn = document.getElementById('startScanBtn');
+        if (startScanBtn) {
+            startScanBtn.addEventListener('click', initializeQrScanner);
+        }
+        
+        // Update page elements
+        const backFromUpdateBtn = document.getElementById('backFromUpdateBtn');
+        const cancelUpdateBtn = document.getElementById('cancelUpdateBtn');
+        
+        if (backFromUpdateBtn) {
+            backFromUpdateBtn.addEventListener('click', function() {
+                document.getElementById('updatePage').style.display = 'none';
+                showMainPage();
+            });
+        }
+        
+        if (cancelUpdateBtn) {
+            cancelUpdateBtn.addEventListener('click', function() {
+                document.getElementById('updatePage').style.display = 'none';
+                showMainPage();
+            });
+        }
+        
+        const downloadUpdateBtn = document.getElementById('downloadUpdateBtn');
+        if (downloadUpdateBtn) {
+            downloadUpdateBtn.addEventListener('click', downloadUpdate);
+        }
+        
+        // Start periodic auth check
+        startAuthCheck();
+
+        // Add the event listeners that were previously outside
+        const qrFileInput = document.getElementById('qrFileInput');
+        if (qrFileInput) {
+            qrFileInput.addEventListener('change', handleQrFileUpload);
+        }
+
+        const saveTokenBtn = document.getElementById('saveTokenBtn');
+        if (saveTokenBtn) {
+            saveTokenBtn.addEventListener('click', saveManualToken);
+        }
+
+        const saveUriTokenBtn = document.getElementById('saveUriTokenBtn');
+        if (saveUriTokenBtn) {
+            saveUriTokenBtn.addEventListener('click', saveUriToken);
+        }
+
+        const exportTokensBtn = document.getElementById('exportTokensBtn');
+        if (exportTokensBtn) {
+            exportTokensBtn.addEventListener('click', exportTokens);
+        }
+
+        // Load settings
+        loadMinimizeToTraySetting();
+        loadUpdateCheckerSetting();
+        loadNextCodePreviewSetting();
     });
-
-    // Start periodic auth check
-    startAuthCheck();
-
-    // Google Auth import page
-    document.getElementById('backFromGoogleAuthBtn').addEventListener('click', backFromGoogleAuth);
-    document.getElementById('finishGoogleAuthImportBtn').addEventListener('click', finishGoogleAuthImport);
-
-    // Add event listener for start scan button
-    document.getElementById('startScanBtn').addEventListener('click', initializeQrScanner);
 });
 
 // Wait for API to be ready

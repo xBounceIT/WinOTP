@@ -42,6 +42,8 @@ pip install -r requirements.txt
 - `/static` - Static assets and resources
 - `/tests` - Test suite
 - `/ui` - User interface components
+  - `/pages` - Separate HTML pages for each screen of the application
+  - `/static` - CSS, JavaScript, and other UI-related static files
 - `/utils` - Utility functions and helpers
 
 ## Configuration
