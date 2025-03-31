@@ -50,44 +50,125 @@ function showMainPage() {
 }
 
 // Show settings page
-function showSettingsPage() {
+async function showSettingsPage() {
     // Add transition classes
     if (document.getElementById('aboutPage').style.display === 'block') {
         document.getElementById('aboutPage').classList.remove('fade-in');
         document.getElementById('aboutPage').classList.add('fade-out');
+        // Wait briefly for fade-out to start (optional, adjust timing as needed)
+        await new Promise(resolve => setTimeout(resolve, 50)); 
     } else if (document.getElementById('importTokensPage').style.display === 'block') {
         document.getElementById('importTokensPage').classList.remove('fade-in');
         document.getElementById('importTokensPage').classList.add('fade-out');
+        await new Promise(resolve => setTimeout(resolve, 50));
     } else if (document.getElementById('appProtectionPage').style.display === 'block') {
         document.getElementById('appProtectionPage').classList.remove('fade-in');
         document.getElementById('appProtectionPage').classList.add('fade-out');
+        await new Promise(resolve => setTimeout(resolve, 50));
     } else {
         document.getElementById('mainPage').classList.add('fade-out');
+        await new Promise(resolve => setTimeout(resolve, 50));
     }
     
-    setTimeout(() => {
-        document.getElementById('mainPage').style.display = 'none';
-        document.getElementById('aboutPage').style.display = 'none';
-        document.getElementById('importTokensPage').style.display = 'none';
-        document.getElementById('appProtectionPage').style.display = 'none';
-        document.getElementById('loginPage').style.display = 'none';
-        document.getElementById('settingsPage').style.display = 'block';
-        
-        // Force reflow
-        void document.getElementById('settingsPage').offsetWidth;
-        
-        document.getElementById('settingsPage').classList.add('fade-in');
-        
-        // Update protection status
-        updateProtectionStatus();
-        // Load settings
-        loadMinimizeToTraySetting();
-        loadUpdateCheckerSetting();
-        // Load back icon
-        loadBackIcon();
-        // Load about icon
-        loadAboutIcon();
-    }, 300);
+    // Hide other pages and show settings page immediately
+    document.getElementById('mainPage').style.display = 'none';
+    document.getElementById('aboutPage').style.display = 'none';
+    document.getElementById('importTokensPage').style.display = 'none';
+    document.getElementById('appProtectionPage').style.display = 'none';
+    document.getElementById('loginPage').style.display = 'none';
+    document.getElementById('settingsPage').style.display = 'block';
+    
+    // Force reflow before fade-in
+    void document.getElementById('settingsPage').offsetWidth;
+    
+    // Start fade-in animation
+    document.getElementById('settingsPage').classList.add('fade-in');
+    
+    // --- Load settings and icons concurrently --- 
+    // (This part now runs immediately after the page is shown)
+    try {
+        await waitForPywebviewApi(); // Ensure API is ready once
+
+        const [
+            authStatusResult,
+            minimizeResult,
+            updateCheckEnabled,
+            nextCodePreviewEnabled,
+            backIconResult,
+            aboutIconResult
+        ] = await Promise.all([
+            window.pywebview.api.get_auth_status(),
+            window.pywebview.api.get_minimize_to_tray(),
+            window.pywebview.api.get_setting('update_check_enabled'),
+            window.pywebview.api.get_setting('next_code_preview_enabled'),
+            window.pywebview.api.get_icon_base64('back_arrow.png'),
+            window.pywebview.api.get_icon_base64('question.png')
+        ]);
+
+        // --- Apply results --- 
+        // (Same logic as before to apply the fetched data)
+
+        // Apply auth status
+        const statusBadge = document.getElementById('settingsProtectionStatus');
+        if (statusBadge) {
+            if (authStatusResult.is_enabled) {
+                statusBadge.textContent = authStatusResult.auth_type === 'pin' ? 'PIN Protected' : 'Password Protected';
+                statusBadge.className = 'protection-status-badge protected';
+            } else {
+                statusBadge.textContent = 'Not Protected';
+                statusBadge.className = 'protection-status-badge not-protected';
+            }
+        }
+        const timeoutSelect = document.getElementById('timeoutSelect');
+        if (timeoutSelect && authStatusResult.timeout_minutes !== undefined) {
+            const options = Array.from(timeoutSelect.options);
+            const option = options.find(opt => parseInt(opt.value) === authStatusResult.timeout_minutes);
+            if (option) {
+                timeoutSelect.value = option.value;
+            }
+        }
+
+        // Apply minimize setting
+        if (minimizeResult.status === 'success') {
+            document.getElementById('minimizeToTrayToggle').checked = minimizeResult.enabled;
+        }
+
+        // Apply update checker setting
+        document.getElementById('updateCheckerToggle').checked = updateCheckEnabled !== undefined ? updateCheckEnabled : true;
+
+        // Apply next code preview setting
+        document.getElementById('nextCodePreviewToggle').checked = nextCodePreviewEnabled !== undefined ? nextCodePreviewEnabled : false;
+
+        // Apply back icon
+        if (backIconResult.status === 'success') {
+            const backIcon = document.getElementById('backIcon');
+            if (backIcon) {
+                backIcon.src = 'data:image/png;base64,' + backIconResult.data;
+            }
+        } else {
+            console.error('Error loading back icon:', backIconResult.message);
+            const backBtn = document.getElementById('backToMainBtn');
+            if (backBtn) backBtn.innerHTML = '←';
+        }
+
+        // Apply about icon
+        if (aboutIconResult.status === 'success') {
+            cachedAboutIcon = aboutIconResult.data; // Update cache if used elsewhere
+            const aboutIcon = document.getElementById('aboutIcon');
+            if (aboutIcon) {
+                aboutIcon.src = 'data:image/png;base64,' + aboutIconResult.data;
+            }
+        } else {
+            console.error('Error loading about icon:', aboutIconResult.message);
+            showAboutEmojiPlaceholder();
+        }
+
+    } catch (error) {
+        console.error('Error loading settings page data:', error);
+        // Handle errors appropriately, maybe show a notification
+        showNotification('Failed to load settings', 'error');
+    }
+    // --- End loading settings and icons concurrently ---
 }
 
 // Show about page
