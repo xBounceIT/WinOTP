@@ -1013,7 +1013,7 @@ input:checked + .slider:before {
 /* Add styles for timeout select */
 .form-control {
     width: 100%;
-    padding: 12px 15px;
+    padding: 14px 15px;
     border: 1px solid var(--border-color);
     border-radius: 8px;
     background-color: var(--card-background);
@@ -1040,7 +1040,9 @@ input:checked + .slider:before {
 
 .form-control:focus {
     border-color: var(--primary-color);
-    box-shadow: 0 0 0 2px rgba(0, 120, 215, 0.2);
+    box-shadow: 0 0 0 3px rgba(0, 120, 215, 0.3);
+    background-color: var(--hover-color);
+    color: white;
 }
 
 .form-control option {

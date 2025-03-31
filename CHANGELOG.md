@@ -1,3 +1,7 @@
+# v0.5.2
+- Fixed an issue blocking icons from loading when app protection is enabled
+- Improved button styling for timeout option
+
 # v0.5.1
 - Fixed a critical issue which moved the app settings, config and tokens folder into the AppData/Local folder instead of the User Documents folder.
 
