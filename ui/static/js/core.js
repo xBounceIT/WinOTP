@@ -24,6 +24,34 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('uploadQrBtn').addEventListener('click', function() {
         document.getElementById('qrFileInput').click();
     });
+    
+    // Wait for all pages to be loaded (including dynamic ones)
+    document.addEventListener('allPagesLoaded', function() {
+        // Initialize update page elements once they're loaded
+        const backButton = document.getElementById('backFromUpdateBtn');
+        const cancelButton = document.getElementById('cancelUpdateBtn');
+        
+        if (backButton) {
+            backButton.addEventListener('click', function() {
+                document.getElementById('updatePage').style.display = 'none';
+                showMainPage();
+            });
+        }
+        
+        if (cancelButton) {
+            cancelButton.addEventListener('click', function() {
+                document.getElementById('updatePage').style.display = 'none';
+                showMainPage();
+            });
+        }
+        
+        const downloadButton = document.getElementById('downloadUpdateBtn');
+        if (downloadButton) {
+            downloadButton.addEventListener('click', downloadUpdate);
+        }
+    });
+    
+    // Rest of your initialization code
     document.getElementById('qrFileInput').addEventListener('change', handleQrFileUpload);
     document.getElementById('saveTokenBtn').addEventListener('click', saveManualToken);
     document.getElementById('saveUriTokenBtn').addEventListener('click', saveUriToken);
@@ -227,27 +255,102 @@ function showUpdateNotification(updateInfo) {
     // Make the button visible
     updateButton.style.display = 'inline-block';
 
+    // Store update info in a data attribute for later use
+    updateButton.setAttribute('data-version', updateInfo.version);
+    updateButton.setAttribute('data-notes', encodeURIComponent(updateInfo.notes));
+    updateButton.setAttribute('data-download-url', updateInfo.download_url || '');
+    updateButton.setAttribute('data-release-date', updateInfo.release_date || '');
+
     // Remove any existing listener to avoid duplicates
-    updateButton.removeEventListener('click', openReleasesPage);
+    updateButton.removeEventListener('click', showUpdatePage);
     
-    // Add click listener to open the GitHub releases page
-    updateButton.addEventListener('click', openReleasesPage);
+    // Add click listener to show the update page
+    updateButton.addEventListener('click', showUpdatePage);
 }
 
-// Function to open the GitHub releases page
-function openReleasesPage() {
-    try {
-        if (window.pywebview && window.pywebview.api) {
-            // Use pywebview API to open the URL in the default browser
-            window.pywebview.api.open_url('https://github.com/xBounceIT/WinOTP/releases');
-        } else {
-            // Fallback if API not ready or available
-            console.warn("Pywebview API not available, using window.open fallback.");
-            window.open('https://github.com/xBounceIT/WinOTP/releases', '_blank');
+// Function to show the update page with release notes
+function showUpdatePage() {
+    // Hide all other pages
+    hideAllPages();
+    
+    // Get the update information from the button's data attributes
+    const updateVersion = document.getElementById('updateAvailableBtn').getAttribute('data-version');
+    const updateNotes = decodeURIComponent(document.getElementById('updateAvailableBtn').getAttribute('data-notes'));
+    const releaseDate = document.getElementById('updateAvailableBtn').getAttribute('data-release-date');
+    
+    // Format the version display with release date if available
+    let versionDisplay = `New Version: ${updateVersion}`;
+    if (releaseDate && releaseDate !== 'Unknown date') {
+        try {
+            const date = new Date(releaseDate);
+            versionDisplay += ` (${date.toLocaleDateString()})`;
+        } catch (error) {
+            console.error("Error formatting date:", error);
         }
+    }
+    
+    // Update the page with the version and notes
+    document.getElementById('updateVersion').textContent = versionDisplay;
+    document.getElementById('update-notes').textContent = updateNotes || 'No release notes available.';
+    
+    // Remove any existing event listeners to prevent duplicates
+    const backButton = document.getElementById('backFromUpdateBtn');
+    const cancelButton = document.getElementById('cancelUpdateBtn');
+    const downloadButton = document.getElementById('downloadUpdateBtn');
+    
+    // Clone and replace elements to remove all event listeners
+    if (backButton) {
+        const newBackButton = backButton.cloneNode(true);
+        backButton.parentNode.replaceChild(newBackButton, backButton);
+        newBackButton.addEventListener('click', function() {
+            // Hide the update page first, then show main page
+            document.getElementById('updatePage').style.display = 'none';
+            showMainPage();
+        });
+    }
+    
+    if (cancelButton) {
+        const newCancelButton = cancelButton.cloneNode(true);
+        cancelButton.parentNode.replaceChild(newCancelButton, cancelButton);
+        newCancelButton.addEventListener('click', function() {
+            // Hide the update page first, then show main page
+            document.getElementById('updatePage').style.display = 'none';
+            showMainPage();
+        });
+    }
+    
+    if (downloadButton) {
+        const newDownloadButton = downloadButton.cloneNode(true);
+        downloadButton.parentNode.replaceChild(newDownloadButton, downloadButton);
+        newDownloadButton.addEventListener('click', downloadUpdate);
+    }
+    
+    // Load the back icon
+    loadIconForElement('backFromUpdateIcon', 'back_arrow.png');
+    
+    // Show the update page
+    document.getElementById('updatePage').style.display = 'block';
+}
+
+// Function to download the update
+async function downloadUpdate() {
+    // Get the download URL from the button's data attribute
+    const downloadUrl = document.getElementById('updateAvailableBtn').getAttribute('data-download-url');
+    
+    // If no download URL is available, use the GitHub releases page as fallback
+    const targetUrl = downloadUrl || `https://github.com/xBounceIT/WinOTP/releases`;
+    
+    try {
+        // Open the download URL in the default browser
+        await window.pywebview.api.open_url(targetUrl);
+        
+        // Show success message
+        showNotification('Download started in your browser', 'success');
     } catch (error) {
-        console.error("Error opening URL:", error);
-        // Fallback if API call fails
-        window.open('https://github.com/xBounceIT/WinOTP/releases', '_blank');
+        console.error("Error starting download:", error);
+        showNotification('Failed to start download. Please visit the releases page manually.', 'error');
+        
+        // Fallback to opening the releases page
+        window.pywebview.api.open_url('https://github.com/xBounceIT/WinOTP/releases');
     }
 } 

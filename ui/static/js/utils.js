@@ -113,4 +113,47 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
-}); 
+});
+
+// Function to hide all page containers
+function hideAllPages() {
+    document.querySelectorAll('.container').forEach(container => {
+        container.style.display = 'none';
+    });
+}
+
+// Show notification function
+function showNotification(message, type = 'info') {
+    const notification = document.getElementById('notification');
+    notification.textContent = message;
+    notification.className = `notification ${type}`;
+    notification.style.display = 'block';
+    
+    // Auto-hide after 3 seconds
+    setTimeout(() => {
+        notification.style.display = 'none';
+    }, 3000);
+}
+
+// Function to load an icon for a specific element
+async function loadIconForElement(elementId, iconName) {
+    try {
+        if (!window.pywebview || !window.pywebview.api) {
+            console.error("pywebview API not available for icon loading");
+            return;
+        }
+        
+        const element = document.getElementById(elementId);
+        if (!element) {
+            console.error(`Element with ID ${elementId} not found`);
+            return;
+        }
+        
+        // Get the icon path
+        const iconPath = `static/icons/${iconName}`;
+        element.src = iconPath;
+        
+    } catch (error) {
+        console.error(`Error loading icon ${iconName} for element ${elementId}:`, error);
+    }
+} 

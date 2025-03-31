@@ -424,6 +424,51 @@
     <!-- Notification -->
     <div id="notification" class="notification"></div>
 
+    <!-- End of existing pages -->
+    
+    <!-- Load pages from html files -->
+    <script>
+        document.addEventListener('DOMContentLoaded', async function() {
+            // List of page files to load
+            const pageFiles = [
+                'pages/add-token.html',
+                'pages/app-protection.html',
+                'pages/import-tokens.html',
+                'pages/google-auth-import.html',
+                'pages/import-progress.html',
+                'pages/login.html',
+                'pages/update.html'  // Add the update page to the list
+            ];
+            
+            // Function to load HTML content
+            async function loadPageContent(url) {
+                try {
+                    const response = await fetch(url);
+                    if (!response.ok) {
+                        throw new Error(`Failed to load ${url}: ${response.status} ${response.statusText}`);
+                    }
+                    return await response.text();
+                } catch (error) {
+                    console.error(`Error loading page content from ${url}:`, error);
+                    return '';
+                }
+            }
+            
+            // Load all page files and append to body
+            for (const file of pageFiles) {
+                const content = await loadPageContent(file);
+                if (content) {
+                    const tempDiv = document.createElement('div');
+                    tempDiv.innerHTML = content;
+                    document.body.appendChild(tempDiv.firstElementChild);
+                }
+            }
+            
+            // Fire an event to signal all pages are loaded
+            document.dispatchEvent(new CustomEvent('allPagesLoaded'));
+        });
+    </script>
+    
     <!-- JavaScript dependencies -->
     <script src="static/js/bootstrap.bundle.min.js"></script>
     <script src="static/js/jquery-3.6.0.min.js"></script>

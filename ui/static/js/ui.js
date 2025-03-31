@@ -16,16 +16,16 @@ function showMainPage() {
     } else if (document.getElementById('googleAuthImportPage').style.display === 'block') {
         document.getElementById('googleAuthImportPage').classList.remove('fade-in');
         document.getElementById('googleAuthImportPage').classList.add('fade-out');
+    } else if (document.getElementById('updatePage').style.display === 'block') {
+        document.getElementById('updatePage').classList.remove('fade-in');
+        document.getElementById('updatePage').classList.add('fade-out');
     }
     
     setTimeout(() => {
-        document.getElementById('settingsPage').style.display = 'none';
-        document.getElementById('addTokenPage').style.display = 'none';
-        document.getElementById('aboutPage').style.display = 'none';
-        document.getElementById('importTokensPage').style.display = 'none';
-        document.getElementById('loginPage').style.display = 'none';
-        document.getElementById('googleAuthImportPage').style.display = 'none';
-        document.getElementById('importProgressPage').style.display = 'none';
+        // Use hideAllPages to ensure all other pages are hidden
+        hideAllPages();
+        
+        // Then show the main page
         document.getElementById('mainPage').style.display = 'block';
         
         // Force reflow

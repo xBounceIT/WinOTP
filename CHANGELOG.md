@@ -1,3 +1,7 @@
+# v0.6
+- Added open on startup feature
+- New logic for updates 
+
 # v0.5.2
 - Fixed an issue blocking icons from loading when app protection is enabled
 - Improved button styling for timeout option
