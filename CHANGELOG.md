@@ -1,6 +1,7 @@
 # v0.5
 - Added functionality to import tokens from Google Authenticator migration QR codes.
 - UI Refactor
+- 
 
 # v0.4
 - Added next code preview functionality
