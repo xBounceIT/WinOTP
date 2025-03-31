@@ -10,7 +10,7 @@ def scan_qr_image(image_input):
         image_input (str or PIL.Image): Path to the QR code image or a PIL Image object
         
     Returns:
-        tuple: (issuer, secret, name) or None if invalid
+        tuple: (issuer, secret, name) or the raw QR data string for Google Auth migration QR codes
     """
     try:
         # Handle both file path and PIL Image input
@@ -32,6 +32,11 @@ def scan_qr_image(image_input):
             
         # Get the data from the first QR code
         qr_data = decoded_objects[0].data.decode('utf-8')
+        
+        # Check if it's a Google Authenticator migration QR code
+        if qr_data.startswith('otpauth-migration://offline?data='):
+            # Return the raw data for Google Auth migration QR codes
+            return qr_data
         
         # Parse the otpauth URL
         # Format: otpauth://totp/ISSUER:ACCOUNT?secret=SECRET&issuer=ISSUER

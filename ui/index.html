@@ -1270,8 +1270,16 @@
 
         #qrScannerArea {
             width: 100%;
-            height: 300px;
-            background: black;
+            min-height: 200px;
+            background: var(--card-background);
+            border: 2px dashed var(--border-color);
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            box-sizing: border-box;
         }
 
         .scanner-controls {
@@ -1279,6 +1287,75 @@
             display: flex;
             justify-content: center;
             gap: 15px;
+        }
+
+        /* Google Authenticator import styles */
+        .qr-scanner-container {
+            margin-top: 20px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            padding: 15px;
+            background-color: var(--card-background);
+        }
+
+        .upload-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+            padding: 20px;
+        }
+
+        .upload-hint {
+            font-size: 0.8em;
+            color: var(--secondary-text-color);
+            margin-top: 5px;
+        }
+
+        .scanner-controls {
+            display: flex;
+            justify-content: center;
+            margin-top: 15px;
+        }
+
+        .qr-import-status {
+            margin-top: 15px;
+            padding: 10px;
+            background-color: var(--hover-color);
+            border-radius: 4px;
+            text-align: center;
+        }
+
+        .instructions-list {
+            margin: 15px 0;
+            padding-left: 20px;
+            line-height: 1.6;
+        }
+
+        /* Tabs styles */
+        .tabs {
+            display: flex;
+            margin-bottom: 20px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .tab {
+            padding: 10px 15px;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+        }
+
+        .tab.active {
+            border-bottom-color: var(--primary-color);
+            font-weight: 500;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
         }
     </style>
 </head>
@@ -1482,6 +1559,12 @@
                             <span class="import-option-desc">Import from Authenticator Browser Plugin export (.txt)</span>
                         </div>
                     </button>
+                    <button id="importFromGoogleAuthBtn" class="btn btn-block">
+                        <div class="import-option-content">
+                            <span class="import-option-title">Google Authenticator</span>
+                            <span class="import-option-desc">Import from Google Authenticator QR codes</span>
+                        </div>
+                    </button>
                 </div>
             </div>
         </div>
@@ -1516,14 +1599,21 @@
             <div class="import-section">
                 <h2>Instructions</h2>
                 <ol class="instructions-list">
-                    <li>Open Google Authenticator app</li>
+                    <li>On your phone, open the Google Authenticator app</li>
                     <li>Tap the menu icon (three dots) in the top right</li>
                     <li>Tap on "Transfer accounts"</li>
                     <li>Tap on "Export accounts"</li>
+                    <li>You may need to authenticate (fingerprint/face/PIN)</li>
                     <li>Select the accounts you want to export</li>
                     <li>Tap "Next"</li>
-                    <li>Start scanning the QR codes below</li>
+                    <li>Take a screenshot or photo of the QR code(s) shown</li>
+                    <li>Upload the screenshots/photos below</li>
                 </ol>
+                
+                <div class="info-box" style="margin: 15px 0;">
+                    <p><strong>Note:</strong> Google Authenticator may disable screenshots. If so, use another device to take a photo of the QR code(s).</p>
+                    <p>Multiple QR codes may appear if you have many accounts. Upload all of them to import all your tokens.</p>
+                </div>
                 
                 <div class="qr-scanner-container">
                     <div id="qrScannerArea"></div>
@@ -1751,6 +1841,7 @@
             document.getElementById('importFromWinOTPBtn').addEventListener('click', importFromWinOTP);
             document.getElementById('importFrom2FASBtn').addEventListener('click', importFrom2FAS);
             document.getElementById('importFromAuthenticatorPluginBtn').addEventListener('click', importFromAuthenticatorPlugin);
+            document.getElementById('importFromGoogleAuthBtn').addEventListener('click', importFromGoogleAuth);
             
             // App protection settings
             document.getElementById('appProtectionBtn').addEventListener('click', showAppProtectionPage);
@@ -3988,6 +4079,297 @@
                 checkUpdatesOnLoad();
             }, 300);
         }
+
+        // Google Authenticator import related functions
+        function importFromGoogleAuth() {
+            // Switch to Google Auth import page
+            document.getElementById('importTokensPage').style.display = 'none';
+            document.getElementById('googleAuthImportPage').style.display = 'block';
+            
+            // Initialize and load the back icon
+            loadBackIconForGoogleAuth();
+            
+            // Initialize QR scanner
+            initializeGoogleAuthQrScanner();
+        }
+        
+        function backFromGoogleAuth() {
+            // Stop the QR scanner if it's running
+            stopGoogleAuthQrScanner();
+            
+            // Go back to import tokens page
+            document.getElementById('googleAuthImportPage').style.display = 'none';
+            document.getElementById('importTokensPage').style.display = 'block';
+        }
+        
+        function finishGoogleAuthImport() {
+            // Stop the QR scanner
+            stopGoogleAuthQrScanner();
+            
+            // Check if tokens were imported
+            if (googleAuthImportedTokens > 0) {
+                showNotification(`Successfully imported ${googleAuthImportedTokens} tokens`, 'success');
+                // Go back to main page
+                document.getElementById('googleAuthImportPage').style.display = 'none';
+                showMainPage();
+                loadTokens();
+            } else {
+                showNotification('No tokens were imported', 'warning');
+                // Go back to import page
+                document.getElementById('googleAuthImportPage').style.display = 'none';
+                document.getElementById('importTokensPage').style.display = 'block';
+            }
+        }
+        
+        async function loadBackIconForGoogleAuth() {
+            try {
+                if (!window.pywebview || !window.pywebview.api) {
+                    console.error("pywebview API not available for back icon");
+                    return;
+                }
+                
+                const result = await window.pywebview.api.get_icon_base64('back_arrow.png');
+                console.log("Back icon load result for Google Auth import page:", result);
+                
+                if (result.status === 'success') {
+                    const backIcon = document.getElementById('backFromGoogleAuthIcon');
+                    if (backIcon) {
+                        backIcon.src = 'data:image/png;base64,' + result.data;
+                    }
+                } else {
+                    console.error('Error loading back icon for Google Auth import page:', result.message);
+                    // Fallback to emoji
+                    const backBtn = document.getElementById('backFromGoogleAuthBtn');
+                    if (backBtn) {
+                        backBtn.innerHTML = '←';
+                    }
+                }
+            } catch (error) {
+                console.error('Exception loading back icon for Google Auth import page:', error);
+                // Fallback to emoji
+                const backBtn = document.getElementById('backFromGoogleAuthBtn');
+                if (backBtn) {
+                    backBtn.innerHTML = '←';
+                }
+            }
+        }
+
+        // QR scanner for Google Auth import
+        let googleAuthQrScanner = null;
+        let googleAuthImportedTokens = 0;
+        
+        function initializeGoogleAuthQrScanner() {
+            if (googleAuthQrScanner) {
+                // Scanner already initialized
+                return;
+            }
+            
+            // Create file input for uploading QR code images
+            const qrScannerArea = document.getElementById('qrScannerArea');
+            if (!qrScannerArea) {
+                console.error('QR scanner area not found');
+                return;
+            }
+            
+            // Clear any existing content
+            qrScannerArea.innerHTML = '';
+            
+            // Create file upload control with improved UI
+            const uploadContainer = document.createElement('div');
+            uploadContainer.className = 'upload-container';
+            uploadContainer.innerHTML = `
+                <img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjQiIGhlaWdodD0iNjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cGF0aCBkPSJNMTIgMTVWM20wIDEybC00LTRtNCA0bDQtNG02IDNjMCAzLjMxNC0yLjY4NiA2LTYgNi00LjQzIDAtOC0zLjU3LTgtOCAwLTIuNzUgMS4zODctNS4xOCAzLjUtNi42MzMiIHN0cm9rZT0iIzk5OSIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiLz48L3N2Zz4=" alt="Upload icon" style="width: 64px; height: 64px; margin-bottom: 15px;">
+                <h3 style="margin: 0 0 15px 0; color: var(--text-color);">Upload Google Authenticator QR Codes</h3>
+                <p style="margin: 0 0 20px 0; color: var(--secondary-text-color);">Click below to select screenshots or photos</p>
+                <label for="googleAuthQrFileInput" class="btn" style="display: inline-block; cursor: pointer;">Scegli i file</label>
+                <input type="file" id="googleAuthQrFileInput" accept="image/*" multiple style="display: none;">
+                <p class="upload-hint">You can select multiple screenshots at once</p>
+                <div id="selectedFilesInfo" style="margin-top: 10px; font-size: 0.9em;"></div>
+            `;
+            
+            qrScannerArea.appendChild(uploadContainer);
+            
+            // Add event listener for file selection
+            const fileInput = document.getElementById('googleAuthQrFileInput');
+            fileInput.addEventListener('change', handleGoogleAuthQrFileUpload);
+            fileInput.addEventListener('change', function(event) {
+                const filesInfo = document.getElementById('selectedFilesInfo');
+                if (event.target.files.length > 0) {
+                    filesInfo.textContent = `${event.target.files.length} file(s) selected`;
+                    filesInfo.style.color = 'var(--success-color)';
+                } else {
+                    filesInfo.textContent = '';
+                }
+            });
+            
+            // Reset counter
+            googleAuthImportedTokens = 0;
+        }
+        
+        function stopGoogleAuthQrScanner() {
+            // Nothing to stop for file upload, just reset
+            googleAuthQrScanner = null;
+        }
+        
+        async function handleGoogleAuthQrFileUpload(event) {
+            const files = event.target.files;
+            if (!files || files.length === 0) return;
+            
+            // Replace upload UI with progress UI
+            const qrScannerArea = document.getElementById('qrScannerArea');
+            const uploadContainer = qrScannerArea.querySelector('.upload-container');
+            
+            if (uploadContainer) {
+                uploadContainer.style.display = 'none';
+            }
+            
+            const statusDiv = document.createElement('div');
+            statusDiv.className = 'qr-import-status';
+            statusDiv.innerHTML = `
+                <div class="import-progress">
+                    <div class="spinner" style="border: 3px solid var(--border-color); border-top-color: var(--primary-color); border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite; margin: 0 auto 15px;"></div>
+                    <h3 style="margin: 0 0 10px 0;">Processing QR Codes</h3>
+                    <p id="processStatus">Processing image 0/${files.length}...</p>
+                </div>
+            `;
+            qrScannerArea.appendChild(statusDiv);
+            
+            // Add spinner animation
+            const style = document.createElement('style');
+            style.textContent = `
+                @keyframes spin {
+                    0% { transform: rotate(0deg); }
+                    100% { transform: rotate(360deg); }
+                }
+            `;
+            document.head.appendChild(style);
+            
+            let successCount = 0;
+            let errorCount = 0;
+            let errorDetails = [];
+            
+            const processStatus = document.getElementById('processStatus');
+            
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                if (processStatus) {
+                    processStatus.textContent = `Processing image ${i+1}/${files.length}...`;
+                }
+                
+                try {
+                    if (!window.pywebview || !window.pywebview.api) {
+                        console.error("pywebview API not available");
+                        showNotification('Error: API not available', 'error');
+                        break;
+                    }
+                    
+                    try {
+                        // Create a FileReader to read the image
+                        const reader = new FileReader();
+                        
+                        // Create a promise to handle the async FileReader
+                        const readResult = await new Promise((resolve, reject) => {
+                            reader.onload = e => resolve(e.target.result);
+                            reader.onerror = e => reject(e);
+                            reader.readAsDataURL(file); // Read as data URL (base64)
+                        });
+                        
+                        // Call API to scan the QR code image
+                        const scanResult = await window.pywebview.api.scan_qr_code(readResult);
+                        console.log('Scan result:', scanResult);
+                        
+                        if (scanResult.status === 'success') {
+                            // Check if it's a Google Auth QR code
+                            const qrData = scanResult.data;
+                            let googleAuthResult;
+                            
+                            // Check the QR code format
+                            if (typeof qrData === 'string' && qrData.startsWith('otpauth-migration://offline?data=')) {
+                                // Direct Google Auth migration QR
+                                googleAuthResult = await window.pywebview.api.import_tokens_from_google_auth_qr(qrData);
+                            } else if (Array.isArray(qrData) && qrData.length === 3) {
+                                // Regular TOTP QR code (issuer, secret, name)
+                                const [issuer, secret, name] = qrData;
+                                const addResult = await window.pywebview.api.add_token({
+                                    issuer: issuer,
+                                    name: name,
+                                    secret: secret
+                                });
+                                googleAuthResult = addResult;
+                            } else {
+                                googleAuthResult = { 
+                                    status: 'error', 
+                                    message: 'Not a valid Google Authenticator QR code or TOTP QR code' 
+                                };
+                                errorDetails.push(`File ${i+1}: Not a valid QR format - ${JSON.stringify(qrData)}`);
+                            }
+                            
+                            if (googleAuthResult.status === 'success') {
+                                successCount++;
+                                googleAuthImportedTokens++;
+                            } else {
+                                console.error('Error importing QR code:', googleAuthResult.message);
+                                errorCount++;
+                                errorDetails.push(`File ${i+1}: ${googleAuthResult.message}`);
+                            }
+                        } else {
+                            console.error('Error scanning QR code:', scanResult.message);
+                            errorCount++;
+                            errorDetails.push(`File ${i+1}: ${scanResult.message}`);
+                        }
+                    } catch (innerError) {
+                        console.error('Error processing QR code:', innerError);
+                        errorCount++;
+                        errorDetails.push(`File ${i+1}: ${innerError.message || String(innerError)}`);
+                    }
+                } catch (error) {
+                    console.error('Outer error processing QR code:', error);
+                    errorCount++;
+                    errorDetails.push(`File ${i+1}: ${error.message || String(error)}`);
+                }
+            }
+            
+            // Show final status
+            let resultIcon = successCount > 0 ? 
+                '✅' : 
+                '❌';
+                
+            statusDiv.innerHTML = `
+                <div style="text-align: center; padding: 15px;">
+                    <div style="font-size: 48px; margin-bottom: 15px;">${resultIcon}</div>
+                    <h3 style="margin: 0 0 10px 0;">Import ${successCount > 0 ? 'Completed' : 'Failed'}</h3>
+                    <p>${successCount} token(s) successfully imported</p>
+                    ${errorCount > 0 ? `<p>${errorCount} error(s) occurred</p>` : ''}
+                    ${errorCount > 0 ? 
+                        `<details style="margin-top: 15px; text-align: left;">
+                            <summary style="cursor: pointer; color: var(--primary-color);">View error details</summary>
+                            <ul style="margin-top: 10px; color: var(--secondary-text-color);">
+                                ${errorDetails.map(err => `<li>${err}</li>`).join('')}
+                            </ul>
+                        </details>` : 
+                        ''}
+                    <button id="resetUploadBtn" class="btn" style="margin-top: 20px;">Upload More QR Codes</button>
+                </div>
+            `;
+            
+            // Add event listener to reset button
+            document.getElementById('resetUploadBtn').addEventListener('click', function() {
+                // Reinitialize the QR scanner
+                initializeGoogleAuthQrScanner();
+            });
+            
+            // Show notification
+            if (successCount > 0) {
+                showNotification(`Successfully imported ${successCount} tokens`, 'success');
+            } else if (errorCount > 0) {
+                showNotification(`Failed to import QR codes (${errorCount} errors)`, 'error');
+            }
+            
+            // Reset file input
+            event.target.value = '';
+        }
+        
+        // Function to update import progress
     </script>
 </body>
 </html>

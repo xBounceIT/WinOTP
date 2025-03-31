@@ -92,13 +92,16 @@ def create_tray_icon(window):
 def import_lazy_modules():
     global pyotp, gzip, Image, scan_qr_image, calculate_offset, get_accurate_timestamp_30s
     
-    import pyotp
-    import gzip
-    from PIL import Image
-    from utils.qr_scanner import scan_qr_image
-    from utils.ntp_sync import calculate_offset, get_accurate_timestamp_30s
-    
-    print("Lazy modules imported successfully")
+    try:
+        import pyotp
+        import gzip
+        from PIL import Image
+        from utils.qr_scanner import scan_qr_image
+        from utils.ntp_sync import calculate_offset, get_accurate_timestamp_30s
+        
+        print("Lazy modules imported successfully")
+    except Exception as e:
+        print(f"Error in lazy module import: {str(e)}")
 
 # Start lazy import in background
 lazy_import_thread = None
@@ -362,18 +365,18 @@ class Api:
             return {"status": "error", "message": f"Failed to delete token: {str(e)}"}
     
     def scan_qr_code(self, image_data):
-        """Scan a QR code from image data"""
+        """Scan a QR code from an image data URL"""
         try:
-            # Ensure PIL.Image is imported
-            if 'Image' not in globals():
+            # Ensure required modules are imported
+            global Image
+            if 'Image' not in globals() or Image is None:
                 from PIL import Image
                 print("Imported PIL.Image directly for QR scanning")
                 
             # Ensure scan_qr_image is imported
-            if 'scan_qr_image' not in globals():
-                from utils.qr_scanner import scan_qr_image
-                print("Imported scan_qr_image directly for QR scanning")
-                
+            from utils.qr_scanner import scan_qr_image
+            print("Imported scan_qr_image directly for QR scanning")
+            
             # Decode base64 image
             image_data = base64.b64decode(image_data.split(',')[1])
             image = Image.open(io.BytesIO(image_data))
@@ -384,17 +387,29 @@ class Api:
             if not result:
                 return {"status": "error", "message": "No QR code found"}
             
-            return {"status": "success", "data": result}
+            # Check if the result is a string (Google Auth migration QR) or a tuple (regular TOTP QR)
+            if isinstance(result, str):
+                # For Google Auth migration QR, return the raw string
+                return {"status": "success", "data": result}
+            else:
+                # For regular TOTP QR, return the tuple
+                return {"status": "success", "data": result}
+                
         except Exception as e:
             return {"status": "error", "message": f"Failed to scan QR code: {str(e)}"}
 
     def scan_qr_from_file(self, file_path):
         """Scan a QR code from a file"""
         try:
+            # Ensure required modules are imported
+            global Image
+            if 'Image' not in globals() or Image is None:
+                from PIL import Image
+                print("Imported PIL.Image directly for QR scanning")
+                
             # Ensure scan_qr_image is imported
-            if 'scan_qr_image' not in globals():
-                from utils.qr_scanner import scan_qr_image
-                print("Imported scan_qr_image directly for QR scanning")
+            from utils.qr_scanner import scan_qr_image
+            print("Imported scan_qr_image directly for QR scanning")
             
             # Scan QR code
             result = scan_qr_image(file_path)
@@ -402,7 +417,13 @@ class Api:
             if not result:
                 return {"status": "error", "message": "No QR code found"}
             
-            return {"status": "success", "data": result}
+            # Check if the result is a string (Google Auth migration QR) or a tuple (regular TOTP QR)
+            if isinstance(result, str):
+                # For Google Auth migration QR, return the raw string
+                return {"status": "success", "data": result}
+            else:
+                # For regular TOTP QR, return the tuple
+                return {"status": "success", "data": result}
         except Exception as e:
             return {"status": "error", "message": f"Failed to scan QR code: {str(e)}"}
 
@@ -1144,9 +1165,13 @@ class Api:
         """Import tokens from Google Authenticator QR code"""
         try:
             # Ensure pyotp is imported
-            if 'pyotp' not in globals():
+            global pyotp
+            if 'pyotp' not in globals() or pyotp is None:
                 import pyotp
                 print("Imported pyotp directly for Google Auth import")
+
+            # Import base64 module if not already imported
+            import base64
 
             # Parse the QR code data
             # Google Authenticator export QR codes use the format:
