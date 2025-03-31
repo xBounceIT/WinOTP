@@ -2,6 +2,8 @@
 
 A modern, secure, and feature-rich TOTP authenticator designed specifically for Windows, offering a user-friendly interface and robust security features.
 
+![background](https://github.com/user-attachments/assets/6412eacd-5b58-4255-837c-9070fb922981)
+
 ## Features
 
 - Generate TOTP codes for two-factor authentication
