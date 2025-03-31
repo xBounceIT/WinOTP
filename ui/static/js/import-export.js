@@ -318,8 +318,12 @@ function initializeGoogleAuthQrScanner() {
                                 // Call API to scan QR code with the data URL
                                 const result = await window.pywebview.api.scan_google_auth_qr(e.target.result);
                                 if (result.status === 'success') {
-                                    // Show success message
-                                    qrScannerArea.innerHTML = `<div class="success-message">QR Code scanned successfully! ${result.tokens_count} tokens found.</div>`;
+                                    // Show success message with icon
+                                    qrScannerArea.innerHTML = `
+                                        <div class="google-auth-success">
+                                            <span class="success-icon">✔</span> <!-- Simple checkmark icon -->
+                                            QR Code scanned successfully! ${result.tokens_count} tokens found.
+                                        </div>`;
                                     
                                     // Reset file input
                                     fileInput.value = '';
