@@ -1168,38 +1168,27 @@ class Api:
     def import_tokens_from_google_auth_qr(self, qr_data):
         """Import tokens from Google Authenticator QR code"""
         try:
+            # Use the dedicated module for Google Auth QR processing
+            from utils.google_auth_qr import decode_migration_payload
+            
+            # Process the QR code data
+            success, result = decode_migration_payload(qr_data)
+            
+            if not success:
+                return {"status": "error", "message": result}
+            
+            # Got valid migration payload, now import the tokens
+            migration_payload = result
+            tokens_added = 0
+            
             # Ensure pyotp is imported
             global pyotp
             if 'pyotp' not in globals() or pyotp is None:
                 import pyotp
                 print("Imported pyotp directly for Google Auth import")
-
+                
             # Import base64 module if not already imported
             import base64
-
-            # Parse the QR code data
-            # Google Authenticator export QR codes use the format:
-            # otpauth-migration://offline?data=<base64-encoded-protobuf>
-            if not qr_data.startswith('otpauth-migration://offline?data='):
-                return {"status": "error", "message": "Invalid Google Authenticator QR code"}
-
-            # Extract the base64 data
-            data = qr_data.replace('otpauth-migration://offline?data=', '')
-            
-            # Decode the base64 data
-            try:
-                decoded_data = base64.b64decode(data)
-            except:
-                return {"status": "error", "message": "Invalid QR code data"}
-
-            # Import the protobuf definition
-            from utils.google_auth_pb2 import MigrationPayload
-            
-            # Parse the protobuf data
-            migration_payload = MigrationPayload()
-            migration_payload.ParseFromString(decoded_data)
-            
-            tokens_added = 0
             
             # Add each token
             for otp_param in migration_payload.otp_parameters:
@@ -1217,6 +1206,7 @@ class Api:
                         'secret': secret
                     })
                     tokens_added += 1
+                    print(f"Added token for {otp_param.issuer or 'Unknown'} - {otp_param.name or 'Unknown'}")
                 except Exception as e:
                     print(f"Error adding token: {str(e)}")
                     continue
@@ -1227,6 +1217,9 @@ class Api:
                 return {"status": "error", "message": "No valid tokens found in QR code"}
 
         except Exception as e:
+            import traceback
+            traceback.print_exc()
+            print(f"Failed to import tokens: {str(e)}")
             return {"status": "error", "message": f"Failed to import tokens: {str(e)}"}
             
     def initialize_google_auth_qr_scanner(self):
@@ -1245,97 +1238,64 @@ class Api:
         try:
             print(f"Scanning Google Auth QR code from file: {file_path}")
             
-            # Ensure pyzbar and PIL are imported
-            from pyzbar import pyzbar
-            from PIL import Image
+            # Use the dedicated module for Google Auth QR scanning
+            from utils.google_auth_qr import scan_google_auth_qr_from_file, decode_migration_payload
             
-            print("Imported pyzbar and PIL.Image for QR scanning")
+            # Scan the QR code
+            scan_result = scan_google_auth_qr_from_file(file_path)
             
-            # Check if file_path is valid
-            if not file_path:
-                return {"status": "error", "message": "No file provided"}
+            if scan_result["status"] == "error":
+                return scan_result
+            
+            # If scan successful, process the data
+            qr_data = scan_result["data"]
+            print(f"Successfully scanned QR code with data: {qr_data[:50]}...")
+            
+            # Process the QR code data
+            success, result = decode_migration_payload(qr_data)
+            
+            if not success:
+                return {"status": "error", "message": result}
+            
+            # Got valid migration payload, now import the tokens
+            migration_payload = result
+            tokens_added = 0
+            
+            # Ensure pyotp is imported
+            global pyotp
+            if 'pyotp' not in globals() or pyotp is None:
+                import pyotp
+                print("Imported pyotp directly for Google Auth import")
                 
-            # We might be receiving base64 data directly instead of a file path
-            # Let's detect if the input is base64 data or a file path
-            import base64, io, re
+            # Import base64 module if not already imported
+            import base64
             
-            if isinstance(file_path, str) and re.match(r'^data:image\/(jpeg|png|gif|bmp);base64,', file_path):
-                # It's a base64 data URL
+            # Add each token
+            for otp_param in migration_payload.otp_parameters:
                 try:
-                    # Strip the prefix and decode
-                    base64_data = file_path.split(',', 1)[1]
-                    image_data = base64.b64decode(base64_data)
-                    image = Image.open(io.BytesIO(image_data))
-                except Exception as e:
-                    print(f"Error processing base64 image: {str(e)}")
-                    return {"status": "error", "message": f"Invalid image data: {str(e)}"}
-            else:
-                # Try to open as a file path
-                try:
-                    image = Image.open(file_path)
-                except Exception as e:
-                    print(f"Error opening image file: {str(e)}")
-                    return {"status": "error", "message": f"Could not open image file: {str(e)}"}
-            
-            # Decode QR codes in the image
-            print("Calling pyzbar.decode on the image...")
-            decoded_objects = pyzbar.decode(image)
-            print(f"QR scan result: {len(decoded_objects)} decoded objects found")
-            
-            if not decoded_objects:
-                return {"status": "error", "message": "No QR code found in the image"}
-            
-            # Debug info about the first decoded object
-            first_obj = decoded_objects[0]
-            print(f"First decoded object type: {type(first_obj)}")
-            print(f"First decoded object data type: {type(first_obj.data)}")
-            print(f"First decoded object attributes: {dir(first_obj)}")
-            
-            # Process each decoded object
-            for obj in decoded_objects:
-                # Debug print the raw object data
-                print(f"Processing object with data type: {type(obj.data)}")
-                
-                try:
-                    # Handle different types of data
-                    if isinstance(obj.data, bytes):
-                        data = obj.data.decode('utf-8')
-                        print("Decoded bytes data to UTF-8 string")
-                    elif isinstance(obj.data, str):
-                        data = obj.data
-                        print("Using string data directly")
-                    elif hasattr(obj, 'data') and isinstance(obj.data, dict):
-                        # If it's a dict, try to convert to string or extract data field
-                        print(f"Dictionary data found: {obj.data}")
-                        if 'data' in obj.data and isinstance(obj.data['data'], (str, bytes)):
-                            data = obj.data['data']
-                            if isinstance(data, bytes):
-                                data = data.decode('utf-8')
-                            print("Extracted 'data' field from dictionary")
-                        else:
-                            # Convert dict to string as fallback
-                            data = str(obj.data)
-                            print(f"Converted dictionary to string: {data[:50]}...")
-                    else:
-                        print(f"Unexpected data type: {type(obj.data)}")
-                        # Try string conversion as last resort
-                        data = str(obj.data)
-                        print(f"Converted to string: {data[:50]}...")
+                    # Convert secret from bytes to base32 string
+                    secret = base64.b32encode(otp_param.secret).decode('utf-8').rstrip('=')
                     
-                    print(f"Processed QR data: {data[:100]}...")  # Print first 100 chars for debugging
+                    # Create TOTP object to validate secret
+                    totp = pyotp.TOTP(secret)
                     
-                    # Check if it's a Google Authenticator QR code
-                    if data.startswith('otpauth-migration://offline?data='):
-                        # Process the QR code data
-                        result = self.import_tokens_from_google_auth_qr(data)
-                        return result
+                    # Add token to database
+                    self.add_token({
+                        'issuer': otp_param.issuer or 'Unknown',
+                        'name': otp_param.name or 'Unknown',
+                        'secret': secret
+                    })
+                    tokens_added += 1
+                    print(f"Added token for {otp_param.issuer or 'Unknown'} - {otp_param.name or 'Unknown'}")
                 except Exception as e:
-                    print(f"Error processing individual QR object: {str(e)}")
-                    # Continue to the next object instead of failing completely
+                    print(f"Error adding token: {str(e)}")
                     continue
-            
-            return {"status": "error", "message": "No valid Google Authenticator QR code found"}
-            
+
+            if tokens_added > 0:
+                return {"status": "success", "message": f"Successfully imported {tokens_added} tokens", "tokens_count": tokens_added}
+            else:
+                return {"status": "error", "message": "No valid tokens found in QR code"}
+                
         except Exception as e:
             import traceback
             traceback.print_exc()

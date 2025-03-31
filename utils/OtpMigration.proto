@@ -1,0 +1,39 @@
+syntax = "proto2";
+
+message MigrationPayload {
+  enum Algorithm {
+    ALGORITHM_TYPE_UNSPECIFIED = 0;
+    SHA1 = 1;
+    SHA256 = 2;
+    SHA512 = 3;
+    MD5 = 4; // Not supported by Google Authenticator
+  }
+
+  enum DigitCount {
+    DIGIT_COUNT_UNSPECIFIED = 0;
+    SIX = 1;
+    EIGHT = 2;
+  }
+
+  enum OtpType {
+    OTP_TYPE_UNSPECIFIED = 0;
+    HOTP = 1;
+    TOTP = 2;
+  }
+
+  message OtpParameters {
+    required bytes secret = 1;
+    optional string name = 2;
+    optional string issuer = 3;
+    optional Algorithm algorithm = 4 [default = SHA1];
+    optional DigitCount digits = 5 [default = SIX];
+    optional OtpType type = 6 [default = TOTP];
+    optional int64 counter = 7;
+  }
+
+  repeated OtpParameters otp_parameters = 1;
+  required int32 version = 2;
+  optional int32 batch_size = 3;
+  optional int32 batch_index = 4;
+  optional int32 batch_id = 5;
+} 
