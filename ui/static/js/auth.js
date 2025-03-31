@@ -65,6 +65,10 @@ async function login() {
         if (result.status === 'success') {
             document.getElementById('loginCredential').value = '';
             isAuthenticated = true;
+            
+            // Ensure all icons are loaded before showing main page
+            await loadAllIcons();
+            
             showMainPage();
             startAuthCheck();
 

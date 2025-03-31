@@ -143,6 +143,13 @@ function waitForApi() {
             console.log("API is ready!");
             apiReady = true;
             
+            // Preload all icons as soon as the API is ready
+            loadAllIcons().then(() => {
+                console.log("Icons preloaded successfully");
+            }).catch(error => {
+                console.error("Error preloading icons:", error);
+            });
+            
             // Remove loading indicator
             const loadingIndicator = document.getElementById('loadingIndicator');
             if (loadingIndicator) {

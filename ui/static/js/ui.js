@@ -33,10 +33,8 @@ function showMainPage() {
         
         document.getElementById('mainPage').classList.add('fade-in');
         
-        // Load icons
-        loadPlusIcon();
-        loadSettingsIcon();
-        loadSortIcon();
+        // Load all icons at once using our new utility function
+        loadAllIcons();
         
         // Start auth check when returning to main page
         startAuthCheck();
@@ -272,13 +270,35 @@ function showAppProtectionPage() {
 
 // Show login page
 function showLoginPage(authType) {
+    // Instead of hiding completely, we'll just visually hide the main page
+    // This preserves DOM elements including loaded icons
+    const mainPage = document.getElementById('mainPage');
+    if (mainPage.style.display === 'block') {
+        // Only apply transition if it's currently visible
+        mainPage.classList.remove('fade-in');
+        mainPage.classList.add('fade-out');
+        
+        setTimeout(() => {
+            mainPage.style.display = 'none';
+            showLoginPageContent(authType);
+        }, 300);
+    } else {
+        // If main page wasn't visible, just show login immediately
+        mainPage.style.display = 'none';
+        showLoginPageContent(authType);
+    }
+}
+
+// Helper function to display login page content
+function showLoginPageContent(authType) {
     // Hide all other pages
-    document.getElementById('mainPage').style.display = 'none';
     document.getElementById('settingsPage').style.display = 'none';
     document.getElementById('addTokenPage').style.display = 'none';
     document.getElementById('aboutPage').style.display = 'none';
     document.getElementById('importTokensPage').style.display = 'none';
     document.getElementById('appProtectionPage').style.display = 'none';
+    document.getElementById('googleAuthImportPage').style.display = 'none';
+    document.getElementById('importProgressPage').style.display = 'none';
     
     // Update login page based on auth type
     if (authType === 'pin') {

@@ -8,6 +8,32 @@ let cachedCrossIcon = null; // Cache for the cross icon
 let cachedAboutIcon = ''; // Cache for the about icon
 let cachedEditIcon = null; // Cache for the edit icon
 
+// Function to load all essential icons at once
+async function loadAllIcons() {
+    try {
+        if (!window.pywebview || !window.pywebview.api) {
+            console.error("pywebview API not available for loading icons");
+            return;
+        }
+        
+        console.log("Loading all essential icons...");
+        
+        // Load all icons in parallel using Promise.all
+        await Promise.all([
+            loadPlusIcon(),
+            loadSettingsIcon(),
+            loadSortIcon(),
+            loadCopyIcon(),
+            loadCrossIcon(),
+            loadEditIcon()
+        ]);
+        
+        console.log("All essential icons loaded successfully");
+    } catch (error) {
+        console.error('Error loading all icons:', error);
+    }
+}
+
 // Function to load the plus icon
 async function loadPlusIcon() {
     try {
