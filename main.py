@@ -22,8 +22,9 @@ from utils.auth import (
 from utils.crypto import encrypt_tokens_file, decrypt_tokens_file
 from models.token import Token  # Import Token class directly
 from utils import asset_manager # Import asset_manager
-from utils.importers.winotp_importer import parse_winotp_json # <-- New import
-from utils.importers.twofas_importer import parse_2fas_json # <-- New import
+from utils.importers.winotp_importer import parse_winotp_json
+from utils.importers.twofas_importer import parse_2fas_json
+from utils.importers.authenticator_plugin import parse_authenticator_plugin_export
 
 # --- Define Application Data Directory ---
 # Get user's Documents folder
@@ -705,6 +706,123 @@ class Api:
                 except Exception: pass
             print(f"Unexpected error during 2FAS import process: {str(e)}")
             return {"status": "error", "message": f"Failed to import tokens from 2FAS: {str(e)}"}
+
+    def import_tokens_from_authenticator_plugin(self, file_content):
+        """Import tokens from an Authenticator Browser Plugin export file"""
+        global tokens # Need access to the global tokens dict
+
+        def progress_callback(current, total):
+            """Callback function to send progress updates to the frontend."""
+            if self._window:
+                try:
+                    progress_percent = int(((current) / total) * 100)
+                    self._window.evaluate_js(f'updateImportProgress({current}, {total}, {progress_percent})')
+                except Exception as eval_e:
+                    print(f"Error sending progress update to frontend: {eval_e}")
+
+        try:
+            # Parse the Authenticator Plugin export using the importer, passing the callback
+            parse_result = parse_authenticator_plugin_export(file_content, progress_callback)
+
+            # Extract results from parsing
+            valid_tokens_data = parse_result.get("valid_tokens", [])
+            skipped = parse_result.get("skipped", 0)
+            failed_validation = parse_result.get("failed_validation", 0)
+            parse_status = parse_result["status"]
+            parse_message = parse_result["message"] # Initial message from parser
+
+            # Handle parsing errors immediately
+            if parse_status == "error":
+                 if self._window: # Try to hide progress UI on error
+                      try: self._window.evaluate_js('hideImportProgressOnError()')
+                      except Exception: pass
+                 return {"status": "error", "message": parse_message}
+
+            # --- Add valid tokens and save ---
+            successful_adds = 0
+            failed_adds = 0 # Tokens that were valid but failed during add/save
+            save_status = {"status": "success"} # Default
+
+            if valid_tokens_data: # Only proceed if there are tokens to add
+                try:
+                    with self._tokens_lock:
+                        for token_data in valid_tokens_data:
+                            token_id = str(uuid.uuid4())
+                            token_data["created"] = datetime.now().isoformat()
+                            tokens[token_id] = token_data
+                            # successful_adds count will be finalized after save
+
+                        # Save all new tokens at once
+                        save_status = self.save_tokens()
+                        if save_status["status"] == "success":
+                            successful_adds = len(valid_tokens_data)
+                        else:
+                            failed_adds = len(valid_tokens_data) # All parsed tokens failed to save
+                            print(f"Save operation failed after processing Authenticator Plugin tokens: {save_status.get('message')}")
+
+                except Exception as save_e:
+                    failed_adds = len(valid_tokens_data) # All parsed tokens failed if exception during save
+                    save_status = {"status": "error", "message": f"Critical error during final save: {save_e}"}
+                    print(f"Critical error during final Authenticator Plugin token save: {save_e}")
+
+            # --- Construct final summary message ---
+            message_parts = []
+            final_status = "warning" # Default to warning
+
+            if successful_adds > 0:
+                message_parts.append(f"Successfully imported {successful_adds} tokens")
+                final_status = "success"
+            # Combine validation failures and save failures into "failed"
+            total_failed = failed_validation + failed_adds
+            if total_failed > 0:
+                 message_parts.append(f"{total_failed} failed (validation or save)")
+                 # If there were successes before save failed, status might be success.
+                 # If save failed, overall status MUST be error.
+                 if save_status["status"] != "success":
+                     final_status = "error"
+                 # If only validation failed, but some succeeded, it's still success overall
+                 # If only validation failed and none succeeded, it's error
+                 elif successful_adds == 0:
+                      final_status = "error"
+
+            if skipped > 0:
+                 message_parts.append(f"{skipped} skipped (format)")
+                 if final_status == "warning" and successful_adds == 0 and total_failed == 0:
+                     final_status = "warning" # Only skipped means warning
+
+
+            if message_parts:
+                 final_message = ", ".join(message_parts) + "."
+                 # Append save error message specifically if save failed
+                 if save_status["status"] != "success":
+                     final_message += f" Save Error: {save_status.get('message', 'Unknown')}"
+            elif save_status["status"] != "success": # Handle case where save failed but no tokens parsed
+                 final_status = "error"
+                 final_message = f"Import failed during save: {save_status.get('message', 'Unknown')}"
+            elif skipped == 0 and failed_validation == 0 and successful_adds == 0:
+                 final_message = "No valid tokens found in the Authenticator Plugin export file to import." # Original warning message
+                 final_status = "warning"
+            else: # Should cover the case where only skipped happened
+                 final_message = ", ".join(message_parts) + "."
+
+
+            # Ensure progress UI is hidden if it was shown
+            if self._window:
+                 try:
+                      self._window.evaluate_js('hideImportProgressOnCompletion()')
+                 except Exception as eval_e:
+                      print(f"Error hiding progress UI on completion: {eval_e}")
+
+
+            return {"status": final_status, "message": final_message}
+
+        except Exception as e:
+            # General exception catcher
+            if self._window:
+                try: self._window.evaluate_js('hideImportProgressOnError()')
+                except Exception: pass
+            print(f"Unexpected error during Authenticator Plugin import process: {str(e)}")
+            return {"status": "error", "message": f"Failed to import tokens from Authenticator Plugin: {str(e)}"}
 
     def get_icon_base64(self, icon_name):
         """Get base64 encoded icon data"""

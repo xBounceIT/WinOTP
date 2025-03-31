@@ -2,8 +2,7 @@
 - Added next code preview functionality
 - Optimized settings access to prevent unnecessary disk reads
 - Added thread-safe settings handling with proper locking mechanism
-- Added google authenticator import functionality
-- Added camera scan functionality
+- Added Authenticator browser plugin import functionality
 
 # v0.3
 - Added functionality to import tokens from 2FAS backup files (`.2fas`).

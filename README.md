@@ -1,21 +1,23 @@
 # WinOTP
 
-A secure and user-friendly Windows desktop application for managing Two-Factor Authentication (2FA) tokens.
+A modern, secure, and feature-rich TOTP authenticator designed specifically for Windows, offering a user-friendly interface and robust security features.
 
 ## Features
 
-- Desktop-based OTP token management
-- QR code scanning support
-- Secure token storage with encryption
-- Modern and intuitive user interface
-- Automatic time synchronization
-- System tray integration
-
-## Prerequisites
-
-- Windows 10 or later
-- Python 3.8+
-- Camera (optional, for QR code scanning)
+- Generate TOTP codes for two-factor authentication
+- Scan QR codes to add tokens easily
+- Manual entry and management of token details
+- NTP time synchronization for accurate code generation
+- Multiple authentication options:
+    - PIN protection 
+    - Password protection
+- Token management features:
+    - Import/Export tokens as JSON
+    - Customizable token sorting
+    - Token editing and deletion
+- System integration:
+    - Minimize to system tray option
+    - Encrypted token storage
 
 ## Installation
 

@@ -1476,10 +1476,10 @@
                             <span class="import-option-desc">Import from a 2FAS backup file (.2fas)</span>
                         </div>
                     </button>
-                    <button id="importFromGoogleAuthBtn" class="btn btn-block">
+                    <button id="importFromAuthenticatorPluginBtn" class="btn btn-block">
                         <div class="import-option-content">
-                            <span class="import-option-title">Google Authenticator</span>
-                            <span class="import-option-desc">Import tokens by scanning QR codes from Google Authenticator app</span>
+                            <span class="import-option-title">Authenticator Plugin</span>
+                            <span class="import-option-desc">Import from Authenticator Browser Plugin export (.txt)</span>
                         </div>
                     </button>
                 </div>
@@ -3392,131 +3392,100 @@
             fileInput.click();
         }
 
-        // Import from Google Authenticator
-        function importFromGoogleAuth() {
-            // Hide import tokens page
-            document.getElementById('importTokensPage').style.display = 'none';
-            
-            // Show Google Auth import page
-            const googleAuthPage = document.getElementById('googleAuthImportPage');
-            googleAuthPage.style.display = 'block';
-            
-            // Start camera scanning
-            startGoogleAuthScanning();
-            
-            // Load back icon
-            loadBackIconForGoogleAuth();
-        }
+        // Import from Authenticator Plugin
+        function importFromAuthenticatorPlugin() {
+            // Create a hidden file input element
+            const fileInput = document.createElement('input');
+            fileInput.type = 'file';
+            fileInput.accept = '.txt'; // Accept .txt files
+            fileInput.style.display = 'none';
+            document.body.appendChild(fileInput);
 
-        // Function to start camera scanning for Google Auth import
-        async function startGoogleAuthScanning() {
-            try {
-                if (!window.pywebview || !window.pywebview.api) {
-                    showNotification('Error: API not available', 'error');
+            // Add event listener for file selection
+            fileInput.addEventListener('change', async function(event) {
+                const file = event.target.files[0];
+                if (!file) {
+                    if (document.body.contains(fileInput)) { // Check if exists before removing
+                         document.body.removeChild(fileInput);
+                    }
                     return;
                 }
 
-                const qrScannerArea = document.getElementById('qrScannerArea');
-                if (!qrScannerArea) {
-                    showNotification('Error: QR scanner container not found', 'error');
-                    return;
-                }
+                const reader = new FileReader();
+                reader.onload = async function(e) {
+                    // --- Show Progress UI ---
+                    console.log("Showing import progress UI");
+                    document.getElementById('importTokensPage').style.display = 'none'; // Hide import options
+                    const progressPage = document.getElementById('importProgressPage');
+                    if(progressPage) {
+                        progressPage.style.display = 'block'; // Show progress page
+                        // Reset progress bar/text initially
+                        updateImportProgress(0, '?', 0); 
+                    } else {
+                         console.error("Import progress page element not found!");
+                         // Don't proceed if UI is broken
+                         if (document.body.contains(fileInput)) {
+                             document.body.removeChild(fileInput);
+                         }
+                         showNotification("UI Error: Cannot display import progress.", "error");
+                         return;
+                    }
 
-                // Clear any existing content
-                qrScannerArea.innerHTML = '';
-
-                // Create a video element for the camera feed
-                const videoElement = document.createElement('video');
-                videoElement.style.width = '100%';
-                videoElement.style.height = '100%';
-                videoElement.style.objectFit = 'cover';
-                qrScannerArea.appendChild(videoElement);
-
-                // Start the camera through the Python backend
-                const result = await window.pywebview.api.start_camera_scan();
-                if (result.status === 'success') {
-                    // Get user media and start streaming with more specific constraints
                     try {
-                        // Try first with environment camera (back camera)
-                        try {
-                            const stream = await navigator.mediaDevices.getUserMedia({
-                                video: {
-                                    facingMode: { exact: "environment" },
-                                    width: { min: 640, ideal: 1280, max: 1920 },
-                                    height: { min: 480, ideal: 720, max: 1080 }
-                                }
-                            });
-                            videoElement.srcObject = stream;
-                            await videoElement.play();
-                            showNotification('Camera started successfully', 'success');
-                        } catch (envError) {
-                            // If environment camera fails, try with any available camera
-                            console.log('Failed to access back camera, trying default camera:', envError);
-                            const stream = await navigator.mediaDevices.getUserMedia({
-                                video: {
-                                    width: { min: 640, ideal: 1280, max: 1920 },
-                                    height: { min: 480, ideal: 720, max: 1080 }
-                                }
-                            });
-                            videoElement.srcObject = stream;
-                            await videoElement.play();
-                            showNotification('Using default camera', 'success');
+                        if (!window.pywebview || !window.pywebview.api) {
+                            console.error("pywebview API not available");
+                            throw new Error("API not available"); // Throw error to be caught below
                         }
 
-                        // Add error event listener to video element
-                        videoElement.onerror = (error) => {
-                            console.error('Video element error:', error);
-                            showNotification('Video stream error: ' + error.message, 'error');
-                        };
+                        // --- Call API (now reports progress) ---
+                        console.log("Calling backend import_tokens_from_authenticator_plugin");
+                        const result = await window.pywebview.api.import_tokens_from_authenticator_plugin(e.target.result);
+                        console.log("Backend import finished, result:", result);
 
-                    } catch (err) {
-                        console.error('Camera access error:', err);
-                        showNotification('Failed to access camera. Please ensure camera permissions are granted and no other application is using the camera.', 'error');
-                        stopGoogleAuthScanning();
+                        // --- Hide Progress UI ---
+                        if(progressPage) progressPage.style.display = 'none';
+
+                        // --- Handle Result ---
+                        showNotification(result.message || 'Import finished', result.status === 'success' ? 'success' : (result.status === 'warning' ? 'warning' : 'error'));
+
+                        if (result.status === 'success') {
+                            // Go back to main page to show the imported tokens
+                            console.log("Import successful, showing main page.");
+                            showMainPage();
+                            await loadTokens(); // Ensure tokens are reloaded AFTER navigation
+                        } else {
+                            // Go back to the import selection page on failure/warning
+                            console.log("Import failed or warning, showing import tokens page.");
+                            showImportTokensPage();
+                        }
+                    } catch (error) {
+                         console.error("Error during Authenticator Plugin import process:", error);
+                        // --- Hide Progress UI on error ---
+                         if(progressPage) progressPage.style.display = 'none';
+                         showNotification('Error importing from Authenticator Plugin: ' + (error.message || error), 'error');
+                         // Go back to the import selection page on critical error
+                         showImportTokensPage();
+                    } finally { // Ensure file input is always removed
+                        if (document.body.contains(fileInput)) {
+                             document.body.removeChild(fileInput);
+                        }
                     }
-                } else {
-                    showNotification(result.message || 'Failed to start camera', 'error');
-                }
-            } catch (error) {
-                console.error('Camera initialization error:', error);
-                showNotification('Failed to initialize camera: ' + error.message, 'error');
-            }
-        }
-        
-        // Back from Google Auth import page
-        function backFromGoogleAuth() {
-            // Stop the camera scanning
-            stopGoogleAuthScanning();
-            
-            // Hide Google Auth import page
-            document.getElementById('googleAuthImportPage').style.display = 'none';
-            
-            // Show import tokens page
-            document.getElementById('importTokensPage').style.display = 'block';
-        }
+                };
+                
+                reader.onerror = (err) => {
+                     console.error("FileReader error:", err);
+                      if (document.body.contains(fileInput)) {
+                           document.body.removeChild(fileInput);
+                      }
+                     showNotification("Error reading the selected file.", "error");
+                     showImportTokensPage(); // Go back if file reading fails
+                };
 
-        // Function to stop Google Auth scanning
-        function stopGoogleAuthScanning() {
-            const qrScannerArea = document.getElementById('qrScannerArea');
-            if (qrScannerArea) {
-                const videoElement = qrScannerArea.querySelector('video');
-                if (videoElement && videoElement.srcObject) {
-                    const tracks = videoElement.srcObject.getTracks();
-                    tracks.forEach(track => track.stop());
-                    videoElement.srcObject = null;
-                }
-                qrScannerArea.innerHTML = '';
-            }
-        }
-        
-        // Finish Google Auth import
-        function finishGoogleAuthImport() {
-            // Show success message
-            showNotification('Import completed successfully', 'success');
-            
-            // Go back to main page
-            showMainPage();
-            loadTokens();
+                reader.readAsText(file); // Read file as text
+            });
+
+            // Trigger file selection dialog
+            fileInput.click();
         }
 
         // Show app protection page
@@ -3558,24 +3527,6 @@
                 }
             }).catch(function(error) {
                 console.error('Error loading back icon for protection page:', error);
-            });
-        }
-
-        // Load back icon for Google Auth import page
-        function loadBackIconForGoogleAuth() {
-            if (!apiReady || !window.pywebview || !window.pywebview.api) {
-                console.error("API not available for loading back icon");
-                return;
-            }
-            
-            window.pywebview.api.get_icon_base64('back_arrow.png').then(function(result) {
-                if (result && result.status === 'success' && result.data) {
-                    document.getElementById('backFromGoogleAuthIcon').src = 'data:image/png;base64,' + result.data;
-                } else {
-                    console.error('Error loading back icon:', result);
-                }
-            }).catch(function(error) {
-                console.error('Error loading back icon for Google Auth page:', error);
             });
         }
 
