@@ -2,6 +2,7 @@
 - Added functionality to import tokens from Google Authenticator migration QR codes.
 - UI Refactor
 - Fixed system tray icon size
+- Optimized performance of Setings page
 
 # v0.4
 - Added next code preview functionality
