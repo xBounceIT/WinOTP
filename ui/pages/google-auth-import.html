@@ -1,0 +1,38 @@
+<!-- Google Authenticator Import Page -->
+<div class="container" id="googleAuthImportPage" style="display: none;">
+    <div class="header">
+        <div class="header-left">
+            <button id="backFromGoogleAuthBtn" class="btn btn-icon"><img id="backFromGoogleAuthIcon" alt="Back" width="20" height="20"></button>
+            <h1>Import from Google Authenticator</h1>
+        </div>
+    </div>
+    
+    <div class="settings-content">
+        <div class="import-section">
+            <h2>Instructions</h2>
+            <ol class="instructions-list">
+                <li>On your phone, open the Google Authenticator app</li>
+                <li>Tap the menu icon (three dots) in the top right</li>
+                <li>Tap on "Transfer accounts"</li>
+                <li>Tap on "Export accounts"</li>
+                <li>You may need to authenticate (fingerprint/face/PIN)</li>
+                <li>Select the accounts you want to export</li>
+                <li>Tap "Next"</li>
+                <li>Take a screenshot or photo of the QR code(s) shown</li>
+                <li>Upload the screenshots/photos below</li>
+            </ol>
+            
+            <div class="info-box" style="margin: 15px 0;">
+                <p><strong>Note:</strong> Google Authenticator may disable screenshots. If so, use another device to take a photo of the QR code(s).</p>
+                <p>Multiple QR codes may appear if you have many accounts. Upload all of them to import all your tokens.</p>
+            </div>
+            
+            <div class="qr-scanner-container">
+                <div id="qrScannerArea"></div>
+                <div class="scanner-controls">
+                    <button id="finishGoogleAuthImportBtn" class="btn">Finish Import</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div> 

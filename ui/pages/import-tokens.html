@@ -1,0 +1,43 @@
+<!-- Import Tokens Page -->
+<div class="container" id="importTokensPage" style="display: none;">
+    <div class="header">
+        <div class="header-left">
+            <button id="backFromImportBtn" class="btn btn-icon"><img id="backFromImportIcon" alt="Back" width="20" height="20"></button>
+            <h1>Import Tokens</h1>
+        </div>
+    </div>
+    
+    <div class="settings-content">
+        <div class="import-section">
+            <p>Select a source to import your authentication tokens from:</p>
+            
+            <div class="import-options">
+                <button id="importFromWinOTPBtn" class="btn btn-block">
+                    <div class="import-option-content">
+                        <span class="import-option-title">WinOTP Backup</span>
+                        <span class="import-option-desc">Import from another WinOTP instance or backup file</span>
+                    </div>
+                </button>
+                <!-- Additional import options can be added here in the future -->
+                <button id="importFrom2FASBtn" class="btn btn-block">
+                    <div class="import-option-content">
+                        <span class="import-option-title">2FAS Backup</span>
+                        <span class="import-option-desc">Import from a 2FAS backup file (.2fas)</span>
+                    </div>
+                </button>
+                <button id="importFromAuthenticatorPluginBtn" class="btn btn-block">
+                    <div class="import-option-content">
+                        <span class="import-option-title">Authenticator Plugin</span>
+                        <span class="import-option-desc">Import from Authenticator Browser Plugin export (.txt)</span>
+                    </div>
+                </button>
+                <button id="importFromGoogleAuthBtn" class="btn btn-block">
+                    <div class="import-option-content">
+                        <span class="import-option-title">Google Authenticator</span>
+                        <span class="import-option-desc">Import from Google Authenticator QR codes</span>
+                    </div>
+                </button>
+            </div>
+        </div>
+    </div>
+</div> 

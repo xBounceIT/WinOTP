@@ -9,14 +9,16 @@
     <link rel="stylesheet" href="static/css/style.css">
 </head>
 <body>
+    <!-- Include all page components directly in the main HTML -->
+    <!-- Main Page -->
     <div class="container" id="mainPage">
         <div class="header">
             <h1>WinOTP</h1>
             <div class="header-actions">
                 <button id="updateAvailableBtn" class="btn btn-update-available" style="display: none;">UPDATE AVAILABLE</button>
-                <button id="addTokenBtn" class="btn btn-icon"><img id="plusIcon" alt="Add Token" width="20" height="20"></button>
-                <button id="toggleSortBtn" class="btn btn-icon" title="Toggle Sort Order"><img id="sortIcon" alt="Sort Order" width="20" height="20"></button>
-                <button id="settingsBtn" class="btn btn-icon">⚙️</button>
+                <button id="addTokenBtn" class="btn btn-icon"><img id="plusIcon" src="static/icons/plus.png" alt="Add Token" width="20" height="20"></button>
+                <button id="toggleSortBtn" class="btn btn-icon" title="Toggle Sort Order"><img id="sortIcon" src="static/icons/sort_asc.png" alt="Sort Order" width="20" height="20"></button>
+                <button id="settingsBtn" class="btn btn-icon"><img id="settingsIcon" src="static/icons/settings.png" alt="Settings" width="20" height="20"></button>
             </div>
         </div>
 
@@ -33,12 +35,11 @@
     <div class="container" id="settingsPage" style="display: none;">
         <div class="header">
             <div class="header-left">
-                <button id="backToMainBtn" class="btn btn-icon"><img id="backIcon" alt="Back" width="20" height="20"></button>
+                <button id="backToMainBtn" class="btn btn-icon"><img id="backIcon" src="static/icons/back_arrow.png" alt="Back" width="20" height="20"></button>
                 <h1>Settings</h1>
             </div>
             <div class="header-actions">
-                <!-- Actions can be added here if needed in the future -->
-                <button class="btn btn-icon" id="aboutBtnSettings"><img id="aboutIcon" alt="About" width="20" height="20"></button>
+                <button class="btn btn-icon" id="aboutBtnSettings"><img id="aboutIcon" src="static/icons/question.png" alt="About" width="20" height="20"></button>
             </div>
         </div>
         
@@ -133,7 +134,7 @@
     <div class="container" id="aboutPage" style="display: none;">
         <div class="header">
             <div class="header-left">
-                <button id="backFromAboutBtn" class="btn btn-icon"><img id="backFromAboutIcon" alt="Back" width="20" height="20"></button>
+                <button id="backFromAboutBtn" class="btn btn-icon"><img id="backFromAboutIcon" src="static/icons/back_arrow.png" alt="Back" width="20" height="20"></button>
                 <h1>About</h1>
             </div>
         </div>
@@ -179,7 +180,7 @@
     <div class="container" id="importTokensPage" style="display: none;">
         <div class="header">
             <div class="header-left">
-                <button id="backFromImportBtn" class="btn btn-icon"><img id="backFromImportIcon" alt="Back" width="20" height="20"></button>
+                <button id="backFromImportBtn" class="btn btn-icon"><img id="backFromImportIcon" src="static/icons/back_arrow.png" alt="Back" width="20" height="20"></button>
                 <h1>Import Tokens</h1>
             </div>
         </div>
@@ -195,7 +196,6 @@
                             <span class="import-option-desc">Import from another WinOTP instance or backup file</span>
                         </div>
                     </button>
-                    <!-- Additional import options can be added here in the future -->
                     <button id="importFrom2FASBtn" class="btn btn-block">
                         <div class="import-option-content">
                             <span class="import-option-title">2FAS Backup</span>
@@ -223,7 +223,6 @@
     <div class="container" id="importProgressPage" style="display: none;">
         <div class="header">
             <h1>Importing Tokens...</h1>
-            <!-- No back button needed here -->
         </div>
         <div class="settings-content">
             <p id="importProgressStatus">Starting import...</p>
@@ -231,7 +230,7 @@
                 <div class="progress-bar" id="importProgressBar" style="width: 0%;"></div>
             </div>
             <p id="importProgressCount">(0/0)</p>
-             <p style="margin-top: 20px; font-size: 0.8em; color: var(--secondary-text-color);">Please wait, this may take a moment for large files.</p>
+            <p style="margin-top: 20px; font-size: 0.8em; color: var(--secondary-text-color);">Please wait, this may take a moment for large files.</p>
         </div>
     </div>
 
@@ -239,7 +238,7 @@
     <div class="container" id="googleAuthImportPage" style="display: none;">
         <div class="header">
             <div class="header-left">
-                <button id="backFromGoogleAuthBtn" class="btn btn-icon"><img id="backFromGoogleAuthIcon" alt="Back" width="20" height="20"></button>
+                <button id="backFromGoogleAuthBtn" class="btn btn-icon"><img id="backFromGoogleAuthIcon" src="static/icons/back_arrow.png" alt="Back" width="20" height="20"></button>
                 <h1>Import from Google Authenticator</h1>
             </div>
         </div>
@@ -278,7 +277,7 @@
     <div class="container" id="addTokenPage" style="display: none;">
         <div class="header">
             <div class="header-left">
-                <button id="backFromAddTokenBtn" class="btn btn-icon"><img id="backFromAddTokenIcon" alt="Back" width="20" height="20"></button>
+                <button id="backFromAddTokenBtn" class="btn btn-icon"><img id="backFromAddTokenIcon" src="static/icons/back_arrow.png" alt="Back" width="20" height="20"></button>
                 <h1>Add Token</h1>
             </div>
             <div class="header-actions">
@@ -338,7 +337,7 @@
     <div class="container" id="appProtectionPage" style="display: none;">
         <div class="header">
             <div class="header-left">
-                <button id="backFromProtectionBtn" class="btn btn-icon"><img id="backFromProtectionIcon" alt="Back" width="20" height="20"></button>
+                <button id="backFromProtectionBtn" class="btn btn-icon"><img id="backFromProtectionIcon" src="static/icons/back_arrow.png" alt="Back" width="20" height="20"></button>
                 <h1>App Protection</h1>
             </div>
         </div>

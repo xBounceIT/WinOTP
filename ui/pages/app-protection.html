@@ -1,0 +1,62 @@
+<!-- App Protection Page -->
+<div class="container" id="appProtectionPage" style="display: none;">
+    <div class="header">
+        <div class="header-left">
+            <button id="backFromProtectionBtn" class="btn btn-icon"><img id="backFromProtectionIcon" alt="Back" width="20" height="20"></button>
+            <h1>App Protection</h1>
+        </div>
+    </div>
+    
+    <div class="settings-content">
+        <div class="protection-section">
+            <p>Choose how you want to protect your app:</p>
+            
+            <div id="protectionStatus" class="setting-item" style="margin-bottom: 20px;">
+                <div>
+                    <div class="setting-label">Current Status</div>
+                    <div id="protectionStatusText" class="protection-status-badge"></div>
+                </div>
+            </div>
+            
+            <div class="info-box">
+                <p>When you enable protection, your tokens will be automatically encrypted using your PIN/password. This ensures that only you can access your tokens when the app is locked.</p>
+            </div>
+            
+            <div class="protection-options">
+                <div id="protectionForms" style="display: none;">
+                    <div class="form-group">
+                        <label for="pinInput">PIN Protection</label>
+                        <input type="password" id="pinInput" placeholder="Enter a PIN (at least 4 digits)" inputmode="numeric" pattern="[0-9]*">
+                        <div class="input-description">PIN must be at least 4 digits</div>
+                        <div class="form-actions" style="margin-top: 10px;">
+                            <button class="btn" id="setPinBtn">Set PIN</button>
+                        </div>
+                    </div>
+                    
+                    <div class="form-separator">
+                        <span>OR</span>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="passwordInput">Password Protection</label>
+                        <input type="password" id="passwordInput" placeholder="Enter a password (at least 6 characters)">
+                        <div class="input-description">Password must be at least 6 characters</div>
+                        <div class="form-actions" style="margin-top: 10px;">
+                            <button class="btn" id="setPasswordBtn">Set Password</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="disableProtectionSection" style="margin-top: 30px; display: none;">
+                    <div class="form-separator">
+                        <span>OR</span>
+                    </div>
+                    
+                    <div class="form-actions" style="margin-top: 20px;">
+                        <button class="btn btn-danger" id="disableProtectionBtn">Disable Protection</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div> 

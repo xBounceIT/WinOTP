@@ -1,0 +1,59 @@
+<!-- Add Token Page -->
+<div class="container" id="addTokenPage" style="display: none;">
+    <div class="header">
+        <div class="header-left">
+            <button id="backFromAddTokenBtn" class="btn btn-icon"><img id="backFromAddTokenIcon" alt="Back" width="20" height="20"></button>
+            <h1>Add Token</h1>
+        </div>
+        <div class="header-actions">
+            <!-- Actions can be added here if needed in the future -->
+        </div>
+    </div>
+    
+    <div class="settings-content">
+        <div class="tabs">
+            <div class="tab active" data-tab="scanQr">Scan QR</div>
+            <div class="tab" data-tab="manualEntry">Manual Entry</div>
+        </div>
+        <div id="scanQr" class="tab-content active">
+            <div class="info-box" id="cameraPermissionInfo" style="margin-bottom: 20px;">
+                <p>Click "Start Scanning" to open your camera and scan a QR code.</p>
+            </div>
+            <div class="form-actions">
+                <button class="btn" id="startScanBtn">Start Scanning</button>
+                <button class="btn" id="uploadQrBtn">Upload QR Image</button>
+                <input type="file" id="qrFileInput" accept="image/*" style="display: none;">
+            </div>
+        </div>
+        <div id="manualEntry" class="tab-content">
+            <div class="form-group">
+                <label for="tokenIssuer">Issuer (Service Name)</label>
+                <input type="text" id="tokenIssuer" placeholder="Google, Microsoft, etc.">
+            </div>
+            <div class="form-group">
+                <label for="tokenName">Account Name</label>
+                <input type="text" id="tokenName" placeholder="username@example.com">
+            </div>
+            <div class="form-group">
+                <label for="tokenSecret">Secret Key</label>
+                <input type="text" id="tokenSecret" placeholder="Base32 encoded secret">
+            </div>
+            <div class="form-actions">
+                <button class="btn" id="saveTokenBtn">Save Token</button>
+            </div>
+            
+            <div class="form-separator">
+                <span>OR</span>
+            </div>
+            
+            <div class="form-group">
+                <label for="tokenUri">OTP Auth URI</label>
+                <input type="text" id="tokenUri" placeholder="otpauth://totp/...">
+                <div class="input-description">Paste a complete otpauth:// URI. The secret must be a valid base32 string (A-Z, 2-7).</div>
+            </div>
+            <div class="form-actions">
+                <button class="btn" id="saveUriTokenBtn">Add from URI</button>
+            </div>
+        </div>
+    </div>
+</div> 
