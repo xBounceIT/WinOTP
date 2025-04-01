@@ -13,6 +13,7 @@ from PIL import Image
 import logging
 import urllib.request
 import re
+import winreg
 
 # Import utilities
 from utils.file_io import read_json, write_json, clear_cache
@@ -1232,8 +1233,16 @@ class Api:
             dict: Status and message, and download_path if successful
         """
         try:
-            # Get user's Downloads folder path
-            downloads_folder = os.path.join(os.path.expanduser("~"), "Downloads")
+            # Get the actual Downloads folder path from Windows Registry
+            try:
+                with winreg.OpenKey(winreg.HKEY_CURRENT_USER, r'Software\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders') as key:
+                    downloads_folder = winreg.QueryValueEx(key, '{374DE290-123F-4565-9164-39C4925E467B}')[0]
+                print(f"Found Downloads folder in registry: {downloads_folder}")
+            except Exception as e:
+                print(f"Failed to get Downloads folder from registry: {e}")
+                # Fallback to user profile Downloads folder
+                downloads_folder = os.path.join(os.path.expanduser("~"), "Downloads")
+                print(f"Using fallback Downloads folder: {downloads_folder}")
             
             # Check if the URL is an actual file or a release page
             if url.endswith('.exe'):
@@ -1263,6 +1272,9 @@ class Api:
             
             # Full path to save the file
             download_path = os.path.join(downloads_folder, filename)
+            
+            # Ensure the Downloads directory exists
+            os.makedirs(downloads_folder, exist_ok=True)
             
             if is_direct_file:
                 print(f"Downloading update from {url} to {download_path}")
