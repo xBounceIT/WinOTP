@@ -20,6 +20,10 @@ A modern, secure, and feature-rich TOTP authenticator designed specifically for 
 - System integration:
     - Minimize to system tray option
     - Encrypted token storage
+- Automatic updates:
+    - In-app update notifications
+    - Direct download to user's Downloads folder
+    - Release notes preview
 
 ## Installation
 

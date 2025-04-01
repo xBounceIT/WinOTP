@@ -11,6 +11,8 @@ import io
 import pystray
 from PIL import Image
 import logging
+import urllib.request
+import re
 
 # Import utilities
 from utils.file_io import read_json, write_json, clear_cache
@@ -1219,6 +1221,73 @@ class Api:
             return {"status": "success", "message": "URL opened successfully"}
         except Exception as e:
             return {"status": "error", "message": f"Failed to open URL: {str(e)}"}
+
+    def download_update_file(self, url):
+        """Download update file from GitHub release to the user's Downloads folder
+        
+        Args:
+            url (str): URL of the file to download
+            
+        Returns:
+            dict: Status and message, and download_path if successful
+        """
+        try:
+            # Get user's Downloads folder path
+            downloads_folder = os.path.join(os.path.expanduser("~"), "Downloads")
+            
+            # Check if the URL is an actual file or a release page
+            if url.endswith('.exe'):
+                # Direct file URL
+                filename = url.split("/")[-1]
+                is_direct_file = True
+            else:
+                # Release page URL - we need to extract the version to create a meaningful filename
+                # Example: https://github.com/xBounceIT/WinOTP/releases/tag/v0.5.2
+                version_match = re.search(r'tag/(v\d+\.\d+(?:\.\d+)?)', url)
+                if version_match:
+                    version = version_match.group(1)
+                    filename = f"WinOTP_{version}_portable.exe"
+                else:
+                    filename = f"WinOTP_update.exe"
+                is_direct_file = False
+            
+            # Add a timestamp to avoid overwriting existing files
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename_parts = filename.split(".")
+            if len(filename_parts) > 1:
+                # Insert timestamp before the extension
+                filename = f"{'.'.join(filename_parts[:-1])}_{timestamp}.{filename_parts[-1]}"
+            else:
+                # No extension, just append timestamp
+                filename = f"{filename}_{timestamp}"
+            
+            # Full path to save the file
+            download_path = os.path.join(downloads_folder, filename)
+            
+            if is_direct_file:
+                print(f"Downloading update from {url} to {download_path}")
+                # Download the file
+                urllib.request.urlretrieve(url, download_path)
+                
+                return {
+                    "status": "success", 
+                    "message": f"Update downloaded successfully to {download_path}",
+                    "download_path": download_path
+                }
+            else:
+                # If it's a release page URL, we should inform the user that they need to download manually
+                print(f"Received release page URL instead of direct file URL: {url}")
+                return {
+                    "status": "error",
+                    "message": "Direct download link not available. Please visit the releases page to download manually.",
+                    "is_release_page": True,
+                    "url": url
+                }
+        except Exception as e:
+            print(f"Error downloading update: {e}")
+            import traceback
+            traceback.print_exc()
+            return {"status": "error", "message": f"Failed to download update: {str(e)}"}
 
     def get_next_code(self, token_id):
         """Get the next TOTP code for a token"""

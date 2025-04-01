@@ -449,20 +449,76 @@ async function downloadUpdate() {
     // Get the download URL from the button's data attribute
     const downloadUrl = document.getElementById('updateAvailableBtn').getAttribute('data-download-url');
     
-    // If no download URL is available, use the GitHub releases page as fallback
-    const targetUrl = downloadUrl || `https://github.com/xBounceIT/WinOTP/releases`;
+    // If no download URL is available, show error
+    if (!downloadUrl) {
+        showNotification('No download URL available. Please try again later.', 'error');
+        return;
+    }
     
     try {
-        // Open the download URL in the default browser
-        await window.pywebview.api.open_url(targetUrl);
+        // Show loading notification
+        showNotification('Downloading update...', 'info');
         
-        // Show success message
-        showNotification('Download started in your browser', 'success');
+        // Use the API to download the file
+        const result = await window.pywebview.api.download_update_file(downloadUrl);
+        
+        if (result.status === 'success') {
+            showNotification('Update downloaded successfully', 'success');
+            
+            // Format the file path for better readability
+            const filePath = result.download_path;
+            const fileName = filePath.split('\\').pop();
+            
+            // Show additional information
+            const downloadPathInfo = document.createElement('div');
+            downloadPathInfo.className = 'update-download-info';
+            downloadPathInfo.innerHTML = `
+                <p><strong>Download Complete</strong></p>
+                <p>File: <span class="file-path">${fileName}</span></p>
+                <p>Location: <span class="file-path">${filePath}</span></p>
+                <p>Please close this application before running the new version.</p>
+            `;
+            
+            // Replace the info-box content
+            const infoBox = document.querySelector('#updatePage .info-box');
+            if (infoBox) {
+                infoBox.innerHTML = '';
+                infoBox.appendChild(downloadPathInfo);
+            }
+            
+            // Change download button text
+            document.getElementById('downloadUpdateBtn').textContent = 'Downloaded';
+            document.getElementById('downloadUpdateBtn').disabled = true;
+        } else if (result.is_release_page) {
+            // Handle release page URL (not a direct file download)
+            showNotification('Opening release page in browser...', 'info');
+            
+            // Open the URL in the browser
+            await window.pywebview.api.open_url(result.url);
+            
+            // Show fallback message
+            const downloadPathInfo = document.createElement('div');
+            downloadPathInfo.className = 'update-download-info';
+            downloadPathInfo.innerHTML = `
+                <p><strong>Manual Download Required</strong></p>
+                <p>The release page has been opened in your browser.</p>
+                <p>Please download the latest version from the GitHub releases page and run it after closing this application.</p>
+            `;
+            
+            // Replace the info-box content
+            const infoBox = document.querySelector('#updatePage .info-box');
+            if (infoBox) {
+                infoBox.innerHTML = '';
+                infoBox.appendChild(downloadPathInfo);
+            }
+            
+            // Change download button text
+            document.getElementById('downloadUpdateBtn').textContent = 'Open in Browser';
+        } else {
+            showNotification(result.message || 'Download failed', 'error');
+        }
     } catch (error) {
-        console.error("Error starting download:", error);
-        showNotification('Failed to start download. Please visit the releases page manually.', 'error');
-        
-        // Fallback to opening the releases page
-        window.pywebview.api.open_url('https://github.com/xBounceIT/WinOTP/releases');
+        console.error("Error downloading update:", error);
+        showNotification('Failed to download update. Please try again later.', 'error');
     }
 } 

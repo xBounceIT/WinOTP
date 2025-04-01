@@ -43,13 +43,17 @@ def check_for_updates():
         download_url = None
         assets = latest_release.get("assets", [])
         for asset in assets:
-            if asset.get("name", "").lower().endswith("-portable.exe"):
+            # Look for the portable EXE file in assets
+            asset_name = asset.get("name", "").lower()
+            if asset_name.endswith("-portable.exe") or asset_name.endswith("_portable.exe") or "winotp" in asset_name and asset_name.endswith(".exe"):
                 download_url = asset.get("browser_download_url")
+                print(f"Found executable asset: {asset_name}")
                 break
         
         # If no portable exe found, use the generic release URL
         if not download_url:
             download_url = latest_release.get("html_url")
+            print("No executable found in assets, using release page URL as fallback")
 
         print(f"Current version: {CURRENT_VERSION}")
         print(f"Latest version found: {latest_version}")

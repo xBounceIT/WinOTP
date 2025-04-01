@@ -1388,16 +1388,60 @@ input:checked + .slider:before {
 }
 
 .update-download-info {
-    background-color: var(--secondary-bg-color);
-    border-radius: 4px;
-    padding: 15px;
+    background-color: #243e36;
+    color: #e8f1f2;
+    border: none;
+    border-radius: 8px;
+    padding: 20px;
     margin-top: 20px;
-    border-left: 4px solid var(--primary-color);
+    font-size: 14px;
+    line-height: 1.6;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    position: relative;
+    overflow: hidden;
 }
 
 .update-download-info p {
-    margin: 0;
-    color: var(--text-color);
+    margin: 0 0 10px 0;
+    word-break: break-word;
+    overflow-wrap: break-word;
+}
+
+.update-download-info .file-path {
+    font-family: monospace;
+    background-color: rgba(0, 0, 0, 0.2);
+    padding: 5px 8px;
+    border-radius: 4px;
+    display: inline-block;
+    max-width: 100%;
+    overflow-x: auto;
+    white-space: nowrap;
+    margin: 5px 0;
+}
+
+.update-download-info p:last-child {
+    margin-bottom: 0;
+}
+
+.update-download-info::before {
+    content: '✓';
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    font-size: 18px;
+    color: #4cd964;
+    font-weight: bold;
+}
+
+@media (prefers-color-scheme: light) {
+    .update-download-info {
+        background-color: #d1e7dd;
+        color: #0f5132;
+    }
+    
+    .update-download-info::before {
+        color: #0f5132;
+    }
 }
 
 #update-notes {
