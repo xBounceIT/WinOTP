@@ -13,7 +13,7 @@ from PIL import Image
 import logging
 
 # Import utilities
-from utils.file_io import read_json, write_json
+from utils.file_io import read_json, write_json, clear_cache
 from utils.ntp_sync import start_ntp_sync, get_accurate_time, get_sync_status
 from utils.auth import (
     set_pin, set_password, clear_auth, verify_pin, verify_password, 
@@ -1186,13 +1186,26 @@ class Api:
             timeout_minutes = int(timeout_minutes)
             if timeout_minutes < 0:
                 return {"status": "error", "message": "Timeout cannot be negative"}
-                
+            
+            print(f"API: Setting protection timeout to {timeout_minutes}")
+            
+            # Rely *only* on the set_timeout function from utils.auth
             if set_timeout(timeout_minutes):
+                print(f"Successfully set timeout to {timeout_minutes} using utils.auth.set_timeout")
                 return {"status": "success", "message": "Protection timeout updated"}
             else:
-                return {"status": "error", "message": "Failed to update protection timeout"}
+                # If set_timeout failed, report the error directly
+                print(f"Failed to set timeout using utils.auth.set_timeout")
+                return {"status": "error", "message": "Failed to update protection timeout in auth config"}
+                
         except ValueError:
             return {"status": "error", "message": "Invalid timeout value"}
+        except Exception as e:
+            # Catch any other unexpected errors from set_timeout or int conversion
+            print(f"Error in API set_protection_timeout: {e}")
+            import traceback
+            traceback.print_exc()
+            return {"status": "error", "message": f"An unexpected error occurred: {str(e)}"}
 
     def check_for_updates(self):
         """Get the current update status from asset_manager"""
@@ -1440,6 +1453,14 @@ class Api:
             logging.error(f"Error in set_run_at_startup: {e}")
             return {"status": "error", "message": f"An unexpected error occurred: {str(e)}"}
 
+    def clear_cache(self):
+        """Clear the file cache"""
+        try:
+            clear_cache()
+            return {"status": "success", "message": "Cache cleared"}
+        except Exception as e:
+            return {"status": "error", "message": f"Failed to clear cache: {str(e)}"}
+
 def set_tokens_path(path):
     """Set the path to the tokens file"""
     global tokens_path
@@ -1462,15 +1483,19 @@ def main():
     global tokens_path, settings_path, AUTH_CONFIG_PATH # Declare globals to modify them
     if debug_mode:
         # Use local .dev files for debug mode
-        tokens_path = "tokens.json.dev"
-        settings_path = "app_settings.json.dev"
-        AUTH_CONFIG_PATH = "auth_config.json.dev"
+        tokens_path = os.path.abspath("tokens.json.dev")
+        settings_path = os.path.abspath("app_settings.json.dev")
+        AUTH_CONFIG_PATH = os.path.abspath("auth_config.json.dev")
         print(f"DEBUG MODE: Using local development files:")
-        print(f"  - Tokens: {os.path.abspath(tokens_path)}")
-        print(f"  - Settings: {os.path.abspath(settings_path)}")
-        print(f"  - Auth Config: {os.path.abspath(AUTH_CONFIG_PATH)}")
+        print(f"  - Tokens: {tokens_path}")
+        print(f"  - Settings: {settings_path}")
+        print(f"  - Auth Config: {AUTH_CONFIG_PATH}")
     else:
         # Use data directory paths for production mode (paths are already set globally)
+        # Ensure these are absolute paths
+        tokens_path = os.path.abspath(tokens_path)
+        settings_path = os.path.abspath(settings_path)
+        AUTH_CONFIG_PATH = os.path.abspath(AUTH_CONFIG_PATH)
         print(f"PRODUCTION MODE: Using files in {winotp_data_dir}:")
         print(f"  - Tokens: {tokens_path}")
         print(f"  - Settings: {settings_path}")
@@ -1478,6 +1503,28 @@ def main():
 
     # --- Set the authentication file path for the auth utility module ---
     set_auth_path(AUTH_CONFIG_PATH) 
+
+    # Verify if files exist, create them if they don't
+    for path, default_content in [
+        (tokens_path, {}),
+        (settings_path, {"minimize_to_tray": False, "update_check_enabled": True, "run_at_startup": False}),
+        (AUTH_CONFIG_PATH, {"timeout_minutes": 0})
+    ]:
+        directory = os.path.dirname(path)
+        if directory and not os.path.exists(directory):
+            try:
+                os.makedirs(directory, exist_ok=True)
+                print(f"Created directory: {directory}")
+            except OSError as e:
+                print(f"Error creating directory {directory}: {e}")
+                
+        if not os.path.exists(path):
+            try:
+                with open(path, 'w') as f:
+                    json.dump(default_content, f, indent=4)
+                print(f"Created default file: {path}")
+            except Exception as e:
+                print(f"Error creating file {path}: {e}")
 
     # Start update check in a background thread
     print("Starting background update check...")

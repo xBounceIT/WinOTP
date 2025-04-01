@@ -156,4 +156,77 @@ async function loadIconForElement(elementId, iconName) {
     } catch (error) {
         console.error(`Error loading icon ${iconName} for element ${elementId}:`, error);
     }
-} 
+}
+
+// Timeout select event handler
+// Wait for all pages to be loaded before attaching the listener
+document.addEventListener('allPagesLoaded', function() {
+    console.log("'allPagesLoaded' event received, attaching timeout listener."); // Debug log
+    const timeoutSelect = document.getElementById('timeoutSelect');
+    if (timeoutSelect) {
+        timeoutSelect.addEventListener('change', async function(e) {
+            try {
+                const selectedValue = parseInt(e.target.value);
+                console.log(`Timeout selection changed to ${selectedValue} minutes`);
+                
+                // Show a notification that we're updating
+                showNotification('Updating timeout setting...', 'info');
+                
+                // Clear cache before setting timeout
+                console.log('Clearing cache...');
+                await window.pywebview.api.clear_cache();
+                
+                // Call the API to update the timeout
+                console.log(`Calling set_protection_timeout with value: ${selectedValue}`);
+                const result = await window.pywebview.api.set_protection_timeout(selectedValue);
+                console.log('API result:', result);
+                
+                if (result.status === 'success') {
+                    console.log('Timeout update successful');
+                    showNotification('Re-authentication timeout updated', 'success');
+                    
+                    // Get the current status to verify the change
+                    const status = await window.pywebview.api.get_auth_status();
+                    console.log('Current auth status:', status);
+                    
+                    if (status.timeout_minutes !== selectedValue) {
+                        console.warn(`Warning: Timeout value mismatch - set ${selectedValue} but got ${status.timeout_minutes}`);
+                    }
+                } else {
+                    console.error('Timeout update failed:', result.message);
+                    showNotification(result.message, 'error');
+                    
+                    // Revert to previous value
+                    console.log('Reverting to previous value...');
+                    const status = await window.pywebview.api.get_auth_status();
+                    console.log('Current auth status for revert:', status);
+                    
+                    if (status.timeout_minutes !== undefined) {
+                        console.log(`Reverting UI to ${status.timeout_minutes}`);
+                        e.target.value = status.timeout_minutes.toString();
+                    }
+                }
+            } catch (error) {
+                console.error('Error setting protection timeout:', error);
+                showNotification('Failed to update re-authentication timeout', 'error');
+                
+                // Revert to previous value
+                try {
+                    console.log('Attempting to revert after error...');
+                    const status = await window.pywebview.api.get_auth_status();
+                    console.log('Current auth status for error revert:', status);
+                    
+                    if (status.timeout_minutes !== undefined) {
+                        console.log(`Reverting UI to ${status.timeout_minutes} after error`);
+                        e.target.value = status.timeout_minutes.toString();
+                    }
+                } catch (revertError) {
+                    console.error('Error during revert:', revertError);
+                }
+            }
+        });
+    } else {
+        // If it's *still* not found, something else is wrong
+        console.error('FATAL: Timeout select element (#timeoutSelect) not found even after allPagesLoaded event.');
+    }
+});

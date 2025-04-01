@@ -72,17 +72,54 @@ def write_json(file_path, data):
     Args:
         file_path (str): Path to the JSON file
         data (dict): Data to write to the file
+        
+    Returns:
+        bool: True if successful, False otherwise
     """
-    # Create directory if it doesn't exist
-    directory = os.path.dirname(file_path)
-    if directory and not os.path.exists(directory):
-        os.makedirs(directory, exist_ok=True)
+    print(f"Writing JSON data to {file_path}")
+    print(f"Data to write: {data}")
     
-    with open(file_path, 'w') as file:
-        json.dump(data, file, indent=4)
-    
-    # Update cache if enabled
-    if _cache_enabled:
-        with _cache_lock:
-            cache_key = f"{file_path}:{os.path.getmtime(file_path)}"
-            _file_cache[cache_key] = data 
+    try:
+        # Create directory if it doesn't exist
+        directory = os.path.dirname(file_path)
+        if directory and not os.path.exists(directory):
+            os.makedirs(directory, exist_ok=True)
+            print(f"Created directory: {directory}")
+        
+        # Write the file with explicit flush and fsync
+        with open(file_path, 'w') as file:
+            json.dump(data, file, indent=4)
+            file.flush()
+            os.fsync(file.fileno())
+        print(f"Data written and flushed to file")
+        
+        # Verify the write was successful by reading it back
+        if os.path.exists(file_path):
+            try:
+                with open(file_path, 'r') as verify_file:
+                    verify_data = json.load(verify_file)
+                    if verify_data == data:
+                        print("Write verification successful")
+                    else:
+                        print("Warning: Write verification failed - data mismatch")
+                        print(f"Expected: {data}")
+                        print(f"Actual: {verify_data}")
+            except Exception as e:
+                print(f"Error during verification: {e}")
+        
+        # Update cache if enabled
+        if _cache_enabled:
+            with _cache_lock:
+                try:
+                    cache_key = f"{file_path}:{os.path.getmtime(file_path)}"
+                    _file_cache[cache_key] = data
+                    print(f"Cache updated with key: {cache_key}")
+                except Exception as e:
+                    print(f"Error updating cache: {e}")
+        else:
+            print("Cache is disabled, skipping cache update")
+            
+        return True
+    except Exception as e:
+        print(f"Error writing JSON to {file_path}: {e}")
+        return False 

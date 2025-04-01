@@ -18,7 +18,11 @@ def set_auth_path(path):
 def _get_auth_path():
     """Helper to get the auth path, ensuring it's set."""
     if _current_auth_path is None:
+        print("Error: Authentication configuration path has not been set.")
         raise RuntimeError("Authentication configuration path has not been set.")
+    print(f"Getting auth path: {_current_auth_path}")
+    print(f"Absolute path: {os.path.abspath(_current_auth_path)}")
+    print(f"Path exists: {os.path.exists(_current_auth_path)}")
     return _current_auth_path
 
 def hash_password(password):
@@ -227,18 +231,120 @@ def set_timeout(timeout_minutes):
         bool: True if successful, False otherwise
     """
     try:
+        print(f"------- BEGIN SET TIMEOUT -------")
+        print(f"Setting timeout to {timeout_minutes} minutes")
+        
+        # Get and validate the auth path
         auth_path = _get_auth_path()
+        print(f"Using auth path: {auth_path}")
+        print(f"Absolute path: {os.path.abspath(auth_path)}")
+        print(f"Path exists: {os.path.exists(auth_path)}")
+        
+        # Create directory if it doesn't exist
+        directory = os.path.dirname(auth_path)
+        if directory and not os.path.exists(directory):
+            try:
+                os.makedirs(directory, exist_ok=True)
+                print(f"Created directory: {directory}")
+            except Exception as e:
+                print(f"Error creating directory {directory}: {e}")
+        
         # Read existing config
         config = read_json(auth_path) or {}
+        print(f"Current config before update: {config}")
+        
+        # Create an empty file if it doesn't exist
+        if not os.path.exists(auth_path):
+            try:
+                with open(auth_path, 'w') as f:
+                    json.dump({"timeout_minutes": timeout_minutes}, f, indent=4)
+                print(f"Created new auth config file with timeout {timeout_minutes}")
+                
+                # Clear the file cache to ensure fresh reads
+                from .file_io import clear_cache
+                clear_cache()
+                
+                return True
+            except Exception as e:
+                print(f"Error creating auth config file: {e}")
+                return False
         
         # Update the config
+        old_timeout = config.get("timeout_minutes", 0)
         config["timeout_minutes"] = timeout_minutes
+        print(f"Updated config: {config}")
+        print(f"Changed timeout from {old_timeout} to {timeout_minutes}")
         
-        # Write the config
-        write_json(auth_path, config)
+        # Try regular file writing first
+        success = False
+        try:
+            # Write the config using write_json
+            print("Attempting to write config using write_json...")
+            success = write_json(auth_path, config)
+            if success:
+                print("Successfully wrote config using write_json")
+            else:
+                print("Failed to write config file using write_json")
+        except Exception as e:
+            print(f"Error during write_json: {e}")
+            success = False
+        
+        # If regular file writing failed, try specialized auth file operations
+        if not success:
+            try:
+                print("Trying specialized auth file operations...")
+                from .auth_file_ops import write_auth_config
+                success = write_auth_config(auth_path, config)
+                if success:
+                    print("Successfully wrote config using specialized auth file ops")
+                else:
+                    print("Failed to write config using specialized auth file ops")
+            except ImportError:
+                print("Specialized auth file operations module not available")
+            except Exception as e:
+                print(f"Error during specialized auth file ops: {e}")
+                success = False
+        
+        # If both methods failed, try direct file writing
+        if not success:
+            try:
+                # Try direct file writing
+                print("Attempting direct file writing as last resort...")
+                with open(auth_path, 'w') as f:
+                    json.dump(config, f, indent=4)
+                    f.flush()
+                    os.fsync(f.fileno())
+                print("Direct file writing completed")
+                success = True
+            except Exception as e:
+                print(f"Error during direct file writing: {e}")
+                return False
+        
+        # Clear the file cache to ensure fresh reads
+        from .file_io import clear_cache
+        clear_cache()
+        print("File cache cleared")
+        
+        # Verify the write by reading it back
+        try:
+            new_config = read_json(auth_path)
+            print(f"Config after write: {new_config}")
+            
+            new_timeout = new_config.get("timeout_minutes")
+            if new_timeout != timeout_minutes:
+                print(f"Verification failed: timeout value mismatch. Got {new_timeout}, expected {timeout_minutes}")
+                return False
+        except Exception as e:
+            print(f"Error during verification: {e}")
+            return False
+            
+        print(f"Timeout successfully updated to {timeout_minutes}")
+        print(f"------- END SET TIMEOUT -------")
         return True
     except Exception as e:
         print(f"Error setting timeout: {e}")
+        import traceback
+        traceback.print_exc()
         return False
 
 def get_timeout():

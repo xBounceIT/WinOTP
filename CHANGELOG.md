@@ -1,6 +1,7 @@
 # v0.6
 - Added open on startup feature
-- New logic for updates 
+- New workflow for app updates, including in app changelog for the new release and an automated update installer which deletes the older portable exe and replaces it with the new one
+- Fixed an issue with re-authentication timeout config not being saved to the app settings file.
 
 # v0.5.2
 - Fixed an issue blocking icons from loading when app protection is enabled
