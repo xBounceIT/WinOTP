@@ -97,15 +97,18 @@ async function updateProtectionForms() {
         const status = await window.pywebview.api.get_auth_status();
         const formsDiv = document.getElementById('protectionForms');
         const disableSection = document.getElementById('disableProtectionSection');
+        const separator = document.getElementById('protectionSetupSeparator');
         
         if (status.is_enabled) {
             // If protection is already enabled, hide forms and show disable button
             if (formsDiv) formsDiv.style.display = 'none';
             if (disableSection) disableSection.style.display = 'block';
+            if (separator) separator.style.display = 'none';
         } else {
             // If protection is not enabled, show forms and hide disable button
             if (formsDiv) formsDiv.style.display = 'block';
             if (disableSection) disableSection.style.display = 'none';
+            if (separator) separator.style.display = 'flex';
         }
         
         // Update status text
@@ -293,25 +296,26 @@ async function disableProtection() {
         // Use the custom modal to get the credential
         const credential = await showCredentialPrompt(authType);
 
-        if (credential === null) { // User cancelled
-            showNotification('Disable protection cancelled.', 'info');
-            return;
-        }
-
-        // Credential entered, proceed directly to backend call (confirmation removed)
-        console.log("Attempting to disable protection with provided credential...");
-        
-        // Send the credential to the backend
-        const result = await window.pywebview.api.disable_protection(credential);
-        if (result.status === 'success') {
-            showNotification(result.message, 'success');
-            document.getElementById('pinInput').value = '';
-            document.getElementById('passwordInput').value = '';
-            updateProtectionForms();
-            updateProtectionStatus();
+        if (credential === null) {
+            // User cancelled the dialog
+            console.log('Disable protection cancelled by user.');
+            showNotification('Disable protection cancelled.', 'success');
         } else {
-            // Display the specific error from the backend (e.g., incorrect PIN/password)
-            showNotification(result.message || 'Failed to disable protection', 'error');
+            // Credential entered, proceed directly to backend call (confirmation removed)
+            console.log("Attempting to disable protection with provided credential...");
+            
+            // Send the credential to the backend
+            const result = await window.pywebview.api.disable_protection(credential);
+            if (result.status === 'success') {
+                showNotification(result.message, 'success');
+                document.getElementById('pinInput').value = '';
+                document.getElementById('passwordInput').value = '';
+                updateProtectionForms();
+                updateProtectionStatus();
+            } else {
+                // Display the specific error from the backend (e.g., incorrect PIN/password)
+                showNotification(result.message || 'Failed to disable protection', 'error');
+            }
         }
         
     } catch (error) {
