@@ -43,7 +43,24 @@ document.addEventListener('allPagesLoaded', function() {
     if (searchInput) {
         searchInput.addEventListener('input', async (e) => {
             searchTerm = e.target.value.toLowerCase();
+            const clearSearchBtn = document.getElementById('clearSearchBtn');
+            if (clearSearchBtn) {
+                clearSearchBtn.style.display = searchTerm ? 'block' : 'none';
+            }
             await renderTokens();
+        });
+    }
+    
+    const clearSearchBtn = document.getElementById('clearSearchBtn');
+    if (clearSearchBtn) {
+        clearSearchBtn.addEventListener('click', async () => {
+            const searchInput = document.getElementById('searchInput');
+            if (searchInput) {
+                searchInput.value = '';
+                searchTerm = '';
+                clearSearchBtn.style.display = 'none';
+                await renderTokens();
+            }
         });
     }
     
