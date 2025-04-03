@@ -290,42 +290,105 @@ async function disableProtection() {
             return; // Nothing to do
         }
 
-        // Prompt the user for their current credential
-        const promptMessage = authType === 'pin' ? 'Enter your current PIN to disable protection:' : 'Enter your current password to disable protection:';
-        const credential = prompt(promptMessage);
+        // Use the custom modal to get the credential
+        const credential = await showCredentialPrompt(authType);
 
-        if (credential === null) { // User pressed cancel
+        if (credential === null) { // User cancelled
             showNotification('Disable protection cancelled.', 'info');
             return;
         }
 
-        if (credential.trim() === '') {
-            showNotification('Credential cannot be empty.', 'error');
-            return;
-        }
-
-        // Show confirmation dialog before disabling
-        const confirmed = await window.pywebview.api.show_confirmation_dialog(
-            'Are you sure you want to disable app protection? This will remove encryption from your tokens.', 
-            'Disable Protection'
-        );
+        // Credential entered, proceed directly to backend call (confirmation removed)
+        console.log("Attempting to disable protection with provided credential...");
         
-        if (confirmed) {
-            // Send the credential to the backend
-            const result = await window.pywebview.api.disable_protection(credential);
-            if (result.status === 'success') {
-                showNotification(result.message, 'success');
-                document.getElementById('pinInput').value = '';
-                document.getElementById('passwordInput').value = '';
-                updateProtectionForms();
-                updateProtectionStatus();
-            } else {
-                // Display the specific error from the backend (e.g., incorrect PIN/password)
-                showNotification(result.message || 'Failed to disable protection', 'error');
-            }
+        // Send the credential to the backend
+        const result = await window.pywebview.api.disable_protection(credential);
+        if (result.status === 'success') {
+            showNotification(result.message, 'success');
+            document.getElementById('pinInput').value = '';
+            document.getElementById('passwordInput').value = '';
+            updateProtectionForms();
+            updateProtectionStatus();
+        } else {
+            // Display the specific error from the backend (e.g., incorrect PIN/password)
+            showNotification(result.message || 'Failed to disable protection', 'error');
         }
+        
     } catch (error) {
         console.error('Error disabling protection:', error);
         showNotification('Failed to disable protection: ' + (error.message || 'Unknown error'), 'error');
     }
+}
+
+// --- Helper Function for Custom Credential Prompt ---
+function showCredentialPrompt(authType) {
+    return new Promise((resolve) => {
+        const modal = document.getElementById('credentialPromptModal');
+        const title = document.getElementById('credentialPromptTitle');
+        const message = document.getElementById('credentialPromptMessage');
+        const input = document.getElementById('credentialPromptInput');
+        const confirmBtn = document.getElementById('credentialPromptConfirmBtn');
+        const cancelBtn = document.getElementById('credentialPromptCancelBtn');
+
+        // Customize prompt based on auth type
+        if (authType === 'pin') {
+            title.textContent = 'Enter PIN';
+            message.textContent = 'Please enter your current PIN to disable protection:';
+            input.type = 'password'; // Keep it masked
+            input.inputMode = 'numeric';
+            input.pattern = '[0-9]*';
+            input.placeholder = 'Enter current PIN';
+        } else {
+            title.textContent = 'Enter Password';
+            message.textContent = 'Please enter your current password to disable protection:';
+            input.type = 'password';
+            input.inputMode = 'text';
+            input.pattern = '';
+            input.placeholder = 'Enter current password';
+        }
+        input.value = ''; // Clear previous input
+
+        // Event listeners for buttons
+        const confirmHandler = () => {
+            cleanup();
+            const value = input.value.trim();
+            if (value) {
+                resolve(value);
+            } else {
+                showNotification('Credential cannot be empty.', 'error');
+                resolve(null); // Treat empty input as cancellation after showing error
+            }
+        };
+
+        const cancelHandler = () => {
+            cleanup();
+            resolve(null); // Resolve with null when cancelled
+        };
+        
+        const keypressHandler = (e) => {
+            if (e.key === 'Enter') {
+                confirmHandler();
+            }
+            if (e.key === 'Escape') {
+                 cancelHandler();
+            }
+        };
+
+        // Function to remove listeners and hide modal
+        const cleanup = () => {
+            confirmBtn.removeEventListener('click', confirmHandler);
+            cancelBtn.removeEventListener('click', cancelHandler);
+            input.removeEventListener('keypress', keypressHandler);
+            modal.style.display = 'none';
+        };
+
+        // Attach listeners
+        confirmBtn.addEventListener('click', confirmHandler);
+        cancelBtn.addEventListener('click', cancelHandler);
+        input.addEventListener('keypress', keypressHandler); 
+
+        // Show modal
+        modal.style.display = 'flex';
+        input.focus(); // Focus the input field
+    });
 } 
