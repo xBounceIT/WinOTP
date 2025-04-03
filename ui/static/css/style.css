@@ -20,6 +20,26 @@ body {
     overflow-x: hidden;
 }
 
+/* --- Global Scrollbar Styles --- */
+body::-webkit-scrollbar {
+    width: 8px; /* Slimmer scrollbar */
+}
+
+body::-webkit-scrollbar-track {
+    background: var(--background-color); /* Match page background */
+    border-radius: 4px;
+}
+
+body::-webkit-scrollbar-thumb {
+    background-color: var(--border-color); /* Scrollbar handle color */
+    border-radius: 4px;
+    border: 2px solid var(--background-color); /* Creates padding around thumb */
+}
+
+body::-webkit-scrollbar-thumb:hover {
+    background-color: var(--secondary-color); /* Darker on hover */
+}
+
 .container {
     max-width: 500px;
     margin: 0 auto;
@@ -1243,18 +1263,50 @@ input:checked + .slider:before {
 }
 
 #update-notes {
-    white-space: pre-wrap;
-    word-wrap: break-word;
     max-height: 300px;
     overflow-y: auto;
-    background-color: var(--background-color); /* Lighter background */
-    padding: 10px;
+    background-color: var(--secondary-bg-color);
     border: 1px solid var(--border-color);
     border-radius: 4px;
-    font-family: 'Segoe UI', sans-serif; /* Match body font */
+    padding: 15px;
+    margin: 15px 0;
+    white-space: pre-wrap;
     font-size: 14px;
-    color: var(--text-color);
-    margin-top: 5px;
+    line-height: 1.5;
+}
+
+/* Style list items within the release notes */
+#update-notes ul,
+#update-notes ol {
+    padding-left: 20px; /* Indent lists */
+    margin-top: 0; /* Remove top margin */
+    margin-bottom: 10px;
+}
+
+#update-notes li {
+    margin-bottom: 2px; /* Further reduced space between list items */
+    color: var(--text-color); /* Ensure text color matches theme */
+    line-height: 1.6;
+}
+
+/* --- Scrollbar Styles for Update Notes --- */
+#update-notes::-webkit-scrollbar {
+    width: 8px; /* Slimmer scrollbar */
+}
+
+#update-notes::-webkit-scrollbar-track {
+    background: var(--background-color); /* Match page background */
+    border-radius: 4px;
+}
+
+#update-notes::-webkit-scrollbar-thumb {
+    background-color: var(--border-color); /* Scrollbar handle color */
+    border-radius: 4px;
+    border: 2px solid var(--background-color); /* Creates padding around thumb */
+}
+
+#update-notes::-webkit-scrollbar-thumb:hover {
+    background-color: var(--secondary-color); /* Darker on hover */
 }
 
 /* Add new styles for update available button */

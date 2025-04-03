@@ -421,7 +421,19 @@ function showUpdatePage() {
     
     // Update the page with the version and notes
     document.getElementById('updateVersion').textContent = versionDisplay;
-    document.getElementById('update-notes').textContent = updateNotes || 'No release notes available.';
+    
+    // Use marked.parse() to render Markdown notes as HTML
+    const notesElement = document.getElementById('update-notes');
+    if (updateNotes) {
+        try {
+            notesElement.innerHTML = marked.parse(updateNotes);
+        } catch (error) {
+            console.error("Error parsing Markdown:", error);
+            notesElement.textContent = updateNotes; // Fallback to plain text
+        }
+    } else {
+        notesElement.textContent = 'No release notes available.';
+    }
     
     // Remove any existing event listeners to prevent duplicates
     const backButton = document.getElementById('backFromUpdateBtn');
