@@ -280,7 +280,30 @@ async function setPassword() {
 async function disableProtection() {
     try {
         await waitForPywebviewApi();
-        
+
+        // Get the current auth type to customize the prompt
+        const authStatus = await window.pywebview.api.get_auth_status();
+        const authType = authStatus.auth_type; // 'pin' or 'password'
+
+        if (!authType) {
+            showNotification('Protection is already disabled.', 'info');
+            return; // Nothing to do
+        }
+
+        // Prompt the user for their current credential
+        const promptMessage = authType === 'pin' ? 'Enter your current PIN to disable protection:' : 'Enter your current password to disable protection:';
+        const credential = prompt(promptMessage);
+
+        if (credential === null) { // User pressed cancel
+            showNotification('Disable protection cancelled.', 'info');
+            return;
+        }
+
+        if (credential.trim() === '') {
+            showNotification('Credential cannot be empty.', 'error');
+            return;
+        }
+
         // Show confirmation dialog before disabling
         const confirmed = await window.pywebview.api.show_confirmation_dialog(
             'Are you sure you want to disable app protection? This will remove encryption from your tokens.', 
@@ -288,7 +311,8 @@ async function disableProtection() {
         );
         
         if (confirmed) {
-            const result = await window.pywebview.api.disable_protection();
+            // Send the credential to the backend
+            const result = await window.pywebview.api.disable_protection(credential);
             if (result.status === 'success') {
                 showNotification(result.message, 'success');
                 document.getElementById('pinInput').value = '';
@@ -296,11 +320,12 @@ async function disableProtection() {
                 updateProtectionForms();
                 updateProtectionStatus();
             } else {
-                showNotification(result.message, 'error');
+                // Display the specific error from the backend (e.g., incorrect PIN/password)
+                showNotification(result.message || 'Failed to disable protection', 'error');
             }
         }
     } catch (error) {
         console.error('Error disabling protection:', error);
-        showNotification('Failed to disable protection', 'error');
+        showNotification('Failed to disable protection: ' + (error.message || 'Unknown error'), 'error');
     }
 } 

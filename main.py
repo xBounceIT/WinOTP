@@ -951,8 +951,8 @@ class Api:
             
         # Set the PIN
         if set_pin(pin):
-            # Encrypt the tokens file with the new PIN
-            if encrypt_tokens_file(tokens_path, hash_password(pin)):
+            # Encrypt the tokens file with the new PIN (use the raw pin, not the hash)
+            if encrypt_tokens_file(tokens_path, pin):
                 return {"status": "success", "message": "PIN protection enabled"}
             else:
                 # If encryption fails, clear the PIN
@@ -968,8 +968,8 @@ class Api:
             
         # Set the password
         if set_password(password):
-            # Encrypt the tokens file with the new password
-            if encrypt_tokens_file(tokens_path, hash_password(password)):
+            # Encrypt the tokens file with the new password (use the raw password, not the hash)
+            if encrypt_tokens_file(tokens_path, password):
                 return {"status": "success", "message": "Password protection enabled"}
             else:
                 # If encryption fails, clear the password
@@ -978,32 +978,68 @@ class Api:
         else:
             return {"status": "error", "message": "Failed to set password protection"}
     
-    def disable_protection(self):
-        """Disable PIN/password protection"""
-        # Load the current tokens before disabling protection
+    def disable_protection(self, credential):
+        """Disable PIN/password protection after verifying the current credential"""
         auth_type = get_auth_type()
         config = read_json(AUTH_CONFIG_PATH) or {}
         
+        # Verify the provided credential first
         if auth_type == "pin":
-            current_tokens = decrypt_tokens_file(tokens_path, config.get("pin_hash", ""))
+            if not verify_pin(credential):
+                return {"status": "error", "message": "Incorrect PIN provided"}
         elif auth_type == "password":
-            current_tokens = decrypt_tokens_file(tokens_path, config.get("password_hash", ""))
+            if not verify_password(credential):
+                return {"status": "error", "message": "Incorrect password provided"}
         else:
-            current_tokens = read_json(tokens_path)
+            # No protection enabled, nothing to disable (should ideally not be called)
+            return {"status": "warning", "message": "Protection is already disabled"}
+
+        # If verification passed, proceed with decryption using the raw credential
+        print(f"Verification successful for disabling {auth_type} protection.")
         
-        # Clear the protection
-        if clear_auth():
-            # Set timeout to 0 (never) when disabling protection
-            set_timeout(0)
-            
-            # Save the tokens without encryption
-            try:
-                write_json(tokens_path, current_tokens)
-                return {"status": "success", "message": "Protection disabled"}
-            except Exception as e:
-                return {"status": "error", "message": f"Failed to save unencrypted tokens: {str(e)}"}
-        else:
-            return {"status": "error", "message": "Failed to disable protection"}
+        try:
+            if auth_type == "pin":
+                # Decrypt using the verified raw PIN
+                current_tokens = decrypt_tokens_file(tokens_path, credential) 
+            elif auth_type == "password":
+                # Decrypt using the verified raw password
+                current_tokens = decrypt_tokens_file(tokens_path, credential)
+            # No 'else' needed here because we handled 'None' auth_type earlier
+
+            if current_tokens is None:
+                # Decryption failed even after verification, which is unexpected
+                print("Error: Decryption failed after successful verification.")
+                return {"status": "error", "message": "Failed to decrypt tokens even with correct credential. Please report this issue."}
+
+            # Clear the authentication settings in the config file
+            if clear_auth():
+                # Set timeout to 0 (never) when disabling protection
+                set_timeout(0)
+                
+                # Save the decrypted tokens without encryption
+                try:
+                    write_json(tokens_path, current_tokens)
+                    # Reset authentication state in the API instance
+                    self.is_authenticated = False 
+                    self.last_auth_time = None
+                    print("Protection successfully disabled.")
+                    return {"status": "success", "message": "Protection disabled"}
+                except Exception as e:
+                    # Attempt to re-enable auth if saving decrypted tokens failed
+                    print(f"Error saving unencrypted tokens: {e}. Attempting to restore protection...")
+                    if auth_type == "pin": set_pin(credential) 
+                    if auth_type == "password": set_password(credential)
+                    # Re-encrypt the file (best effort)
+                    encrypt_tokens_file(tokens_path, credential) 
+                    return {"status": "error", "message": f"Failed to save unencrypted tokens: {str(e)}. Protection may not be fully disabled."}
+            else:
+                print("Error: Failed to clear authentication settings.")
+                return {"status": "error", "message": "Failed to clear authentication settings in config."}
+        except Exception as e:
+             print(f"Unexpected error during decryption/saving in disable_protection: {e}")
+             import traceback
+             traceback.print_exc()
+             return {"status": "error", "message": f"An unexpected error occurred: {str(e)}"}
     
     def verify_authentication(self, credential):
         """Verify PIN or password and check for updates on success."""

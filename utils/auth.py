@@ -2,10 +2,13 @@ import os
 import json
 import hashlib
 from .file_io import read_json, write_json
+from argon2 import PasswordHasher
+from argon2.exceptions import VerifyMismatchError
 
 # Path to the auth configuration file - This will be set by main.py
 # AUTH_CONFIG_PATH = "auth_config.json" # REMOVED
 _current_auth_path = None
+_password_hasher = PasswordHasher()
 
 def set_auth_path(path):
     """Sets the path for the authentication configuration file.
@@ -27,15 +30,35 @@ def _get_auth_path():
 
 def hash_password(password):
     """
-    Hash a password using SHA-256
+    Hash a password using Argon2.
     
     Args:
         password (str): The password to hash
         
     Returns:
-        str: The hashed password
+        str: The Argon2 hash string
     """
-    return hashlib.sha256(password.encode()).hexdigest()
+    return _password_hasher.hash(password)
+
+def verify_password_hash(password_hash, password):
+    """
+    Verify a password against an Argon2 hash.
+    
+    Args:
+        password_hash (str): The stored Argon2 hash
+        password (str): The password to verify
+        
+    Returns:
+        bool: True if the password matches the hash, False otherwise.
+    """
+    try:
+        _password_hasher.verify(password_hash, password)
+        return True
+    except VerifyMismatchError:
+        return False
+    except Exception as e:
+        print(f"Error during password verification: {e}")
+        return False
 
 def set_pin(pin):
     """
@@ -141,11 +164,13 @@ def verify_pin(pin):
         if "pin_hash" not in config or config.get("auth_type") != "pin":
             return True  # No PIN set, so verification passes
         
-        # Hash the provided PIN
-        hashed_pin = hash_password(pin)
+        # Verify against stored hash
+        stored_hash = config.get("pin_hash")
+        if not stored_hash:
+            print("Error: PIN hash not found in config during verification.")
+            return False # Should not happen if auth_type is pin, but good practice
         
-        # Compare with stored hash
-        return hashed_pin == config["pin_hash"]
+        return verify_password_hash(stored_hash, pin)
     except Exception as e:
         print(f"Error verifying PIN: {e}")
         return False
@@ -169,11 +194,13 @@ def verify_password(password):
         if "password_hash" not in config or config.get("auth_type") != "password":
             return True  # No password set, so verification passes
         
-        # Hash the provided password
-        hashed_password = hash_password(password)
+        # Verify against stored hash
+        stored_hash = config.get("password_hash")
+        if not stored_hash:
+            print("Error: Password hash not found in config during verification.")
+            return False # Should not happen if auth_type is password
         
-        # Compare with stored hash
-        return hashed_password == config["password_hash"]
+        return verify_password_hash(stored_hash, password)
     except Exception as e:
         print(f"Error verifying password: {e}")
         return False
