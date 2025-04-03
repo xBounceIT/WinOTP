@@ -2,6 +2,7 @@
 - Replaced SHA256 with Argon2 as encryption algorithm for a stronger protection of the tokens store
     - NOTE: this is a breaking change. Tokens imported with previous app versions will not work and will need to be reimported.
 - Added a security step with PIN / Password entering requirement to disable app protection
+- Enhanced app protection page
 
 # v0.6
 - Added open on startup feature
