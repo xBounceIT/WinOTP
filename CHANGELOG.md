@@ -1,12 +1,8 @@
-# v0.7
-- Improved update workflow: update files now download directly to the user's Downloads folder
-- Added detailed download status information on the update page
-- Streamlined update installation process
-
 # v0.6
 - Added open on startup feature
 - New workflow for app updates, including in app changelog for the new release and an automated update installer which deletes the older portable exe and replaces it with the new one
 - Fixed an issue with re-authentication timeout config not being saved to the app settings file.
+- Fixed an issue with animations smoothness when searching tokens
 
 # v0.5.2
 - Fixed an issue blocking icons from loading when app protection is enabled
