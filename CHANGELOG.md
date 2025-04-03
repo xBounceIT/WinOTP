@@ -4,6 +4,7 @@
 - Added a security step with PIN / Password entering requirement to disable app protection
 - Enhanced app protection page styling
 - Enhanced app scrollbar look
+- Improved token's account name contrast 
 
 # v0.6
 - Added open on startup feature
