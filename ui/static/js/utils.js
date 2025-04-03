@@ -50,70 +50,70 @@ window.addEventListener('click', function(event) {
 });
 
 // Minimize to tray toggle event handler
-document.addEventListener('DOMContentLoaded', function() {
-    const minimizeToTrayToggle = document.getElementById('minimizeToTrayToggle');
-    if (minimizeToTrayToggle) {
-        minimizeToTrayToggle.addEventListener('change', async function(e) {
-            try {
-                const result = await window.pywebview.api.set_minimize_to_tray(e.target.checked);
-                if (result.status === 'success') {
-                    showNotification(result.message, 'success');
-                } else {
-                    showNotification(result.message, 'error');
-                    e.target.checked = !e.target.checked;
-                }
-            } catch (error) {
-                console.error('Error setting minimize to tray:', error);
-                showNotification('Failed to update minimize to tray setting', 'error');
-                e.target.checked = !e.target.checked;
-            }
-        });
-    }
-});
+// document.addEventListener('DOMContentLoaded', function() { // REMOVED
+//     const minimizeToTrayToggle = document.getElementById('minimizeToTrayToggle');
+//     if (minimizeToTrayToggle) {
+//         minimizeToTrayToggle.addEventListener('change', async function(e) {
+//             try {
+//                 const result = await window.pywebview.api.set_minimize_to_tray(e.target.checked);
+//                 if (result.status === 'success') {
+//                     showNotification(result.message, 'success');
+//                 } else {
+//                     showNotification(result.message, 'error');
+//                     e.target.checked = !e.target.checked;
+//                 }
+//             } catch (error) {
+//                 console.error('Error setting minimize to tray:', error);
+//                 showNotification('Failed to update minimize to tray setting', 'error');
+//                 e.target.checked = !e.target.checked;
+//             }
+//         });
+//     }
+// }); // REMOVED
 
 // Update checker toggle event handler
-document.addEventListener('DOMContentLoaded', function() {
-    const updateCheckerToggle = document.getElementById('updateCheckerToggle');
-    if (updateCheckerToggle) {
-        updateCheckerToggle.addEventListener('change', async function(e) {
-            try {
-                const result = await window.pywebview.api.set_update_check_enabled(e.target.checked);
-                if (result.status === 'success') {
-                    showNotification(result.message, 'success');
-                } else {
-                    showNotification(result.message, 'error');
-                    e.target.checked = !e.target.checked;
-                }
-            } catch (error) {
-                console.error('Error setting update checker:', error);
-                showNotification('Failed to update the update checker setting', 'error');
-                e.target.checked = !e.target.checked;
-            }
-        });
-    }
-});
+// document.addEventListener('DOMContentLoaded', function() { // REMOVED
+//     const updateCheckerToggle = document.getElementById('updateCheckerToggle');
+//     if (updateCheckerToggle) {
+//         updateCheckerToggle.addEventListener('change', async function(e) {
+//             try {
+//                 const result = await window.pywebview.api.set_update_check_enabled(e.target.checked);
+//                 if (result.status === 'success') {
+//                     showNotification(result.message, 'success');
+//                 } else {
+//                     showNotification(result.message, 'error');
+//                     e.target.checked = !e.target.checked;
+//                 }
+//             } catch (error) {
+//                 console.error('Error setting update checker:', error);
+//                 showNotification('Failed to update the update checker setting', 'error');
+//                 e.target.checked = !e.target.checked;
+//             }
+//         });
+//     }
+// }); // REMOVED
 
 // Next code preview toggle event handler
-document.addEventListener('DOMContentLoaded', function() {
-    const nextCodePreviewToggle = document.getElementById('nextCodePreviewToggle');
-    if (nextCodePreviewToggle) {
-        nextCodePreviewToggle.addEventListener('change', async function(e) {
-            try {
-                const result = await window.pywebview.api.set_next_code_preview(e.target.checked);
-                if (result.status === 'success') {
-                    showNotification(result.message, 'success');
-                } else {
-                    showNotification(result.message, 'error');
-                    e.target.checked = !e.target.checked;
-                }
-            } catch (error) {
-                console.error('Error setting next code preview:', error);
-                showNotification('Failed to update setting', 'error');
-                e.target.checked = !e.target.checked;
-            }
-        });
-    }
-});
+// document.addEventListener('DOMContentLoaded', function() { // REMOVED
+//     const nextCodePreviewToggle = document.getElementById('nextCodePreviewToggle');
+//     if (nextCodePreviewToggle) {
+//         nextCodePreviewToggle.addEventListener('change', async function(e) {
+//             try {
+//                 const result = await window.pywebview.api.set_next_code_preview(e.target.checked);
+//                 if (result.status === 'success') {
+//                     showNotification(result.message, 'success');
+//                 } else {
+//                     showNotification(result.message, 'error');
+//                     e.target.checked = !e.target.checked;
+//                 }
+//             } catch (error) {
+//                 console.error('Error setting next code preview:', error);
+//                 showNotification('Failed to update setting', 'error');
+//                 e.target.checked = !e.target.checked;
+//             }
+//         });
+//     }
+// }); // REMOVED
 
 // Function to hide all page containers
 function hideAllPages() {

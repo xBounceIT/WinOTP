@@ -80,6 +80,10 @@ def write_json(file_path, data):
     print(f"Data to write: {data}")
     
     try:
+        # Clear the cache to ensure we don't have stale data
+        clear_cache()
+        print(f"Cache cleared before writing to {file_path}")
+        
         # Create directory if it doesn't exist
         directory = os.path.dirname(file_path)
         if directory and not os.path.exists(directory):

@@ -19,6 +19,7 @@ A modern, secure, and feature-rich TOTP authenticator designed specifically for 
     - Token editing and deletion
 - System integration:
     - Minimize to system tray option
+    - Run at startup option (with path auto-update if app is moved)
     - Encrypted token storage
 - Automatic updates:
     - In-app update notifications

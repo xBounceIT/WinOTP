@@ -152,8 +152,101 @@ async function showSettingsPage() {
         const runAtStartupToggleElement = document.getElementById('runAtStartupToggle');
         if (runAtStartupToggleElement) {
             runAtStartupToggleElement.checked = runAtStartupEnabled !== undefined ? runAtStartupEnabled : false;
+            
+            // Set up the event listener for run at startup toggle
+            runAtStartupToggleElement.addEventListener('change', async (event) => {
+                try {
+                    console.log('Run at startup toggle changed:', event.target.checked);
+                    await waitForPywebviewApi();
+                    const isEnabled = event.target.checked;
+                    const result = await window.pywebview.api.set_run_at_startup(isEnabled);
+                    console.log('Run at startup API response:', result);
+                    
+                    if (result.status === 'success') {
+                        showNotification(`Run at startup ${isEnabled ? 'enabled' : 'disabled'}`, 'success');
+                    } else {
+                        showNotification(result.message || 'Failed to update run at startup setting', 'error');
+                        // Revert the toggle state on error
+                        event.target.checked = !event.target.checked;
+                    }
+                } catch (error) {
+                    console.error('Error setting run at startup:', error);
+                    showNotification('Failed to update run at startup setting', 'error');
+                    // Revert the toggle state on error
+                    event.target.checked = !event.target.checked;
+                }
+            });
         } else {
             console.error("Could not find element with ID 'runAtStartupToggle' in settings page.");
+        }
+
+        // Set up event listener for Minimize to Tray toggle
+        const minimizeToTrayToggle = document.getElementById('minimizeToTrayToggle');
+        if (minimizeToTrayToggle) {
+            minimizeToTrayToggle.addEventListener('change', async function(e) {
+                try {
+                    await waitForPywebviewApi();
+                    const result = await window.pywebview.api.set_minimize_to_tray(e.target.checked);
+                    if (result.status === 'success') {
+                        showNotification(result.message, 'success');
+                    } else {
+                        showNotification(result.message, 'error');
+                        e.target.checked = !e.target.checked; // Revert on error
+                    }
+                } catch (error) {
+                    console.error('Error setting minimize to tray:', error);
+                    showNotification('Failed to update minimize to tray setting', 'error');
+                    e.target.checked = !e.target.checked; // Revert on error
+                }
+            });
+        } else {
+            console.error("Could not find element with ID 'minimizeToTrayToggle' in settings page.");
+        }
+
+        // Set up event listener for Update Checker toggle
+        const updateCheckerToggle = document.getElementById('updateCheckerToggle');
+        if (updateCheckerToggle) {
+            updateCheckerToggle.addEventListener('change', async function(e) {
+                try {
+                    await waitForPywebviewApi();
+                    const result = await window.pywebview.api.set_update_check_enabled(e.target.checked);
+                    if (result.status === 'success') {
+                        showNotification(result.message, 'success');
+                    } else {
+                        showNotification(result.message, 'error');
+                        e.target.checked = !e.target.checked; // Revert on error
+                    }
+                } catch (error) {
+                    console.error('Error setting update checker:', error);
+                    showNotification('Failed to update the update checker setting', 'error');
+                    e.target.checked = !e.target.checked; // Revert on error
+                }
+            });
+        } else {
+            console.error("Could not find element with ID 'updateCheckerToggle' in settings page.");
+        }
+
+        // Set up event listener for Next Code Preview toggle
+        const nextCodePreviewToggle = document.getElementById('nextCodePreviewToggle');
+        if (nextCodePreviewToggle) {
+            nextCodePreviewToggle.addEventListener('change', async function(e) {
+                try {
+                    await waitForPywebviewApi();
+                    const result = await window.pywebview.api.set_next_code_preview(e.target.checked);
+                    if (result.status === 'success') {
+                        showNotification(result.message, 'success');
+                    } else {
+                        showNotification(result.message, 'error');
+                        e.target.checked = !e.target.checked; // Revert on error
+                    }
+                } catch (error) {
+                    console.error('Error setting next code preview:', error);
+                    showNotification('Failed to update setting', 'error');
+                    e.target.checked = !e.target.checked; // Revert on error
+                }
+            });
+        } else {
+            console.error("Could not find element with ID 'nextCodePreviewToggle' in settings page.");
         }
 
         // Apply back icon
@@ -417,24 +510,6 @@ function updateProgress(data) {
 
 document.addEventListener('DOMContentLoaded', () => {
     // ... other event listeners ...
-
-    // Add event listener for the run at startup toggle
-    const runAtStartupToggle = document.getElementById('runAtStartupToggle');
-    if (runAtStartupToggle) {
-        runAtStartupToggle.addEventListener('change', async (event) => {
-            try {
-                await waitForPywebviewApi();
-                const isEnabled = event.target.checked;
-                await window.pywebview.api.set_run_at_startup(isEnabled);
-                showNotification(`Run at startup ${isEnabled ? 'enabled' : 'disabled'}`, 'success');
-            } catch (error) {
-                console.error('Error setting run at startup:', error);
-                showNotification('Failed to update run at startup setting', 'error');
-                // Revert the toggle state on error
-                event.target.checked = !event.target.checked;
-            }
-        });
-    }
 
     // ... other event listeners ...
 }); 

@@ -186,6 +186,27 @@ async function loadUpdateCheckerSetting() {
     }
 }
 
+// Function to load run at startup setting
+async function loadRunAtStartupSetting() {
+    try {
+        // Wait for pywebview API to be ready
+        await waitForPywebviewApi();
+        const enabled = await window.pywebview.api.get_setting('run_at_startup');
+        // Default to false if the value is undefined
+        const toggle = document.getElementById('runAtStartupToggle');
+        if (toggle) {
+            toggle.checked = enabled !== undefined ? enabled : false;
+        }
+    } catch (error) {
+        console.error('Error loading run at startup setting:', error);
+        // Default to false if there's an error
+        const toggle = document.getElementById('runAtStartupToggle');
+        if (toggle) {
+            toggle.checked = false;
+        }
+    }
+}
+
 // Function to load next code preview setting
 async function loadNextCodePreviewSetting() {
     try {

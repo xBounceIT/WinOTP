@@ -1130,11 +1130,71 @@ class Api:
     def _save_settings(self):
         """Internal method to save settings and handle errors"""
         try:
+            logging.info(f"Attempting to save settings: {self._settings}")
+            print(f"Attempting to save settings: {self._settings}")
+            
+            # Get file path for logging
+            logging.info(f"Settings path: {settings_path}")
+            print(f"Settings path: {settings_path}")
+            
+            # First verify we have write permissions
+            try:
+                if os.path.exists(settings_path):
+                    # Try a quick test write to check permissions
+                    with open(settings_path, 'a') as f:
+                        pass
+                    logging.info("Write permission check passed")
+                    print("Write permission check passed")
+                else:
+                    directory = os.path.dirname(settings_path)
+                    if not os.path.exists(directory):
+                        os.makedirs(directory, exist_ok=True)
+                        logging.info(f"Created directory: {directory}")
+                        print(f"Created directory: {directory}")
+            except Exception as e:
+                logging.error(f"Permission or path error: {e}")
+                print(f"Permission or path error: {e}")
+                return False
+            
+            # Now try to save
             if save_settings(self._settings):
+                logging.info("Settings saved successfully")
+                print("Settings saved successfully")
+                
+                # Verify the save actually worked
+                try:
+                    saved_settings = read_json(settings_path)
+                    if saved_settings.get("run_at_startup") == self._settings.get("run_at_startup"):
+                        logging.info("Settings verification passed")
+                        print("Settings verification passed")
+                    else:
+                        logging.warning(f"Settings verification failed. Expected: {self._settings}, got: {saved_settings}")
+                        print(f"Settings verification failed. Expected: {self._settings}, got: {saved_settings}")
+                except Exception as e:
+                    logging.error(f"Settings verification error: {e}")
+                    print(f"Settings verification error: {e}")
+                
                 return True
-            return False
+            
+            logging.error("Failed to save settings using save_settings function")
+            print("Failed to save settings using save_settings function")
+            
+            # Try direct file writing as fallback
+            try:
+                with open(settings_path, 'w') as f:
+                    json.dump(self._settings, f, indent=4)
+                    logging.info("Settings saved via direct file writing")
+                    print("Settings saved via direct file writing")
+                return True
+            except Exception as e:
+                logging.error(f"Direct file writing failed: {e}")
+                print(f"Direct file writing failed: {e}")
+                return False
         except Exception as e:
-            print(f"Error saving settings: {e}")
+            logging.error(f"Error in _save_settings: {e}")
+            print(f"Error in _save_settings: {e}")
+            import traceback
+            traceback.print_exc()
             return False
 
     def get_current_version(self):
@@ -1488,6 +1548,11 @@ class Api:
 
                 logging.info(f"Startup sync: Saved setting={should_run_at_startup}, Registry state={is_currently_in_startup}")
 
+                # First check if shortcut path needs updating (if app was moved)
+                if is_currently_in_startup:
+                    startup.check_and_update_startup_shortcut()
+
+                # Then handle adding/removing from startup based on settings
                 if should_run_at_startup and not is_currently_in_startup:
                     logging.info("Adding app to startup based on saved setting.")
                     if not startup.add_to_startup():
@@ -1502,7 +1567,14 @@ class Api:
     def set_run_at_startup(self, enabled):
         """Sets the application's run at startup behavior."""
         try:
+            logging.info(f"Setting run_at_startup to {enabled}")
+            print(f"Setting run_at_startup to {enabled}")
+            
             with self._settings_lock:
+                # Check current settings before modification
+                logging.info(f"Current settings before modification: {self._settings}")
+                print(f"Current settings before modification: {self._settings}")
+                
                 # First try to modify the startup shortcut
                 if enabled:
                     operation_success = startup.add_to_startup()
@@ -1511,10 +1583,68 @@ class Api:
                     operation_success = startup.remove_from_startup()
                     message = "Removed shortcut from startup folder." if operation_success else "Failed to remove shortcut from startup folder."
 
+                logging.info(f"Startup operation success: {operation_success}, message: {message}")
+                print(f"Startup operation success: {operation_success}, message: {message}")
+
                 if operation_success:
                     # Only update and save settings if shortcut operation was successful
                     self._settings["run_at_startup"] = enabled
-                    save_success = self._save_settings()
+                    logging.info(f"Updated in-memory settings: {self._settings}")
+                    print(f"Updated in-memory settings: {self._settings}")
+                    
+                    # Try multiple approaches to ensure the setting is saved
+                    
+                    # 1. First try using the write_json function directly
+                    try:
+                        write_json(settings_path, self._settings)
+                        logging.info(f"Settings saved directly using write_json to {settings_path}")
+                        print(f"Settings saved directly using write_json to {settings_path}")
+                    except Exception as e:
+                        logging.error(f"Direct write_json failed: {e}")
+                        print(f"Direct write_json failed: {e}")
+                    
+                    # 2. Then try the save_settings function
+                    save_success = save_settings(self._settings)
+                    logging.info(f"Settings save result (save_settings): {save_success}")
+                    print(f"Settings save result (save_settings): {save_success}")
+                    
+                    # 3. Then try the internal method as fallback
+                    if not save_success:
+                        save_success = self._save_settings()
+                        logging.info(f"Fallback settings save result (_save_settings): {save_success}")
+                        print(f"Fallback settings save result (_save_settings): {save_success}")
+                    
+                    # 4. Final fallback: direct file writing
+                    if not save_success:
+                        try:
+                            with open(settings_path, 'w') as f:
+                                json.dump(self._settings, f, indent=4)
+                                f.flush()
+                                os.fsync(f.fileno())
+                            logging.info(f"Final fallback: Direct file writing to {settings_path} completed")
+                            print(f"Final fallback: Direct file writing to {settings_path} completed")
+                            save_success = True
+                        except Exception as e:
+                            logging.error(f"All save attempts failed, final error: {e}")
+                            print(f"All save attempts failed, final error: {e}")
+                    
+                    # Verify settings were saved
+                    try:
+                        with open(settings_path, 'r') as f:
+                            current_settings = json.load(f)
+                        logging.info(f"Verification - settings read from file: {current_settings}")
+                        print(f"Verification - settings read from file: {current_settings}")
+                        
+                        # Check if the run_at_startup value matches what we expect
+                        if current_settings.get("run_at_startup") == enabled:
+                            logging.info(f"Verification SUCCESS: run_at_startup is correctly set to {enabled}")
+                            print(f"Verification SUCCESS: run_at_startup is correctly set to {enabled}")
+                        else:
+                            logging.error(f"Verification FAILED: run_at_startup should be {enabled} but is {current_settings.get('run_at_startup')}")
+                            print(f"Verification FAILED: run_at_startup should be {enabled} but is {current_settings.get('run_at_startup')}")
+                    except Exception as e:
+                        logging.error(f"Error during verification read: {e}")
+                        print(f"Error during verification read: {e}")
                     
                     if save_success:
                         return {"status": "success", "message": message}
@@ -1532,6 +1662,9 @@ class Api:
 
         except Exception as e:
             logging.error(f"Error in set_run_at_startup: {e}")
+            print(f"Error in set_run_at_startup: {e}")
+            import traceback
+            traceback.print_exc()
             return {"status": "error", "message": f"An unexpected error occurred: {str(e)}"}
 
     def clear_cache(self):

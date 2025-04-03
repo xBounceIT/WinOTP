@@ -249,6 +249,7 @@ document.addEventListener('allPagesLoaded', function() {
     loadMinimizeToTraySetting();
     loadUpdateCheckerSetting();
     loadNextCodePreviewSetting();
+    loadRunAtStartupSetting();
 });
 
 // Wait for API to be ready

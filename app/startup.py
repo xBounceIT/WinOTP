@@ -133,4 +133,59 @@ def is_in_startup():
         
     exists = os.path.exists(SHORTCUT_PATH)
     logging.debug(f"Checking startup status: Shortcut '{SHORTCUT_PATH}' exists = {exists}")
-    return exists 
+    return exists
+
+def check_and_update_startup_shortcut():
+    """
+    Checks if the current application path matches the shortcut target.
+    If the app has been moved, updates the shortcut to point to the new location.
+    """
+    if not IS_EXECUTABLE_PATH:
+        logging.warning("Not running as executable, skipping startup shortcut verification.")
+        return False
+        
+    if not os.path.exists(SHORTCUT_PATH):
+        logging.debug("Startup shortcut does not exist, no need to update.")
+        return False
+        
+    try:
+        # Initialize COM library
+        pythoncom.CoInitialize()
+        
+        shell = Dispatch('WScript.Shell')
+        shortcut = shell.CreateShortCut(SHORTCUT_PATH)
+        current_target = shortcut.Targetpath
+        
+        # Compare current app path with shortcut target
+        if current_target != APP_PATH:
+            logging.info(f"App location changed. Updating startup shortcut from {current_target} to {APP_PATH}")
+            
+            # Update shortcut properties
+            shortcut.Targetpath = APP_PATH
+            shortcut.WorkingDirectory = os.path.dirname(APP_PATH)
+            shortcut.save()
+            
+            # Uninitialize COM library
+            pythoncom.CoUninitialize()
+            logging.info("Startup shortcut updated successfully.")
+            return True
+        else:
+            logging.debug("Startup shortcut target is already correct.")
+            # Uninitialize COM library
+            pythoncom.CoUninitialize()
+            return True
+            
+    except pythoncom.com_error as e:
+        logging.error(f"COM error updating startup shortcut: {e}")
+        try:
+            pythoncom.CoUninitialize()
+        except:
+            pass
+        return False
+    except Exception as e:
+        logging.error(f"Unexpected error updating startup shortcut: {e}")
+        try:
+            pythoncom.CoUninitialize()
+        except:
+            pass
+        return False 
