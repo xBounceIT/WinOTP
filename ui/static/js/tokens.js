@@ -54,20 +54,38 @@ async function updateTokens() {
             return;
         }
         
-        // Only update existing tokens, full render if tokens changed
-        const currentTokenIds = new Set(newTokens.map(t => t.id));
-        const displayedTokenIds = new Set(Array.from(document.querySelectorAll('.token-card'))
-            .map(card => card.id.replace('token-', '')));
+        // Check if we have a search filter active
+        const isSearchActive = searchTerm && searchTerm.length > 0;
         
-        // Check if we need a full re-render
-        if (currentTokenIds.size !== displayedTokenIds.size || 
-            !Array.from(currentTokenIds).every(id => displayedTokenIds.has(id))) {
-            tokens = newTokens;
-            await renderTokens();
+        // Store current token data
+        tokens = newTokens;
+        
+        // Only update existing tokens, full render if tokens changed
+        if (!isSearchActive) {
+            const currentTokenIds = new Set(newTokens.map(t => t.id));
+            const displayedTokenIds = new Set(Array.from(document.querySelectorAll('.token-card'))
+                .map(card => card.id.replace('token-', '')));
+            
+            // Check if we need a full re-render
+            if (currentTokenIds.size !== displayedTokenIds.size || 
+                !Array.from(currentTokenIds).every(id => displayedTokenIds.has(id))) {
+                await renderTokens();
+            } else {
+                // Just update the dynamic content
+                tokens.forEach(updateTokenDisplay);
+            }
         } else {
-            // Just update the dynamic content
-            tokens = newTokens;
-            tokens.forEach(updateTokenDisplay);
+            // When search is active, only update the currently displayed tokens
+            // to avoid flickering and maintain search results
+            const displayedTokenCards = document.querySelectorAll('.token-card');
+            const displayedTokenIds = Array.from(displayedTokenCards).map(card => card.id.replace('token-', ''));
+            
+            displayedTokenIds.forEach(id => {
+                const token = tokens.find(t => t.id === id);
+                if (token) {
+                    updateTokenDisplay(token);
+                }
+            });
         }
     } catch (error) {
         console.error('Error updating tokens:', error);
@@ -157,6 +175,27 @@ async function updateTokenDisplay(token) {
 // Render tokens to the DOM
 async function renderTokens() {
     const tokenList = document.getElementById('tokenList');
+    
+    // Store the current progress, copy button and next code preview states before clearing
+    const animationStates = {};
+    const existingTokenCards = document.querySelectorAll('.token-card');
+    
+    existingTokenCards.forEach(card => {
+        const tokenId = card.id.replace('token-', '');
+        const progressBar = document.getElementById(`progress-${tokenId}`);
+        const nextCodeContainer = card.querySelector('.next-code-container');
+        const copyButton = card.querySelector('.copy-button');
+        
+        animationStates[tokenId] = {
+            progressWidth: progressBar ? progressBar.style.width : null,
+            progressClass: progressBar ? progressBar.className : null,
+            nextCodeVisible: nextCodeContainer ? nextCodeContainer.classList.contains('show') : false,
+            nextCodeHtml: nextCodeContainer ? nextCodeContainer.innerHTML : null,
+            copyButtonClass: copyButton ? copyButton.className : null,
+            copyButtonHtml: copyButton ? copyButton.innerHTML : null
+        };
+    });
+    
     tokenList.innerHTML = '';
 
     // Filter and sort tokens
@@ -236,10 +275,14 @@ async function renderTokens() {
                 </div>
             </div>
             <div class="token-code" id="code-${token.id}">
-                ${formatCode(token.code)}
-                <button class="copy-button" onclick="copyCode('${token.id}')">
-                    ${cachedCopyIcon ? `<img src="data:image/png;base64,${cachedCopyIcon}" alt="Copy code">` : '📋'}
-                </button>
+                <div class="codes-container">
+                    <div class="code-line">
+                        <span class="current-code">${formatCode(token.code)}</span>
+                        <button class="copy-button" onclick="copyCode('${token.id}')">
+                            ${cachedCopyIcon ? `<img src="data:image/png;base64,${cachedCopyIcon}" alt="Copy" width="16" height="16">` : '📋'}
+                        </button>
+                    </div>
+                </div>
             </div>
             <div class="token-footer">
                 <div class="token-progress-container">
@@ -248,19 +291,45 @@ async function renderTokens() {
                 <div class="time-remaining" id="timer-${token.id}">${Math.ceil(token.timeRemaining)}s</div>
             </div>
         `;
+        
         tokenList.appendChild(tokenCard);
         
-        // Direct styling for progress bar instead of relying on updateTokenDisplay
-        const progressBar = document.getElementById(`progress-${token.id}`);
-        const timeRemaining = token.timeRemaining;
-        const progressPercentage = (timeRemaining / 30) * 100;
-        
-        if (progressBar) {
-            progressBar.style.width = `${progressPercentage}%`;
-            console.log(`Set initial progress for ${token.id} to ${progressPercentage}%`);
+        // Restore animation states if available
+        if (animationStates[token.id]) {
+            const state = animationStates[token.id];
+            const progressBar = document.getElementById(`progress-${token.id}`);
+            const codeElement = document.getElementById(`code-${token.id}`);
+            const codesContainer = codeElement.querySelector('.codes-container');
+            const copyButton = codeElement.querySelector('.copy-button');
+            
+            // Restore progress bar state
+            if (progressBar && state.progressWidth) {
+                progressBar.style.width = state.progressWidth;
+                if (state.progressClass) {
+                    progressBar.className = state.progressClass;
+                }
+            }
+            
+            // Restore copy button state
+            if (copyButton && state.copyButtonClass) {
+                copyButton.className = state.copyButtonClass;
+                if (state.copyButtonHtml) {
+                    copyButton.innerHTML = state.copyButtonHtml;
+                }
+            }
+            
+            // Restore next code container if it was visible
+            if (state.nextCodeVisible && state.nextCodeHtml && codesContainer) {
+                const nextCodeContainer = document.createElement('div');
+                nextCodeContainer.className = 'next-code-container';
+                nextCodeContainer.innerHTML = state.nextCodeHtml;
+                codesContainer.appendChild(nextCodeContainer);
+                
+                // Force reflow before adding show class
+                void nextCodeContainer.offsetHeight;
+                nextCodeContainer.classList.add('show');
+            }
         }
-        
-        updateTokenDisplay(token);
     });
 }
 

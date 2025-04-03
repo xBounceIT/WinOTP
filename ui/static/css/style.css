@@ -217,7 +217,7 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: all 0.3s ease;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
     position: relative;
     overflow: hidden;
 }
@@ -286,7 +286,7 @@ body {
     height: 100%;
     background-color: var(--primary-color);
     border-radius: 2px;
-    transition: width 0.1s linear;
+    transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .token-progress-bar.warning {
