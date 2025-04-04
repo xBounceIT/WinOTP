@@ -2,7 +2,7 @@
 
 A modern, secure, and feature-rich TOTP authenticator designed specifically for Windows, offering a user-friendly interface and robust security features.
 
-![background](https://github.com/user-attachments/assets/6412eacd-5b58-4255-837c-9070fb922981)
+![Tavola da disegno 1](https://github.com/user-attachments/assets/cfd50d82-e3eb-4545-ab5d-bca927d95416)
 
 ## Features
 
