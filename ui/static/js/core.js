@@ -514,9 +514,15 @@ async function downloadUpdate() {
             downloadPathInfo.className = 'update-download-info';
             downloadPathInfo.innerHTML = `
                 <p><strong>Download Complete</strong></p>
-                <p>File: <span class="file-path">${fileName}</span></p>
-                <p>Location: <span class="file-path">${filePath}</span></p>
-                <p>Please close this application before running the new version.</p>
+                <div class="file-info-line">
+                    <p>File:</p> 
+                    <span class="file-name">${fileName}</span>
+                </div>
+                <div class="location-info-line">
+                    <p>Location:</p>
+                    <span class="location-path">${filePath}</span>
+                </div>
+                <p class="close-app-notice">Please close this application before running the new version.</p>
             `;
             
             // Replace the info-box content
