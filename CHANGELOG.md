@@ -5,6 +5,7 @@
 - Enhanced app protection page styling
 - Enhanced app scrollbar look
 - Improved token's account name contrast 
+- Added animations that smoothly transition the next code preview in place of the current code
 
 # v0.6
 - Added open on startup feature
