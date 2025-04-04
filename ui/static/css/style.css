@@ -464,6 +464,10 @@ body::-webkit-scrollbar-thumb:hover {
     background-color: var(--success-color);
 }
 
+.notification.info {
+    background-color: var(--success-color);
+}
+
 .notification.error {
     background-color: var(--error-color);
 }
@@ -1523,8 +1527,8 @@ input:checked + .slider:before {
 }
 
 .update-download-info {
-    background-color: #243e36;
-    color: #e8f1f2;
+    background-color: var(--success-color);
+    color: white;
     border: none;
     border-radius: 8px;
     padding: 20px;
@@ -1570,12 +1574,12 @@ input:checked + .slider:before {
 
 @media (prefers-color-scheme: light) {
     .update-download-info {
-        background-color: #d1e7dd;
-        color: #0f5132;
+        background-color: var(--success-color);
+        color: white;
     }
     
     .update-download-info::before {
-        color: #0f5132;
+        color: white;
     }
 }
 

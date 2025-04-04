@@ -1,3 +1,7 @@
+# v0.7.1
+- Improved update downloaded confirmation section
+- Fixed downloading update popup
+
 # v0.7
 - Replaced SHA256 with Argon2 as encryption algorithm for a stronger protection of the tokens store
     - **NOTE**: this is a breaking change. Make sure to disable app protection before updating or tokens imported with previous app versions will not work and will need to be reimported.

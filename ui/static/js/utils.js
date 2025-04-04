@@ -127,11 +127,15 @@ function showNotification(message, type = 'info') {
     const notification = document.getElementById('notification');
     notification.textContent = message;
     notification.className = `notification ${type}`;
+    notification.classList.add('show');
     notification.style.display = 'block';
     
     // Auto-hide after 3 seconds
     setTimeout(() => {
-        notification.style.display = 'none';
+        notification.classList.remove('show');
+        setTimeout(() => {
+            notification.style.display = 'none';
+        }, 300); // Wait for fade out animation
     }, 3000);
 }
 
