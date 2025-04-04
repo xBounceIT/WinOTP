@@ -139,8 +139,8 @@ async function updateTokenDisplay(token) {
         const nextCodePreviewEnabled = await window.pywebview.api.get_setting('next_code_preview_enabled');
         let nextCodeContainer = codesContainer.querySelector('.next-code-container');
 
-        // Only show next code preview if enabled and time remaining is between 0.1 and 5 seconds
-        if (nextCodePreviewEnabled && timeRemaining <= 5 && timeRemaining > 0.1) {
+        // Only show next code preview if enabled and time remaining is less than or equal to 5 seconds
+        if (nextCodePreviewEnabled && timeRemaining <= 5) {
             const nextCode = await window.pywebview.api.get_next_code(token.id);
             if (nextCode && nextCode.code) {
                 if (!nextCodeContainer) {
