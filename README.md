@@ -6,8 +6,7 @@ A modern, secure, and feature-rich TOTP authenticator designed specifically for 
 
 ## Features
 
-- Generate TOTP codes for two-factor authentication
-- Scan QR codes to add tokens easily
+- Scan QR codes to add tokens easily via screen capture
 - Manual entry and management of token details
 - NTP time synchronization for accurate code generation
 - Multiple authentication options:

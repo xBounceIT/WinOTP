@@ -6,6 +6,7 @@
 - Enhanced app scrollbar look
 - Improved token's account name contrast 
 - Improved transition between next code preview and current code
+- Replaced QR code camera scanning with screen capture
 
 # v0.6
 - Added open on startup feature

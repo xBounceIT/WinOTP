@@ -486,6 +486,70 @@ class Api:
         except Exception as e:
             return {"status": "error", "message": f"Failed to scan QR code: {str(e)}"}
 
+    def capture_screen_for_qr(self):
+        """Capture a screen region and scan for QR codes"""
+        try:
+            # Import required modules
+            from utils.screen_selector import select_screen_region
+            from utils.screen_capture import capture_screen_region, process_captured_image
+            from utils.qr_scanner import scan_qr_image
+            import logging
+            
+            # First, prompt the user to select a region
+            print("Prompting user to select screen region...")
+            region_result = select_screen_region()
+            
+            if region_result["status"] != "success":
+                logging.warning(f"Screen region selection cancelled or failed: {region_result['message']}")
+                return region_result  # Return the error or cancellation
+            
+            # Capture the selected region
+            region = region_result["region"]
+            print(f"Capturing screen region: {region}")
+            capture_result = capture_screen_region(region)
+            
+            if capture_result["status"] != "success":
+                logging.error(f"Screen capture failed: {capture_result['message']}")
+                return capture_result  # Return the error
+            
+            # Process the captured image
+            screenshot = capture_result["image"]
+            process_result = process_captured_image(screenshot)
+            
+            if process_result["status"] != "success":
+                logging.error(f"Image processing failed: {process_result['message']}")
+                return process_result  # Return the error
+            
+            # Scan the processed image for QR codes
+            processed_image = process_result["image"]
+            print("Scanning captured image for QR codes...")
+            qr_result = scan_qr_image(processed_image)
+            
+            if not qr_result:
+                logging.warning("No QR code found in the captured image")
+                return {"status": "error", "message": "No QR code found in the captured region"}
+            
+            # Check if the result is a string (Google Auth migration QR) or a tuple (regular TOTP QR)
+            if isinstance(qr_result, str):
+                # For Google Auth migration QR, return the raw string
+                return {"status": "success", "data": qr_result}
+            else:
+                # For regular TOTP QR, convert the tuple to a dictionary
+                # The tuple format is (issuer, secret, name)
+                issuer, secret, name = qr_result
+                token_data = {
+                    "issuer": issuer,
+                    "secret": secret,
+                    "name": name
+                }
+                return {"status": "success", "data": token_data}
+                
+        except Exception as e:
+            import traceback
+            logging.error(f"Error in screen capture QR scanning: {e}")
+            logging.error(traceback.format_exc())
+            return {"status": "error", "message": f"Failed to scan QR code from screen: {str(e)}"}
+
     def start_camera_scan(self):
         """Start camera-based QR code scanning"""
         try:
@@ -1710,6 +1774,64 @@ class Api:
             return {"status": "success", "message": "Cache cleared"}
         except Exception as e:
             return {"status": "error", "message": f"Failed to clear cache: {str(e)}"}
+
+    def start_qr_scanning(self):
+        """
+        [DEPRECATED] Start QR scanning - now redirects to screen capture method
+        
+        This method is maintained for backward compatibility and redirects to the
+        new screen capture based QR scanning method.
+        """
+        import logging
+        logging.warning("start_qr_scanning is deprecated, using capture_screen_for_qr instead")
+        print("Camera scanning is deprecated, using screen capture instead")
+        
+        # Call the new screen capture method
+        return self.capture_screen_for_qr()
+    
+    def stop_qr_scanning(self):
+        """
+        [DEPRECATED] Stop QR scanning
+        
+        This method is maintained for backward compatibility but does nothing
+        as the screen capture QR scanning doesn't need to be stopped.
+        """
+        import logging
+        logging.warning("stop_qr_scanning is deprecated and does nothing")
+        return {"status": "success", "message": "Screen capture QR scanning doesn't need to be stopped"}
+    
+    def get_qr_scan_result(self):
+        """
+        [DEPRECATED] Get QR scan result
+        
+        This method is maintained for backward compatibility but always returns
+        no result as the screen capture QR scanning delivers results immediately.
+        """
+        import logging
+        logging.warning("get_qr_scan_result is deprecated and always returns no result")
+        return {"status": "success", "data": None}
+    
+    def check_camera_permission(self):
+        """
+        [DEPRECATED] Check camera permission
+        
+        This method is maintained for backward compatibility but always returns
+        permission denied as camera scanning is no longer used.
+        """
+        import logging
+        logging.warning("check_camera_permission is deprecated and always returns denied")
+        return {"status": "success", "granted": False, "message": "Camera scanning is deprecated, using screen capture instead"}
+    
+    def request_camera_permission(self):
+        """
+        [DEPRECATED] Request camera permission
+        
+        This method is maintained for backward compatibility but always returns
+        permission denied as camera scanning is no longer used.
+        """
+        import logging
+        logging.warning("request_camera_permission is deprecated and always returns denied")
+        return {"status": "success", "granted": False, "message": "Camera scanning is deprecated, using screen capture instead"}
 
 def set_tokens_path(path):
     """Set the path to the tokens file"""

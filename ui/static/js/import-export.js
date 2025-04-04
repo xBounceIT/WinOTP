@@ -432,47 +432,24 @@ async function initializeQrScanner() {
             return;
         }
         
-        // Check camera permission status
+        // Update the UI to reflect the new screen capture functionality
         const permissionInfo = document.getElementById('cameraPermissionInfo');
         const startScanBtn = document.getElementById('startScanBtn');
         
-        // Show loading state
         if (permissionInfo) {
-            permissionInfo.innerHTML = '<p>Checking camera access...</p>';
+            permissionInfo.innerHTML = '<p>Click "Capture Screen Region" to select and scan a portion of your screen containing a QR code.</p>';
         }
+        
         if (startScanBtn) {
-            startScanBtn.disabled = true;
-            startScanBtn.textContent = 'Checking...';
-        }
-        
-        // Call API to check if camera permission has been granted
-        const permissionStatus = await window.pywebview.api.check_camera_permission();
-        
-        if (permissionStatus.status === 'success' && permissionStatus.granted) {
-            // Camera permission already granted, show scan UI
-            if (permissionInfo) {
-                permissionInfo.innerHTML = '<p>Camera access granted. Click "Start Scanning" to begin.</p>';
-            }
-            if (startScanBtn) {
-                startScanBtn.disabled = false;
-                startScanBtn.textContent = 'Start Scanning';
-                startScanBtn.classList.add('primary');
-                
-                // Update the click handler
-                startScanBtn.onclick = startQrScanning;
-            }
-        } else {
-            // Need to request camera permission
-            if (permissionInfo) {
-                permissionInfo.innerHTML = '<p>Camera access is required to scan QR codes. Click "Start Scanning" to grant access.</p>';
-            }
-            if (startScanBtn) {
-                startScanBtn.disabled = false;
-                startScanBtn.textContent = 'Request Camera Access';
-                
-                // Update the click handler to request permission
-                startScanBtn.onclick = requestCameraPermission;
-            }
+            startScanBtn.disabled = false;
+            startScanBtn.textContent = 'Capture Screen Region';
+            startScanBtn.classList.add('primary');
+            
+            // Update the click handler to start screen capture
+            startScanBtn.onclick = startScreenCapture;
+            
+            // Immediately start screen capture without requiring a second click
+            startScreenCapture();
         }
     } catch (error) {
         console.error('Error initializing QR scanner:', error);
@@ -480,7 +457,7 @@ async function initializeQrScanner() {
         const startScanBtn = document.getElementById('startScanBtn');
         
         if (permissionInfo) {
-            permissionInfo.innerHTML = '<p class="error">Error initializing camera: ' + error + '</p>';
+            permissionInfo.innerHTML = '<p class="error">Error initializing: ' + error + '</p>';
         }
         if (startScanBtn) {
             startScanBtn.disabled = false;
@@ -489,69 +466,8 @@ async function initializeQrScanner() {
     }
 }
 
-// Request camera permission
-async function requestCameraPermission() {
-    try {
-        if (!window.pywebview || !window.pywebview.api) {
-            console.error("pywebview API not available");
-            showNotification('Error: API not available', 'error');
-            return;
-        }
-        
-        const permissionInfo = document.getElementById('cameraPermissionInfo');
-        const startScanBtn = document.getElementById('startScanBtn');
-        
-        // Show loading state
-        if (permissionInfo) {
-            permissionInfo.innerHTML = '<p>Requesting camera access...</p>';
-        }
-        if (startScanBtn) {
-            startScanBtn.disabled = true;
-            startScanBtn.textContent = 'Requesting...';
-        }
-        
-        // Call API to request camera permission
-        const result = await window.pywebview.api.request_camera_permission();
-        
-        if (result.status === 'success' && result.granted) {
-            // Permission granted, start scanning
-            if (permissionInfo) {
-                permissionInfo.innerHTML = '<p>Camera access granted. Starting scanner...</p>';
-            }
-            if (startScanBtn) {
-                startScanBtn.disabled = true;
-                startScanBtn.textContent = 'Starting...';
-            }
-            
-            // Start QR scanning
-            startQrScanning();
-        } else {
-            // Permission denied
-            if (permissionInfo) {
-                permissionInfo.innerHTML = '<p class="error">Camera access denied. You can still use the file upload option below.</p>';
-            }
-            if (startScanBtn) {
-                startScanBtn.disabled = true;
-                startScanBtn.textContent = 'Camera Access Denied';
-            }
-        }
-    } catch (error) {
-        console.error('Error requesting camera permission:', error);
-        const permissionInfo = document.getElementById('cameraPermissionInfo');
-        const startScanBtn = document.getElementById('startScanBtn');
-        
-        if (permissionInfo) {
-            permissionInfo.innerHTML = '<p class="error">Error requesting camera permission: ' + error + '</p>';
-        }
-        if (startScanBtn) {
-            startScanBtn.disabled = false;
-            startScanBtn.textContent = 'Try Again';
-        }
-    }
-}
-
-// Start QR scanning
-async function startQrScanning() {
+// Start screen capture for QR scanning
+async function startScreenCapture() {
     try {
         if (!window.pywebview || !window.pywebview.api) {
             console.error("pywebview API not available");
@@ -565,123 +481,103 @@ async function startQrScanning() {
         
         // Show loading state
         if (permissionInfo) {
-            permissionInfo.innerHTML = '<p>Starting camera...</p>';
+            permissionInfo.innerHTML = '<p>Preparing to capture screen region...</p>';
         }
         if (startScanBtn) {
             startScanBtn.disabled = true;
-            startScanBtn.textContent = 'Starting...';
+            startScanBtn.textContent = 'Preparing...';
         }
         
-        // Call API to start camera and QR scanning
-        const result = await window.pywebview.api.start_qr_scanning();
-        
-        if (result.status === 'success') {
-            // QR scanning started, update UI
-            if (scanQrTab) {
-                // Create video container
-                const videoContainer = document.createElement('div');
-                videoContainer.id = 'qrVideoContainer';
-                videoContainer.style.width = '100%';
-                videoContainer.style.maxWidth = '400px';
-                videoContainer.style.margin = '0 auto';
-                videoContainer.style.border = '1px solid var(--border-color)';
-                videoContainer.style.borderRadius = '8px';
-                videoContainer.style.overflow = 'hidden';
-                videoContainer.style.position = 'relative';
-                
-                // Create placeholder for video (will be handled by backend)
-                const videoPlaceholder = document.createElement('div');
-                videoPlaceholder.id = 'qrVideo';
-                videoPlaceholder.style.width = '100%';
-                videoPlaceholder.style.paddingBottom = '75%'; // 4:3 aspect ratio
-                videoPlaceholder.style.backgroundColor = '#000';
-                videoPlaceholder.style.position = 'relative';
-                videoContainer.appendChild(videoPlaceholder);
-                
-                // Create scanning indicator
-                const scanningIndicator = document.createElement('div');
-                scanningIndicator.className = 'scanning-indicator';
-                scanningIndicator.innerHTML = '<div class="scanning-line"></div>';
-                videoContainer.appendChild(scanningIndicator);
-                
-                // Create stop button
-                const stopButton = document.createElement('button');
-                stopButton.className = 'btn btn-danger';
-                stopButton.textContent = 'Stop Scanning';
-                stopButton.style.margin = '10px auto';
-                stopButton.style.display = 'block';
-                stopButton.onclick = stopQrScanning;
-                
-                // Replace content
-                scanQrTab.innerHTML = '';
-                scanQrTab.appendChild(videoContainer);
-                scanQrTab.appendChild(stopButton);
-                
-                // Start listening for QR code results
-                startQrResultPolling();
-            }
-        } else {
-            // Error starting QR scanning
-            if (permissionInfo) {
-                permissionInfo.innerHTML = '<p class="error">Error starting camera: ' + result.message + '</p>';
-            }
-            if (startScanBtn) {
-                startScanBtn.disabled = false;
-                startScanBtn.textContent = 'Try Again';
-            }
-        }
-    } catch (error) {
-        console.error('Error starting QR scanning:', error);
-        const permissionInfo = document.getElementById('cameraPermissionInfo');
-        const startScanBtn = document.getElementById('startScanBtn');
-        
-        if (permissionInfo) {
-            permissionInfo.innerHTML = '<p class="error">Error starting camera: ' + error + '</p>';
-        }
-        if (startScanBtn) {
-            startScanBtn.disabled = false;
-            startScanBtn.textContent = 'Try Again';
-        }
-    }
-}
-
-// Stop QR scanning
-async function stopQrScanning() {
-    try {
-        if (!window.pywebview || !window.pywebview.api) {
-            console.error("pywebview API not available");
-            showNotification('Error: API not available', 'error');
-            return;
-        }
-        
-        // Call API to stop QR scanning
-        await window.pywebview.api.stop_qr_scanning();
-        
-        // Reset the UI
-        const scanQrTab = document.getElementById('scanQr');
+        // Update UI to show that capture is in progress
         if (scanQrTab) {
-            // Restore original content
-            scanQrTab.innerHTML = `
-                <div class="info-box" id="cameraPermissionInfo" style="margin-bottom: 20px;">
-                    <p>Click "Start Scanning" to open your camera and scan a QR code.</p>
-                </div>
-                <div class="form-actions">
-                    <button class="btn" id="startScanBtn">Start Scanning</button>
-                    <button class="btn" id="uploadQrBtn">Upload QR Image</button>
-                    <input type="file" id="qrFileInput" accept="image/*" style="display: none;">
-                </div>
-            `;
+            // Create loading indicator
+            const loadingContainer = document.createElement('div');
+            loadingContainer.id = 'qrCaptureContainer';
+            loadingContainer.style.width = '100%';
+            loadingContainer.style.maxWidth = '400px';
+            loadingContainer.style.margin = '0 auto';
+            loadingContainer.style.textAlign = 'center';
+            loadingContainer.style.padding = '20px';
             
-            // Restore event listeners
-            document.getElementById('startScanBtn').addEventListener('click', initializeQrScanner);
-            document.getElementById('uploadQrBtn').addEventListener('click', function() {
-                document.getElementById('qrFileInput').click();
-            });
-            document.getElementById('qrFileInput').addEventListener('change', handleQrFileUpload);
+            const loadingSpinner = document.createElement('div');
+            loadingSpinner.className = 'loading-spinner';
+            loadingSpinner.style.margin = '0 auto 20px auto';
+            loadingContainer.appendChild(loadingSpinner);
+            
+            const statusText = document.createElement('p');
+            statusText.id = 'captureStatusText';
+            statusText.textContent = 'Select the region of your screen containing the QR code...';
+            loadingContainer.appendChild(statusText);
+            
+            // Create cancel button
+            const cancelButton = document.createElement('button');
+            cancelButton.className = 'btn';
+            cancelButton.textContent = 'Cancel';
+            cancelButton.style.margin = '10px auto';
+            cancelButton.style.display = 'block';
+            cancelButton.onclick = resetQrScannerUI;
+            
+            // Replace content
+            scanQrTab.innerHTML = '';
+            scanQrTab.appendChild(loadingContainer);
+            scanQrTab.appendChild(cancelButton);
+        }
+        
+        // Call API to capture screen region and scan for QR code
+        const result = await window.pywebview.api.capture_screen_for_qr();
+        
+        // Update status based on the result
+        if (result.status === 'success') {
+            // QR code found, process it
+            const tokenData = result.data;
+            const addResult = await window.pywebview.api.add_token(tokenData);
+            
+            if (addResult.status === 'success') {
+                showNotification(addResult.message, 'success');
+                showMainPage();
+                loadTokens();
+            } else {
+                showNotification(addResult.message, 'error');
+                resetQrScannerUI();
+            }
+        } else if (result.status === 'cancelled') {
+            // User cancelled the selection
+            showNotification('Screen capture cancelled', 'info');
+            resetQrScannerUI();
+        } else {
+            // Error occurred
+            showNotification(result.message, 'error');
+            resetQrScannerUI();
         }
     } catch (error) {
-        console.error('Error stopping QR scanning:', error);
-        showNotification('Error stopping camera', 'error');
+        console.error('Error capturing screen region:', error);
+        showNotification('Error capturing screen: ' + error, 'error');
+        resetQrScannerUI();
+    }
+}
+
+// Reset the QR scanner UI to its initial state
+function resetQrScannerUI() {
+    const scanQrTab = document.getElementById('scanQr');
+    if (scanQrTab) {
+        // Restore original content
+        scanQrTab.innerHTML = `
+            <div class="info-box" id="cameraPermissionInfo" style="margin-bottom: 20px;">
+                <p>Click "Capture Screen Region" to select and scan a portion of your screen containing a QR code.</p>
+            </div>
+            <div class="form-actions">
+                <button class="btn" id="startScanBtn">Capture Screen Region</button>
+                <button class="btn" id="uploadQrBtn">Upload QR Image</button>
+                <input type="file" id="qrFileInput" accept="image/*" style="display: none;">
+            </div>
+        `;
+        
+        // Restore event listeners
+        document.getElementById('startScanBtn').addEventListener('click', startScreenCapture);
+        document.getElementById('uploadQrBtn').addEventListener('click', function() {
+            document.getElementById('qrFileInput').click();
+        });
+        document.getElementById('qrFileInput').addEventListener('change', handleQrFileUpload);
     }
 }
 

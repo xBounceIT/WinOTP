@@ -195,7 +195,17 @@ document.addEventListener('allPagesLoaded', function() {
     // Add event listener for start scan button
     const startScanBtn = document.getElementById('startScanBtn');
     if (startScanBtn) {
-        startScanBtn.addEventListener('click', initializeQrScanner);
+        // Replace the click handler with one that directly starts the capture
+        // This prevents the need to click twice
+        startScanBtn.addEventListener('click', function() {
+            // Call startScreenCapture directly if it exists
+            if (typeof startScreenCapture === 'function') {
+                startScreenCapture();
+            } else {
+                // Fall back to initialize function if screen capture not available
+                initializeQrScanner();
+            }
+        });
     }
     
     // Update page elements
