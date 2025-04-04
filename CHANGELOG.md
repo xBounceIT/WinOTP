@@ -6,7 +6,6 @@
 - Enhanced app scrollbar look
 - Improved token's account name contrast 
 - Improved transition between next code preview and current code
-- Added WinAuthenticator import functionality
 
 # v0.6
 - Added open on startup feature
