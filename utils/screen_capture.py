@@ -23,8 +23,26 @@ def capture_screen_region(region=None):
         dict: A dictionary containing the status and captured image data
     """
     try:
+        logging.info(f"Capturing screen region: {region}")
+        
         # Capture the specified region or full screen
-        screenshot = ImageGrab.grab(bbox=region)
+        try:
+            # For multi-monitor setups, ImageGrab.grab can take bbox coordinates
+            # that span across different monitors
+            screenshot = ImageGrab.grab(bbox=region, all_screens=True)
+            
+            # Log capture details
+            if region:
+                width = region[2] - region[0]
+                height = region[3] - region[1]
+                logging.info(f"Captured region: {width}x{height} at position {region[0]},{region[1]}")
+            else:
+                logging.info(f"Captured full screen: {screenshot.width}x{screenshot.height}")
+        except TypeError as e:
+            # Handle the case where all_screens parameter is not supported (older Pillow versions)
+            logging.warning(f"Multi-monitor parameter not supported: {e}")
+            logging.warning("Attempting capture without all_screens parameter")
+            screenshot = ImageGrab.grab(bbox=region)
         
         # Convert to bytes for processing
         img_byte_arr = io.BytesIO()
@@ -62,6 +80,9 @@ def process_captured_image(image):
         # Apply basic image enhancements to improve QR code detection
         # Convert to grayscale
         image_processed = image.convert('L')
+        
+        # Log processing details
+        logging.info(f"Processed image dimensions: {image_processed.width}x{image_processed.height}")
         
         return {
             "status": "success",

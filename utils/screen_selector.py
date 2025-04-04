@@ -8,6 +8,7 @@ to capture for QR code scanning.
 import tkinter as tk
 import logging
 import traceback
+from screeninfo import get_monitors
 
 class ScreenRegionSelector:
     """Class for selecting a region of the screen"""
@@ -21,6 +22,41 @@ class ScreenRegionSelector:
         self.current_rectangle = None
         self.overlay_alpha = 128  # Semi-transparent overlay
         
+        # Calculate multi-monitor boundaries
+        self.monitors = get_monitors()
+        self.full_width = 0
+        self.full_height = 0
+        self.offset_x = 0
+        self.offset_y = 0
+        self._calculate_virtual_screen_size()
+        
+    def _calculate_virtual_screen_size(self):
+        """Calculate the full dimensions of the virtual screen across all monitors"""
+        if not self.monitors:
+            # Fallback to primary screen dimensions if monitor detection fails
+            self.full_width = tk.Tk().winfo_screenwidth()
+            self.full_height = tk.Tk().winfo_screenheight()
+            logging.info(f"Using primary monitor dimensions: {self.full_width}x{self.full_height}")
+            return
+            
+        # Find the leftmost and topmost coordinates (can be negative)
+        min_x = min(monitor.x for monitor in self.monitors)
+        min_y = min(monitor.y for monitor in self.monitors)
+        max_x = max(monitor.x + monitor.width for monitor in self.monitors)
+        max_y = max(monitor.y + monitor.height for monitor in self.monitors)
+        
+        # Calculate full dimensions and offset
+        self.full_width = max_x - min_x
+        self.full_height = max_y - min_y
+        self.offset_x = min_x
+        self.offset_y = min_y
+        
+        logging.info(f"Virtual screen dimensions: {self.full_width}x{self.full_height}")
+        logging.info(f"Virtual screen offset: {self.offset_x},{self.offset_y}")
+        logging.info(f"Detected monitors: {len(self.monitors)}")
+        for i, m in enumerate(self.monitors):
+            logging.info(f"Monitor {i+1}: {m.width}x{m.height}+{m.x}+{m.y}")
+        
     def get_region(self):
         """
         Prompt the user to select a region of the screen
@@ -33,6 +69,9 @@ class ScreenRegionSelector:
             # Create a full-screen transparent window
             self.root = tk.Tk()
             self.root.attributes("-alpha", 0.3)  # Semi-transparent
+            
+            # Set window to cover the entire virtual screen
+            self.root.geometry(f"{self.full_width}x{self.full_height}+{self.offset_x}+{self.offset_y}")
             self.root.attributes("-fullscreen", True)
             self.root.attributes("-topmost", True)  # Keep on top
             
@@ -45,7 +84,7 @@ class ScreenRegionSelector:
             
             # Add instructions text
             self.canvas.create_text(
-                self.root.winfo_screenwidth() // 2,
+                self.full_width // 2,
                 50,
                 text="Click and drag to select the region with the QR code\nPress ESC to cancel",
                 fill="white",
@@ -61,7 +100,17 @@ class ScreenRegionSelector:
             # Start the main loop
             self.root.mainloop()
             
-            return self.selected_region
+            # Apply the offset to coordinates if we have a selection
+            if self.selected_region:
+                left, top, right, bottom = self.selected_region
+                # Adjust coordinates to account for the virtual screen offset
+                real_left = left + self.offset_x
+                real_top = top + self.offset_y
+                real_right = right + self.offset_x
+                real_bottom = bottom + self.offset_y
+                return (real_left, real_top, real_right, real_bottom)
+            
+            return None
         
         except Exception as e:
             logging.error(f"Error in screen region selector: {e}")
@@ -106,7 +155,7 @@ class ScreenRegionSelector:
         right = max(self.start_x, end_x)
         bottom = max(self.start_y, end_y)
         
-        # Store the selected region
+        # Store the selected region (without offsets - those are applied in get_region)
         self.selected_region = (left, top, right, bottom)
         
         # Close the window
