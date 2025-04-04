@@ -1621,7 +1621,8 @@ input:checked + .slider:before {
     margin-bottom: 0;
 }
 
-.update-download-info::before {
+/* Remove the ::before overlay */
+/* .update-download-info::before {
     content: '';
     position: absolute;
     top: 0;
@@ -1630,7 +1631,7 @@ input:checked + .slider:before {
     height: 100%;
     background-color: rgba(0, 0, 0, 0.5);
     z-index: 1;
-}
+} */
 
 /* Ensure modal buttons inherit general button styles */
 .modal-actions .btn {
