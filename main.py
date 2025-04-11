@@ -47,9 +47,7 @@ AUTH_CONFIG_PATH = os.path.join(winotp_data_dir, 'auth_config.json')
 # Lock for file operations
 file_write_lock = threading.Lock()
 
-tokens = {}  # Store tokens data
 sort_ascending = True  # Default sort order
-last_tokens_update = 0  # Track when tokens were last updated from disk
 tray_icon = None  # Global tray icon instance
 
 def load_settings():
@@ -168,8 +166,11 @@ class Api:
         self._settings = load_settings()
         # Start NTP sync in the background with delayed initialization
         start_ntp_sync()
-        # Load tokens
-        self.load_tokens()
+        
+        # Initialize tokens as None - will load on first request
+        self._tokens_loaded = False
+        self.tokens = {}
+        self.last_tokens_update = 0
         
         # Check authentication status
         auth_enabled = is_auth_enabled()
@@ -188,9 +189,6 @@ class Api:
         
         self._tokens_lock = threading.Lock()
         self._settings_lock = threading.Lock()  # Add lock for thread-safe settings access
-
-        # Sync startup setting with registry on initialization
-        self._sync_startup_setting()
     
     def __eq__(self, other):
         # Completely rewritten equality method to avoid Rectangle.op_Equality error
@@ -221,8 +219,6 @@ class Api:
         print(f"    Current tokens_path: {tokens_path}")
         print(f"    Current settings_path: {settings_path}")
         print(f"    Current AUTH_CONFIG_PATH: {AUTH_CONFIG_PATH}")
-        
-        global tokens, last_tokens_update
         try:
             # Get current auth type and credentials
             auth_type = get_auth_type()
@@ -249,22 +245,21 @@ class Api:
                             "created": token_data.get("created", datetime.now().isoformat())
                         }
                 
-                tokens = valid_tokens
-                last_tokens_update = time.time()
-                print(f"Successfully processed {len(tokens)} tokens loaded from {tokens_path}")
-                return {"status": "success", "message": f"Loaded {len(tokens)} tokens"}
+                self.tokens = valid_tokens
+                self.last_tokens_update = time.time()
+                print(f"Successfully processed {len(self.tokens)} tokens loaded from {tokens_path}")
+                return {"status": "success", "message": f"Loaded {len(self.tokens)} tokens"}
             
             print(f"No valid tokens found in file: {tokens_path}")
-            tokens = {}  # Reset to empty dict if invalid data
+            self.tokens = {}  # Reset to empty dict if invalid data
             return {"status": "warning", "message": "No valid tokens found"}
         except Exception as e:
             print(f"Failed to load tokens: {str(e)}")
-            tokens = {}  # Reset to empty dict on error
+            self.tokens = {}  # Reset to empty dict on error
             return {"status": "error", "message": f"Failed to load tokens: {str(e)}"}
     
     def save_tokens(self):
         """Save tokens to the tokens file"""
-        global tokens, last_tokens_update
         try:
             with file_write_lock:
                 # Get current auth type and credentials
@@ -272,7 +267,7 @@ class Api:
                 config = read_json(AUTH_CONFIG_PATH) or {}
                 
                 # First write tokens to file without encryption
-                write_json(tokens_path, tokens)
+                write_json(tokens_path, self.tokens)
                 
                 # Then encrypt if auth is enabled
                 if auth_type == "pin":
@@ -283,7 +278,7 @@ class Api:
                     success = True
                 
                 if success:
-                    last_tokens_update = time.time()
+                    self.last_tokens_update = time.time()
                     return {"status": "success", "message": "Tokens saved successfully"}
                 else:
                     return {"status": "error", "message": "Failed to save tokens"}
@@ -292,16 +287,19 @@ class Api:
     
     def get_tokens(self):
         """Get all tokens with their current codes"""
-        global tokens
         result = []
         
+        # Load tokens if not already loaded
+        if not self._tokens_loaded:
+            self.load_tokens()
+            
         # Check if we need to reload tokens from disk
         self.check_reload_tokens()
         
         # Get current time for TOTP generation
         current_time = get_accurate_time()
         
-        for token_id, token_data in tokens.items():
+        for token_id, token_data in self.tokens.items():
             try:
                 # Create Token object
                 token_obj = Token(
@@ -345,12 +343,11 @@ class Api:
     
     def check_reload_tokens(self):
         """Check if tokens need to be reloaded from disk"""
-        global tokens, last_tokens_update
         try:
             # Check if file has been modified since last load
             if os.path.exists(tokens_path):
                 file_mtime = os.path.getmtime(tokens_path)
-                if file_mtime > last_tokens_update:
+                if file_mtime > self.last_tokens_update:
                     self.load_tokens()
         except Exception:
             # Ignore errors, will try again next time
@@ -358,7 +355,6 @@ class Api:
     
     def add_token(self, token_data):
         """Add a new token"""
-        global tokens
         try:
             # Validate token data
             if not token_data.get("secret"):
@@ -371,7 +367,7 @@ class Api:
             token_data["created"] = datetime.now().isoformat()
             
             # Add token to tokens
-            tokens[token_id] = token_data
+            self.tokens[token_id] = token_data
             
             # Save tokens
             save_result = self.save_tokens()
@@ -384,15 +380,14 @@ class Api:
     
     def update_token(self, token_id, data):
         """Update token details"""
-        global tokens
         try:
             # Check if token exists
-            if token_id not in tokens:
+            if token_id not in self.tokens:
                 return {"status": "error", "message": "Token not found"}
             
             # Update token details
-            tokens[token_id]["issuer"] = data.get("issuer", tokens[token_id]["issuer"])
-            tokens[token_id]["name"] = data.get("name", tokens[token_id]["name"])
+            self.tokens[token_id]["issuer"] = data.get("issuer", self.tokens[token_id]["issuer"])
+            self.tokens[token_id]["name"] = data.get("name", self.tokens[token_id]["name"])
             
             # Save tokens
             save_result = self.save_tokens()
@@ -405,14 +400,13 @@ class Api:
     
     def delete_token(self, token_id):
         """Delete a token"""
-        global tokens
         try:
             # Check if token exists
-            if token_id not in tokens:
+            if token_id not in self.tokens:
                 return {"status": "error", "message": "Token not found"}
             
             # Delete token
-            del tokens[token_id]
+            del self.tokens[token_id]
             
             # Save tokens
             save_result = self.save_tokens()
@@ -637,7 +631,6 @@ class Api:
     
     def add_token_from_uri(self, uri):
         """Add a new token from an otpauth URI"""
-        global tokens
         try:
             # Validate URI format
             if not uri.startswith('otpauth://'):
@@ -677,7 +670,6 @@ class Api:
     
     def import_tokens_from_json(self, json_str):
         """Import tokens from a JSON string (typically from another WinOTP instance)"""
-        global tokens
         try:
             # Parse JSON data using the importer
             parse_result = parse_winotp_json(json_str)
@@ -698,7 +690,7 @@ class Api:
                         # Add each token with a new ID and created timestamp
                         token_id = str(uuid.uuid4())
                         token_data["created"] = datetime.now().isoformat()
-                        tokens[token_id] = token_data
+                        self.tokens[token_id] = token_data
                         successful_adds += 1 # Assume add is successful for now
 
                     # Save all added tokens at once
@@ -735,7 +727,6 @@ class Api:
 
     def import_tokens_from_2fas(self, file_content):
         """Import tokens from a 2FAS backup JSON string with progress reporting"""
-        global tokens # Need access to the global tokens dict
 
         def progress_callback(current, total):
             """Callback function to send progress updates to the frontend."""
@@ -775,7 +766,7 @@ class Api:
                         for token_data in valid_tokens_data:
                             token_id = str(uuid.uuid4())
                             token_data["created"] = datetime.now().isoformat()
-                            tokens[token_id] = token_data
+                            self.tokens[token_id] = token_data
                             # successful_adds count will be finalized after save
 
                         # Save all new tokens at once
@@ -852,7 +843,6 @@ class Api:
 
     def import_tokens_from_authenticator_plugin(self, file_content):
         """Import tokens from an Authenticator Browser Plugin export file"""
-        global tokens # Need access to the global tokens dict
 
         def progress_callback(current, total):
             """Callback function to send progress updates to the frontend."""
@@ -892,7 +882,7 @@ class Api:
                         for token_data in valid_tokens_data:
                             token_id = str(uuid.uuid4())
                             token_data["created"] = datetime.now().isoformat()
-                            tokens[token_id] = token_data
+                            self.tokens[token_id] = token_data
                             # successful_adds count will be finalized after save
 
                         # Save all new tokens at once
@@ -1165,7 +1155,7 @@ class Api:
         """Export tokens to a JSON string"""
         try:
             # Convert tokens to JSON string with pretty printing
-            json_str = json.dumps(tokens, indent=4)
+            json_str = json.dumps(self.tokens, indent=4)
             
             # Get current date for default filename
             default_filename = f"winotp_backup_{datetime.now().strftime('%Y-%m-%d')}.json"
@@ -1462,12 +1452,11 @@ class Api:
 
     def get_next_code(self, token_id):
         """Get the next TOTP code for a token"""
-        global tokens
         try:
-            if token_id not in tokens:
+            if token_id not in self.tokens:
                 return {"status": "error", "message": "Token not found"}
 
-            token_data = tokens[token_id]
+            token_data = self.tokens[token_id]
             token_obj = Token(
                 token_data.get("issuer", "Unknown"),
                 token_data.get("secret", ""),
@@ -1837,6 +1826,11 @@ def set_tokens_path(path):
     global tokens_path
     tokens_path = path
 
+def start_sync_startup_setting(api):
+    """Background thread function to sync startup setting"""
+    time.sleep(2)  # Give webview time to initialize
+    api._sync_startup_setting()
+
 def main():
     # --- Ensure Application Data Directory Exists (for production mode) ---
     try:
@@ -1975,6 +1969,10 @@ def main():
     
     # Start webview
     webview.start(debug=debug_mode)
+    
+    # Start background thread for startup setting sync
+    sync_thread = threading.Thread(target=start_sync_startup_setting, args=(api,), daemon=True)
+    sync_thread.start()
 
 if __name__ == "__main__":
     main()
