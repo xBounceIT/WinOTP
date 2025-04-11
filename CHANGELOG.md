@@ -1,6 +1,7 @@
 # v0.7.1
 - Improved update downloaded confirmation section
 - Fixed downloading update popup
+- Fixed error when using screen capture
 
 # v0.7
 - Replaced SHA256 with Argon2 as encryption algorithm for a stronger protection of the tokens store

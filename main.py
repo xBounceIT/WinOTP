@@ -493,8 +493,7 @@ class Api:
             from utils.screen_selector import select_screen_region
             from utils.screen_capture import capture_screen_region, process_captured_image
             from utils.qr_scanner import scan_qr_image
-            import logging
-            
+
             # First, prompt the user to select a region
             print("Prompting user to select screen region...")
             region_result = select_screen_region()
@@ -1978,4 +1977,4 @@ def main():
     webview.start(debug=debug_mode)
 
 if __name__ == "__main__":
-    main() 
+    main()

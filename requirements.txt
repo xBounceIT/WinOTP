@@ -14,3 +14,5 @@ opencv-python
 pywin32
 argon2-cffi
 screeninfo
+PyInstaller
+requests
