@@ -212,6 +212,45 @@ class Api:
             tray_icon = create_tray_icon(window)
             if tray_icon:
                 threading.Thread(target=tray_icon.run, daemon=True).start()
+        
+        # Expose all required API methods to the webview
+        window.expose(
+            self.get_icon_base64,
+            self.get_auth_status,
+            self.get_tokens,
+            self.verify_authentication,
+            self.add_token,
+            self.update_token,
+            self.delete_token,
+            self.scan_qr_code,
+            self.scan_qr_from_file,
+            self.capture_screen_for_qr,
+            self.get_ntp_status,
+            self.toggle_sort_order,
+            self.add_token_from_uri,
+            self.import_tokens_from_json,
+            self.import_tokens_from_2fas,
+            self.import_tokens_from_authenticator_plugin,
+            self.export_tokens_to_json,
+            self.get_minimize_to_tray,
+            self.get_setting,
+            self.set_minimize_to_tray,
+            self.set_update_check_enabled,
+            self.set_next_code_preview,
+            self.set_protection_timeout,
+            self.set_pin_protection,
+            self.set_password_protection,
+            self.disable_protection,
+            self.check_for_updates,
+            self.open_url,
+            self.download_update_file,
+            self.get_next_code,
+            self.import_tokens_from_google_auth_qr,
+            self.scan_google_auth_qr,
+            self.finish_google_auth_import,
+            self.set_run_at_startup,
+            self.clear_cache
+        )
     
     def load_tokens(self):
         """Load tokens from the tokens file"""
