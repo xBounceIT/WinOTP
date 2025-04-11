@@ -4,9 +4,9 @@
 a = Analysis(
     ['main.py'],
     pathex=[],
-    binaries=[],
+    binaries=[('venv/Lib/site-packages/pyzbar/libiconv.dll', '.'), ('venv/Lib/site-packages/pyzbar/libzbar-64.dll', '.')],
     datas=[('core', 'core'), ('models', 'models'), ('ui', 'ui'), ('utils', 'utils')],
-    hiddenimports=[],
+    hiddenimports=['winshell'],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
