@@ -358,7 +358,19 @@ async function copyCode(tokenId) {
             }
             
             copyButton.appendChild(copyText);
-            await navigator.clipboard.writeText(token.code);
+            
+            // Check if we should copy next code instead
+            const nextCodePreviewEnabled = await window.pywebview.api.get_setting('next_code_preview_enabled');
+            let codeToCopy = token.code;
+            
+            if (nextCodePreviewEnabled && token.timeRemaining <= 5) {
+                const nextCode = await window.pywebview.api.get_next_code(token.id);
+                if (nextCode && nextCode.code) {
+                    codeToCopy = nextCode.code;
+                }
+            }
+            
+            await navigator.clipboard.writeText(codeToCopy);
             copyButton.classList.add('copied');
             
             setTimeout(() => {
@@ -636,4 +648,4 @@ function validateOtpUri(uri) {
     }
 
     return { valid: true };
-} 
+}
