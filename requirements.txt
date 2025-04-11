@@ -16,3 +16,5 @@ argon2-cffi
 screeninfo
 PyInstaller
 requests
+winshell
+numpy
