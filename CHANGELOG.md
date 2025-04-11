@@ -1,5 +1,6 @@
 # v0.7.2
 - Updated copy button logic to copy the next code when the current code is expiring
+- Improved app startup performance
 
 # v0.7.1
 - Improved update downloaded confirmation section
