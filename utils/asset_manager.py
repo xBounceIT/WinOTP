@@ -5,7 +5,7 @@ import time
 import requests
 import traceback
 
-CURRENT_VERSION = "v0.7.2"  # Define version at module level. Updated to include 'v' for consistency.
+CURRENT_VERSION = "v0.7.3"  # Define version at module level. Updated to include 'v' for consistency.
 
 # Global variable to store update information
 _update_info = {

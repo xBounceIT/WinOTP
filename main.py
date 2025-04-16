@@ -130,6 +130,8 @@ def create_tray_icon(window):
             window.destroy()
             if tray_icon:
                 tray_icon.stop()
+            # Force application exit
+            os._exit(0)
 
         # Create the tray icon using the 32x32 image
         menu = (
@@ -2002,6 +2004,10 @@ def main():
         if minimize_to_tray and tray_icon:
             window.hide()
             return False  # Prevent window from closing
+        else:
+            # If we're not minimizing to tray, ensure the application exits
+            # We need to delay the exit to allow the window to close properly
+            threading.Timer(0.5, lambda: os._exit(0)).start()
         return True  # Allow window to close
     
     window.events.closing += on_closing
