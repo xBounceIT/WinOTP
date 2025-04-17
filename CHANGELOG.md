@@ -1,5 +1,7 @@
 # v0.7.3
 - Fixed issue where the quit button in the system tray menu didn't kill the app process
+- Frontend performance improvements and stutter bug fixes
+- I/O performance improvements
 
 # v0.7.2
 - Updated copy button logic to copy the next code when the current code is expiring
