@@ -1,3 +1,6 @@
+# v0.7.4
+- Updated token refresh logic to cache secrets fixing CPU usage spike on reload
+
 # v0.7.3
 - Fixed issue where the quit button in the system tray menu didn't kill the app process
 - Frontend performance improvements and stutter bug fixes
