@@ -13,7 +13,7 @@ async function loadTokens() {
         
         // Start update interval if not already started
         if (!updateInterval) {
-            updateInterval = setInterval(updateTokens, 1000);
+            updateInterval = setInterval(updateVisuals, 1000);
         }
         
         // Load icons if not already loaded
@@ -32,8 +32,30 @@ async function loadTokens() {
     }
 }
 
-// Update tokens (refresh codes and time remaining)
-async function updateTokens() {
+// Update only visual elements (progress bar and timer) every second
+function updateVisuals() {
+    // Skip if no tokens
+    if (!tokens || tokens.length === 0) return;
+    
+    // Update each token's remaining time
+    tokens.forEach(token => {
+        if (token.timeRemaining > 0) {
+            token.timeRemaining -= 1;
+        }
+        
+        // If time remaining is zero or less, we need to refresh from API
+        if (token.timeRemaining <= 0) {
+            refreshTokens();
+            return; // Exit the forEach loop early once we know we need to refresh
+        }
+        
+        // Update the visual elements
+        updateTokenDisplay(token);
+    });
+}
+
+// Refresh tokens from API only when needed
+async function refreshTokens() {
     try {
         if (!window.pywebview || !window.pywebview.api) {
             console.error("pywebview API not available");
@@ -92,6 +114,10 @@ async function updateTokens() {
     }
 }
 
+// Rename the old updateTokens function to the new refreshTokens function name
+// for backward compatibility with any code that might be calling it directly
+const updateTokens = refreshTokens;
+
 // Update token display
 async function updateTokenDisplay(token) {
     const codeElement = document.getElementById(`code-${token.id}`);
@@ -135,32 +161,47 @@ async function updateTokenDisplay(token) {
         progressElement.className = `token-progress-bar${timeRemaining <= 5 ? ' warning' : ''}`;
         timerElement.textContent = `${Math.ceil(timeRemaining)}s`;
 
-        // Handle next code preview
-        const nextCodePreviewEnabled = await window.pywebview.api.get_setting('next_code_preview_enabled');
         let nextCodeContainer = codesContainer.querySelector('.next-code-container');
+        
+        // We'll only check for next code preview when time remaining is 5 seconds or less
+        if (timeRemaining <= 5) {
+            // Get the next code preview setting
+            const nextCodePreviewEnabled = await window.pywebview.api.get_setting('next_code_preview_enabled');
 
-        // Only show next code preview if enabled and time remaining is less than or equal to 5 seconds
-        if (nextCodePreviewEnabled && timeRemaining <= 5) {
-            const nextCode = await window.pywebview.api.get_next_code(token.id);
-            if (nextCode && nextCode.code) {
-                if (!nextCodeContainer) {
-                    nextCodeContainer = document.createElement('div');
-                    nextCodeContainer.className = 'next-code-container';
+            // Only show next code preview if enabled
+            if (nextCodePreviewEnabled) {
+                // Fetch the next code if timeRemaining is 5 seconds or less and setting is enabled
+                const nextCode = await window.pywebview.api.get_next_code(token.id);
+                if (nextCode && nextCode.code) {
+                    if (!nextCodeContainer) {
+                        nextCodeContainer = document.createElement('div');
+                        nextCodeContainer.className = 'next-code-container';
+                        
+                        const nextCodeSpan = document.createElement('span');
+                        nextCodeSpan.className = 'next-code';
+                        nextCodeContainer.appendChild(nextCodeSpan);
+                        
+                        codesContainer.appendChild(nextCodeContainer);
+                        // Force reflow before adding show class
+                        void nextCodeContainer.offsetHeight;
+                        nextCodeContainer.classList.add('show');
+                    }
                     
-                    const nextCodeSpan = document.createElement('span');
-                    nextCodeSpan.className = 'next-code';
-                    nextCodeContainer.appendChild(nextCodeSpan);
-                    
-                    codesContainer.appendChild(nextCodeContainer);
-                    // Force reflow before adding show class
-                    void nextCodeContainer.offsetHeight;
-                    nextCodeContainer.classList.add('show');
+                    const nextCodeSpan = nextCodeContainer.querySelector('.next-code');
+                    nextCodeSpan.textContent = formatCode(nextCode.code);
                 }
-                
-                const nextCodeSpan = nextCodeContainer.querySelector('.next-code');
-                nextCodeSpan.textContent = formatCode(nextCode.code);
+            } else if (nextCodeContainer) {
+                // Remove the next code container if preview is disabled
+                nextCodeContainer.classList.remove('show');
+                // Wait for animation to complete before removing
+                setTimeout(() => {
+                    if (nextCodeContainer && nextCodeContainer.parentNode) {
+                        nextCodeContainer.remove();
+                    }
+                }, 300);
             }
         } else if (nextCodeContainer) {
+            // Remove the next code container if time remaining is more than 5 seconds
             nextCodeContainer.classList.remove('show');
             // Wait for animation to complete before removing
             setTimeout(() => {
@@ -359,14 +400,16 @@ async function copyCode(tokenId) {
             
             copyButton.appendChild(copyText);
             
-            // Check if we should copy next code instead
-            const nextCodePreviewEnabled = await window.pywebview.api.get_setting('next_code_preview_enabled');
             let codeToCopy = token.code;
             
-            if (nextCodePreviewEnabled && token.timeRemaining <= 5) {
-                const nextCode = await window.pywebview.api.get_next_code(token.id);
-                if (nextCode && nextCode.code) {
-                    codeToCopy = nextCode.code;
+            // Only check for next code if the timer is almost expired
+            if (token.timeRemaining <= 5) {
+                const nextCodePreviewEnabled = await window.pywebview.api.get_setting('next_code_preview_enabled');
+                if (nextCodePreviewEnabled) {
+                    const nextCode = await window.pywebview.api.get_next_code(token.id);
+                    if (nextCode && nextCode.code) {
+                        codeToCopy = nextCode.code;
+                    }
                 }
             }
             
