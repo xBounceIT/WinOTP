@@ -1,3 +1,6 @@
+// Track whether tokens have been loaded
+let tokensLoaded = false;
+
 // Load tokens from the API (only do this once at startup or when needed)
 async function loadTokens() {
     try {
@@ -5,11 +8,41 @@ async function loadTokens() {
             console.error("API not available for loading tokens");
             return;
         }
+
+        // Skip loading if tokens are already loaded and we have tokens in memory
+        if (tokensLoaded && tokens && tokens.length > 0) {
+            console.log('Using already loaded tokens, skipping API call');
+            // Just re-render tokens using existing data
+            await renderTokens();
+            return tokens;
+        }
         
         console.log('Loading all tokens from backend...');
         const result = await window.pywebview.api.get_tokens();
         console.log('API get_tokens result:', result);
         tokens = result;
+        
+        // Set the flag indicating tokens have been loaded
+        tokensLoaded = true;
+        
+        // Clear next codes cache when loading all tokens
+        Object.keys(nextCodes).forEach(key => delete nextCodes[key]);
+        
+        // Prefetch next codes for all tokens
+        const nextCodePromises = tokens.map(async token => {
+            try {
+                const nextCodeResult = await window.pywebview.api.get_next_code(token.id);
+                if (nextCodeResult.status === 'success' && nextCodeResult.code) {
+                    nextCodes[token.id] = nextCodeResult.code;
+                }
+            } catch (error) {
+                console.error(`Failed to prefetch next code for token ${token.id}:`, error);
+            }
+        });
+        
+        // Wait for all next codes to be prefetched
+        await Promise.all(nextCodePromises);
+        
         await renderTokens();
         
         // Start update interval if not already started
@@ -31,6 +64,13 @@ async function loadTokens() {
         console.error('Error loading tokens:', error);
         return [];
     }
+}
+
+// Force reload tokens (used when tokens have been modified)
+async function forceReloadTokens() {
+    // Reset the loaded flag to force a reload
+    tokensLoaded = false;
+    return await loadTokens();
 }
 
 // Update only visual elements (progress bar and timer) every second
@@ -55,7 +95,10 @@ function updateVisuals() {
     });
 }
 
-// Refresh tokens from API only when needed
+// Store next codes for each token
+const nextCodes = {};
+
+// Update tokens from API only when needed
 async function refreshTokens() {
     try {
         if (!window.pywebview || !window.pywebview.api) {
@@ -80,6 +123,12 @@ async function refreshTokens() {
                 if (tokenIndex !== -1) {
                     tokens[tokenIndex].code = result.code;
                     tokens[tokenIndex].timeRemaining = result.timeRemaining;
+                    
+                    // Also prefetch the next code for this token while we're at it
+                    const nextCodeResult = await window.pywebview.api.get_next_code(token.id);
+                    if (nextCodeResult.status === 'success' && nextCodeResult.code) {
+                        nextCodes[token.id] = nextCodeResult.code;
+                    }
                 }
                 return true;
             } else {
@@ -171,9 +220,23 @@ async function updateTokenDisplay(token) {
 
             // Only show next code preview if enabled
             if (nextCodePreviewEnabled) {
-                // Fetch the next code if timeRemaining is 5 seconds or less and setting is enabled
-                const nextCode = await window.pywebview.api.get_next_code(token.id);
-                if (nextCode && nextCode.code) {
+                let nextCode;
+                
+                // Check if we already have the next code for this token
+                if (nextCodes[token.id]) {
+                    nextCode = nextCodes[token.id];
+                } else {
+                    // Only fetch the next code if we don't have it yet
+                    const nextCodeResult = await window.pywebview.api.get_next_code(token.id);
+                    if (nextCodeResult.status === 'success' && nextCodeResult.code) {
+                        nextCode = nextCodeResult.code;
+                        // Store for future use
+                        nextCodes[token.id] = nextCode;
+                    }
+                }
+                
+                // If we have a next code, display it
+                if (nextCode) {
                     if (!nextCodeContainer) {
                         nextCodeContainer = document.createElement('div');
                         nextCodeContainer.className = 'next-code-container';
@@ -189,7 +252,7 @@ async function updateTokenDisplay(token) {
                     }
                     
                     const nextCodeSpan = nextCodeContainer.querySelector('.next-code');
-                    nextCodeSpan.textContent = formatCode(nextCode.code);
+                    nextCodeSpan.textContent = formatCode(nextCode);
                 }
             } else if (nextCodeContainer) {
                 // Remove the next code container if preview is disabled
@@ -407,9 +470,17 @@ async function copyCode(tokenId) {
             if (token.timeRemaining <= 5) {
                 const nextCodePreviewEnabled = await window.pywebview.api.get_setting('next_code_preview_enabled');
                 if (nextCodePreviewEnabled) {
-                    const nextCode = await window.pywebview.api.get_next_code(token.id);
-                    if (nextCode && nextCode.code) {
-                        codeToCopy = nextCode.code;
+                    // Use cached next code if available
+                    if (nextCodes[token.id]) {
+                        codeToCopy = nextCodes[token.id];
+                    } else {
+                        // Only fetch if not cached
+                        const nextCode = await window.pywebview.api.get_next_code(token.id);
+                        if (nextCode && nextCode.code) {
+                            codeToCopy = nextCode.code;
+                            // Cache for future use
+                            nextCodes[token.id] = nextCode.code;
+                        }
                     }
                 }
             }
@@ -445,8 +516,8 @@ async function deleteToken(tokenId) {
             const result = await window.pywebview.api.delete_token(tokenId);
             if (result.status === 'success') {
                 showNotification(result.message, 'success');
-                // Need to reload all tokens since one was deleted
-                await loadTokens();
+                // Force reload tokens since one was deleted
+                await forceReloadTokens();
             } else {
                 showNotification(result.message, 'error');
             }
@@ -484,8 +555,8 @@ async function saveManualToken() {
             showNotification(result.message, 'success');
             showMainPage();
             clearTokenForm();
-            // Need to reload all tokens since we added a new one
-            await loadTokens();
+            // Force reload tokens since we added a new one
+            await forceReloadTokens();
         } else {
             showNotification(result.message, 'error');
         }
@@ -515,8 +586,8 @@ async function handleQrFileUpload(event) {
             if (addResult.status === 'success') {
                 showNotification(addResult.message, 'success');
                 showMainPage();
-                // Need to reload all tokens since we added a new one
-                await loadTokens();
+                // Force reload tokens since we added a new one
+                await forceReloadTokens();
             } else {
                 showNotification(addResult.message, 'error');
             }
@@ -588,7 +659,7 @@ async function saveTokenEdit(tokenId) {
             showNotification(result.message, 'success');
             toggleEditMode(tokenId); // Hide edit form
             
-            // Just update the token in our local array
+            // Update the token in our local array
             const tokenIndex = tokens.findIndex(t => t.id === tokenId);
             if (tokenIndex !== -1) {
                 tokens[tokenIndex].issuer = issuer || 'Unknown';
@@ -596,8 +667,8 @@ async function saveTokenEdit(tokenId) {
                 // Re-render the tokens to show changes
                 await renderTokens();
             } else {
-                // If token not found in local array, reload all tokens
-                await loadTokens();
+                // If token not found in local array, force reload all tokens
+                await forceReloadTokens();
             }
         } else {
             showNotification(result.message, 'error');
@@ -652,8 +723,8 @@ async function saveUriToken() {
             showNotification(result.message, 'success');
             showMainPage();
             clearTokenForm();
-            // Need to reload all tokens since we added a new one
-            await loadTokens();
+            // Force reload tokens since we added a new one
+            await forceReloadTokens();
         } else {
             showNotification(result.message, 'error');
         }

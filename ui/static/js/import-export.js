@@ -56,7 +56,7 @@ function importFromWinOTP() {
                     showNotification(result.message, 'success');
                     // Go back to main page to show the imported tokens
                     showMainPage();
-                    loadTokens();
+                    forceReloadTokens();
                 } else {
                     showNotification(result.message, 'error');
                 }
@@ -134,7 +134,7 @@ function importFrom2FAS() {
                     // Go back to main page to show the imported tokens
                     console.log("Import successful, showing main page.");
                     showMainPage();
-                    await loadTokens(); // Ensure tokens are reloaded AFTER navigation
+                    await forceReloadTokens(); // Force reload tokens after import
                 } else {
                     // Go back to the import selection page on failure/warning
                     console.log("Import failed or warning, showing import tokens page.");
@@ -219,7 +219,7 @@ function importFromAuthenticatorPlugin() {
                     // Go back to main page to show the imported tokens
                     console.log("Import successful, showing main page.");
                     showMainPage();
-                    await loadTokens();
+                    await forceReloadTokens();
                 } else {
                     // Go back to the import selection page on failure/warning
                     console.log("Import failed or warning, showing import tokens page.");
@@ -412,7 +412,7 @@ async function finishGoogleAuthImport() {
             
             // Go back to main page to show the imported tokens without showing success notification
             showMainPage();
-            loadTokens();
+            forceReloadTokens();
         } else {
             showNotification(result.message || 'No tokens were imported', result.status === 'warning' ? 'warning' : 'error');
             // Stay on the current page
@@ -535,7 +535,7 @@ async function startScreenCapture() {
             if (addResult.status === 'success') {
                 showNotification(addResult.message, 'success');
                 showMainPage();
-                loadTokens();
+                forceReloadTokens();
             } else {
                 showNotification(addResult.message, 'error');
                 resetQrScannerUI();
@@ -612,7 +612,7 @@ function startQrResultPolling() {
                 if (addResult.status === 'success') {
                     showNotification(addResult.message, 'success');
                     showMainPage();
-                    loadTokens();
+                    forceReloadTokens();
                 } else {
                     showNotification(addResult.message, 'error');
                     // Reset the scanner UI
