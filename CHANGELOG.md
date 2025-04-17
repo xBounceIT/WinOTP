@@ -1,3 +1,6 @@
+# v0.7.5
+- Performance improvements to API calls and backend reducing cpu usage
+
 # v0.7.4
 - Updated token refresh logic to cache secrets fixing CPU usage spike on reload
 - Optimized next code preview
