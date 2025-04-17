@@ -252,7 +252,8 @@ class Api:
             self.finish_google_auth_import,
             self.set_run_at_startup,
             self.clear_cache,
-            self.get_fresh_token_code
+            self.get_fresh_token_code,
+            self.batch_get_token_codes
         )
     
     def load_tokens(self):
@@ -1891,6 +1892,49 @@ class Api:
             }
         except Exception as e:
             return {"status": "error", "message": f"Error generating code: {str(e)}"}
+            
+    def batch_get_token_codes(self, token_ids):
+        """Get fresh token codes for multiple token IDs in a single batch operation"""
+        try:
+            results = {}
+            
+            # Process only tokens that exist in memory
+            for token_id in token_ids:
+                if token_id not in self.tokens:
+                    results[token_id] = {
+                        "status": "error", 
+                        "message": "Token not found"
+                    }
+                    continue
+                
+                token_data = self.tokens[token_id]
+                
+                # Create Token object
+                token_obj = Token(
+                    token_data.get("issuer", "Unknown"),
+                    token_data.get("secret", ""),
+                    token_data.get("name", "Unknown")
+                )
+                
+                # Get the current code and time remaining
+                code = token_obj.get_code()
+                time_remaining = token_obj.get_time_remaining()
+                
+                # Store in results
+                results[token_id] = {
+                    "status": "success",
+                    "id": token_id,
+                    "code": code,
+                    "timeRemaining": time_remaining,
+                    "nextCode": token_obj.totp.at(get_accurate_time() + (30 - time_remaining))
+                }
+            
+            return {
+                "status": "success",
+                "results": results
+            }
+        except Exception as e:
+            return {"status": "error", "message": f"Error generating codes in batch: {str(e)}"}
 
 def set_tokens_path(path):
     """Set the path to the tokens file"""

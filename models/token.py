@@ -6,6 +6,9 @@ from utils.ntp_sync import get_accurate_time
 # Cache for TOTP objects
 _totp_cache = {}
 
+# Global cache for generated codes to reduce duplicate work during batch operations
+_code_cache = {}
+
 class Token:
     def __init__(self, issuer, secret, name):
         self.issuer = issuer
@@ -26,6 +29,16 @@ class Token:
         """Generate the current TOTP code using NTP-synchronized time, caching the result."""
         now = get_accurate_time()
         
+        # Calculate current interval to use as cache key
+        current_interval_start = (now // self.totp.interval) * self.totp.interval
+        cache_key = f"{self.secret}:{current_interval_start}"
+        
+        # Check global cache first for batch optimization
+        if cache_key in _code_cache:
+            self.current_code = _code_cache[cache_key]
+            self.expiry_timestamp = current_interval_start + self.totp.interval
+            return self.current_code
+        
         # Check if the cached code is still valid
         if self.current_code is not None and now < self.expiry_timestamp:
             return self.current_code
@@ -36,8 +49,18 @@ class Token:
         
         # Calculate the expiry time for the new code
         # The code expires at the beginning of the *next* interval
-        current_interval_start = (now // self.totp.interval) * self.totp.interval
         self.expiry_timestamp = current_interval_start + self.totp.interval
+        
+        # Store in global cache for batch operations
+        _code_cache[cache_key] = new_code
+        
+        # Cleanup old cache entries every 100 generations to prevent memory leaks
+        if len(_code_cache) > 1000:
+            # Keep only the most recent 100 codes
+            keys_to_keep = sorted(list(_code_cache.keys()), reverse=True)[:100]
+            new_cache = {k: _code_cache[k] for k in keys_to_keep}
+            _code_cache.clear()
+            _code_cache.update(new_cache)
         
         return self.current_code
 

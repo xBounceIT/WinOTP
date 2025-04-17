@@ -78,25 +78,44 @@ function updateVisuals() {
     // Skip if no tokens
     if (!tokens || tokens.length === 0) return;
     
+    // Track expired tokens for batch refresh
+    let expiredTokens = [];
+    
     // Update each token's remaining time
     tokens.forEach(token => {
         if (token.timeRemaining > 0) {
             token.timeRemaining -= 1;
+            
+            // Always update the display for tokens with positive time
+            updateTokenDisplay(token);
+            
+            // If time is about to expire (0 seconds left), add to expired tokens
+            if (token.timeRemaining <= 0) {
+                expiredTokens.push(token);
+            }
+        } else if (token.timeRemaining <= 0 && !expiredTokens.includes(token)) {
+            // Add any already expired tokens that haven't been refreshed yet
+            expiredTokens.push(token);
         }
-        
-        // If time remaining is zero or less, we need to refresh from API
-        if (token.timeRemaining <= 0) {
-            refreshTokens();
-            return; // Exit the forEach loop early once we know we need to refresh
-        }
-        
-        // Update the visual elements
-        updateTokenDisplay(token);
     });
+    
+    // If we have expired tokens, trigger a refresh
+    if (expiredTokens.length > 0) {
+        // If more than 50% of tokens are expiring at once, there's likely a synchronization
+        // where all tokens refresh at the same time - this is when CPU spikes occur
+        if (expiredTokens.length > Math.max(1, tokens.length * 0.5)) {
+            console.log(`Batch refreshing ${expiredTokens.length} tokens (${Math.round(expiredTokens.length/tokens.length*100)}% of total)`);
+        }
+        refreshTokens();
+    }
 }
 
 // Store next codes for each token
 const nextCodes = {};
+
+// Last batch refresh timestamp to prevent frequent API calls
+let lastBatchRefreshTime = 0;
+const MIN_BATCH_REFRESH_INTERVAL = 500; // Minimum milliseconds between refreshes
 
 // Update tokens from API only when needed
 async function refreshTokens() {
@@ -111,6 +130,92 @@ async function refreshTokens() {
         
         // If there are no expired tokens, nothing to do
         if (expiredTokens.length === 0) {
+            return;
+        }
+        
+        // Throttle API calls to prevent excessive refreshes
+        const now = Date.now();
+        if (now - lastBatchRefreshTime < MIN_BATCH_REFRESH_INTERVAL) {
+            console.log('Skipping refresh, too soon after last refresh');
+            // Schedule another check in a short time
+            setTimeout(refreshTokens, MIN_BATCH_REFRESH_INTERVAL);
+            return;
+        }
+        
+        // Update refresh timestamp
+        lastBatchRefreshTime = now;
+        
+        // Extract token IDs for batch refresh
+        const tokenIds = expiredTokens.map(token => token.id);
+        console.log(`Refreshing ${tokenIds.length} tokens in batch`);
+        
+        // Use the new batch API endpoint
+        const batchResult = await window.pywebview.api.batch_get_token_codes(tokenIds);
+        
+        if (batchResult.status === 'success') {
+            // Process batch results
+            for (const tokenId in batchResult.results) {
+                const result = batchResult.results[tokenId];
+                if (result.status === 'success') {
+                    // Find the token in our array and update it
+                    const tokenIndex = tokens.findIndex(t => t.id === result.id);
+                    if (tokenIndex !== -1) {
+                        tokens[tokenIndex].code = result.code;
+                        tokens[tokenIndex].timeRemaining = result.timeRemaining;
+                        
+                        // Store the next code from the batch result
+                        if (result.nextCode) {
+                            nextCodes[tokenId] = result.nextCode;
+                        }
+                    }
+                } else {
+                    console.error(`Error refreshing token ${tokenId}:`, result.message);
+                }
+            }
+            
+            // Check if we have a search filter active
+            const isSearchActive = searchTerm && searchTerm.length > 0;
+            
+            // Only update existing tokens, full render if token collection changed
+            if (!isSearchActive) {
+                // Just update the dynamic content for all tokens
+                tokens.forEach(updateTokenDisplay);
+            } else {
+                // When search is active, only update the currently displayed tokens
+                // to avoid flickering and maintain search results
+                const displayedTokenCards = document.querySelectorAll('.token-card');
+                const displayedTokenIds = Array.from(displayedTokenCards).map(card => card.id.replace('token-', ''));
+                
+                displayedTokenIds.forEach(id => {
+                    const token = tokens.find(t => t.id === id);
+                    if (token) {
+                        updateTokenDisplay(token);
+                    }
+                });
+            }
+        } else {
+            console.error('Error in batch token refresh:', batchResult.message);
+            
+            // Fallback to old method if batch fails
+            fallbackRefreshTokens(expiredTokens);
+        }
+    } catch (error) {
+        console.error('Error updating tokens:', error);
+        
+        // Try fallback method if the new batch method failed
+        if (tokens && tokens.length > 0) {
+            const expiredTokens = tokens.filter(token => token.timeRemaining <= 0);
+            if (expiredTokens.length > 0) {
+                fallbackRefreshTokens(expiredTokens);
+            }
+        }
+    }
+}
+
+// Legacy token refresh method as fallback
+async function fallbackRefreshTokens(expiredTokens) {
+    try {
+        if (!window.pywebview || !window.pywebview.api) {
             return;
         }
         
@@ -138,29 +243,11 @@ async function refreshTokens() {
         });
         
         await Promise.all(refreshPromises);
-                
-        // Check if we have a search filter active
-        const isSearchActive = searchTerm && searchTerm.length > 0;
         
-        // Only update existing tokens, full render if token collection changed
-        if (!isSearchActive) {
-            // Just update the dynamic content for all tokens
-            tokens.forEach(updateTokenDisplay);
-        } else {
-            // When search is active, only update the currently displayed tokens
-            // to avoid flickering and maintain search results
-            const displayedTokenCards = document.querySelectorAll('.token-card');
-            const displayedTokenIds = Array.from(displayedTokenCards).map(card => card.id.replace('token-', ''));
-            
-            displayedTokenIds.forEach(id => {
-                const token = tokens.find(t => t.id === id);
-                if (token) {
-                    updateTokenDisplay(token);
-                }
-            });
-        }
+        // Update UI
+        tokens.forEach(updateTokenDisplay);
     } catch (error) {
-        console.error('Error updating tokens:', error);
+        console.error('Error in fallback token refresh:', error);
     }
 }
 

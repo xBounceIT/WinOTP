@@ -11,7 +11,7 @@ logger = logging.getLogger("ntp_sync")
 # Global variables
 _time_offset = 0.0  # Offset between system time and NTP time in seconds
 _last_sync = 0  # Last successful sync timestamp
-_sync_interval = 300  # Reduced from 3600 to 300 seconds (5 minutes) for more frequent updates
+_sync_interval = 900  # Increased to 15 minutes (900 seconds) to reduce network traffic
 _ntp_servers = [
     "pool.ntp.org",
     "time.google.com",
@@ -23,6 +23,9 @@ _sync_thread = None
 _is_running = False
 _last_server_index = 0  # Track which server we last used successfully
 _sync_initialized = False  # Flag to track if sync has been initialized
+_last_request_time = 0  # Last time get_accurate_time was called
+_request_count = 0  # Counter for get_accurate_time requests
+_sync_in_progress = False  # Flag to prevent multiple concurrent syncs
 
 def get_ntp_time(server=None):
     """
@@ -64,28 +67,38 @@ def calculate_offset():
     Returns:
         float: Time offset in seconds or 0 if sync failed
     """
-    global _time_offset, _last_sync
+    global _time_offset, _last_sync, _sync_in_progress
     
-    # Try each NTP server until one succeeds
-    ntp_time = get_ntp_time()
-    if ntp_time is not None:
-        system_time = time.time()
-        offset = ntp_time - system_time
+    # Prevent multiple concurrent sync operations
+    if _sync_in_progress:
+        logger.info("NTP sync already in progress, skipping")
+        return 0.0
         
-        with _sync_lock:
-            # Use a weighted average to smooth out changes
-            if _last_sync > 0:
-                # Weight: 70% new offset, 30% old offset
-                _time_offset = 0.7 * offset + 0.3 * _time_offset
-            else:
-                _time_offset = offset
-            _last_sync = system_time
-        
-        logger.info(f"NTP sync successful. New offset: {_time_offset:.6f} seconds")
-        return _time_offset
+    _sync_in_progress = True
     
-    logger.error("Failed to sync with any NTP server")
-    return 0.0
+    try:
+        # Try each NTP server until one succeeds
+        ntp_time = get_ntp_time()
+        if ntp_time is not None:
+            system_time = time.time()
+            offset = ntp_time - system_time
+            
+            with _sync_lock:
+                # Use a weighted average to smooth out changes
+                if _last_sync > 0:
+                    # Weight: 70% new offset, 30% old offset
+                    _time_offset = 0.7 * offset + 0.3 * _time_offset
+                else:
+                    _time_offset = offset
+                _last_sync = system_time
+            
+            logger.info(f"NTP sync successful. New offset: {_time_offset:.6f} seconds")
+            return _time_offset
+        
+        logger.error("Failed to sync with any NTP server")
+        return 0.0
+    finally:
+        _sync_in_progress = False
 
 def get_accurate_time():
     """
@@ -94,6 +107,8 @@ def get_accurate_time():
     Returns:
         float: Adjusted current time in seconds since epoch
     """
+    global _last_request_time, _request_count
+    
     # Ensure NTP sync is initialized
     if not _sync_initialized:
         # Just use system time on first call
@@ -101,8 +116,27 @@ def get_accurate_time():
         
     with _sync_lock:
         current_time = time.time()
+        
+        # Track request frequency
+        if current_time - _last_request_time < 1.0:  # Within 1 second
+            _request_count += 1
+        else:
+            # Reset counter if more than 1 second has passed
+            _last_request_time = current_time
+            _request_count = 1
+        
+        # Check if we need to sync
+        need_sync = False
+        
         # Force a sync if too much time has passed since last sync
         if _last_sync > 0 and current_time - _last_sync > _sync_interval:
+            need_sync = True
+        # Also force sync if there's a spike in requests (potential batch operation)
+        # but only if it's been at least 5 minutes since last sync
+        elif _request_count > 50 and current_time - _last_sync > 300:
+            need_sync = True
+            
+        if need_sync and not _sync_in_progress:
             threading.Thread(target=calculate_offset, daemon=True).start()
         
         return current_time + _time_offset
@@ -144,12 +178,12 @@ def _sync_thread_func():
         # Sleep until next sync interval
         time.sleep(_sync_interval)
 
-def start_ntp_sync(interval=300):  # Default to 5 minutes instead of 1 hour
+def start_ntp_sync(interval=900):  # Default to 15 minutes instead of 1 hour
     """
     Start the NTP synchronization thread.
     
     Args:
-        interval (int, optional): Sync interval in seconds. Defaults to 300 (5 minutes).
+        interval (int, optional): Sync interval in seconds. Defaults to 900 (15 minutes).
     """
     global _sync_thread, _is_running, _sync_interval, _sync_initialized
     
