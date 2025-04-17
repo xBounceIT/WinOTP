@@ -1,4 +1,4 @@
-// Load tokens from the API
+// Load tokens from the API (only do this once at startup or when needed)
 async function loadTokens() {
     try {
         if (!apiReady || !window.pywebview || !window.pywebview.api) {
@@ -6,6 +6,7 @@ async function loadTokens() {
             return;
         }
         
+        console.log('Loading all tokens from backend...');
         const result = await window.pywebview.api.get_tokens();
         console.log('API get_tokens result:', result);
         tokens = result;
@@ -62,40 +63,40 @@ async function refreshTokens() {
             return;
         }
 
-        const result = await window.pywebview.api.get_tokens();
-        console.log('API get_tokens result:', result);
-        let newTokens = [];
+        // Find tokens with expired timers
+        const expiredTokens = tokens.filter(token => token.timeRemaining <= 0);
         
-        // Check if result is an array (direct token list) or an object with status
-        if (Array.isArray(result)) {
-            newTokens = result;
-        } else if (result && Array.isArray(result.data)) {
-            newTokens = result.data;
-        } else {
-            console.error("Unexpected response format from get_tokens:", result);
+        // If there are no expired tokens, nothing to do
+        if (expiredTokens.length === 0) {
             return;
         }
         
+        // Use Promise.all to refresh all expired tokens in parallel
+        const refreshPromises = expiredTokens.map(async token => {
+            const result = await window.pywebview.api.get_fresh_token_code(token.id);
+            if (result.status === 'success') {
+                // Find the token in our array and update it
+                const tokenIndex = tokens.findIndex(t => t.id === result.id);
+                if (tokenIndex !== -1) {
+                    tokens[tokenIndex].code = result.code;
+                    tokens[tokenIndex].timeRemaining = result.timeRemaining;
+                }
+                return true;
+            } else {
+                console.error(`Error refreshing token ${token.id}:`, result.message);
+                return false;
+            }
+        });
+        
+        await Promise.all(refreshPromises);
+                
         // Check if we have a search filter active
         const isSearchActive = searchTerm && searchTerm.length > 0;
         
-        // Store current token data
-        tokens = newTokens;
-        
-        // Only update existing tokens, full render if tokens changed
+        // Only update existing tokens, full render if token collection changed
         if (!isSearchActive) {
-            const currentTokenIds = new Set(newTokens.map(t => t.id));
-            const displayedTokenIds = new Set(Array.from(document.querySelectorAll('.token-card'))
-                .map(card => card.id.replace('token-', '')));
-            
-            // Check if we need a full re-render
-            if (currentTokenIds.size !== displayedTokenIds.size || 
-                !Array.from(currentTokenIds).every(id => displayedTokenIds.has(id))) {
-                await renderTokens();
-            } else {
-                // Just update the dynamic content
-                tokens.forEach(updateTokenDisplay);
-            }
+            // Just update the dynamic content for all tokens
+            tokens.forEach(updateTokenDisplay);
         } else {
             // When search is active, only update the currently displayed tokens
             // to avoid flickering and maintain search results
@@ -444,7 +445,8 @@ async function deleteToken(tokenId) {
             const result = await window.pywebview.api.delete_token(tokenId);
             if (result.status === 'success') {
                 showNotification(result.message, 'success');
-                loadTokens();
+                // Need to reload all tokens since one was deleted
+                await loadTokens();
             } else {
                 showNotification(result.message, 'error');
             }
@@ -482,7 +484,8 @@ async function saveManualToken() {
             showNotification(result.message, 'success');
             showMainPage();
             clearTokenForm();
-            loadTokens();
+            // Need to reload all tokens since we added a new one
+            await loadTokens();
         } else {
             showNotification(result.message, 'error');
         }
@@ -512,7 +515,8 @@ async function handleQrFileUpload(event) {
             if (addResult.status === 'success') {
                 showNotification(addResult.message, 'success');
                 showMainPage();
-                loadTokens();
+                // Need to reload all tokens since we added a new one
+                await loadTokens();
             } else {
                 showNotification(addResult.message, 'error');
             }
@@ -583,7 +587,18 @@ async function saveTokenEdit(tokenId) {
         if (result.status === 'success') {
             showNotification(result.message, 'success');
             toggleEditMode(tokenId); // Hide edit form
-            loadTokens(); // Reload tokens to show changes
+            
+            // Just update the token in our local array
+            const tokenIndex = tokens.findIndex(t => t.id === tokenId);
+            if (tokenIndex !== -1) {
+                tokens[tokenIndex].issuer = issuer || 'Unknown';
+                tokens[tokenIndex].name = name || 'Unknown';
+                // Re-render the tokens to show changes
+                await renderTokens();
+            } else {
+                // If token not found in local array, reload all tokens
+                await loadTokens();
+            }
         } else {
             showNotification(result.message, 'error');
         }
@@ -637,7 +652,8 @@ async function saveUriToken() {
             showNotification(result.message, 'success');
             showMainPage();
             clearTokenForm();
-            loadTokens();
+            // Need to reload all tokens since we added a new one
+            await loadTokens();
         } else {
             showNotification(result.message, 'error');
         }

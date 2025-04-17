@@ -251,7 +251,8 @@ class Api:
             self.scan_google_auth_qr,
             self.finish_google_auth_import,
             self.set_run_at_startup,
-            self.clear_cache
+            self.clear_cache,
+            self.get_fresh_token_code
         )
     
     def load_tokens(self):
@@ -1861,6 +1862,35 @@ class Api:
         import logging
         logging.warning("request_camera_permission is deprecated and always returns denied")
         return {"status": "success", "granted": False, "message": "Camera scanning is deprecated, using screen capture instead"}
+
+    def get_fresh_token_code(self, token_id):
+        """Get a fresh token code for a specific token ID without reloading all tokens"""
+        try:
+            # Check if token exists in memory
+            if token_id not in self.tokens:
+                return {"status": "error", "message": "Token not found"}
+            
+            token_data = self.tokens[token_id]
+            
+            # Create Token object
+            token_obj = Token(
+                token_data.get("issuer", "Unknown"),
+                token_data.get("secret", ""),
+                token_data.get("name", "Unknown")
+            )
+            
+            # Get the current code and time remaining
+            code = token_obj.get_code()
+            time_remaining = token_obj.get_time_remaining()
+            
+            return {
+                "status": "success",
+                "id": token_id,
+                "code": code,
+                "timeRemaining": time_remaining
+            }
+        except Exception as e:
+            return {"status": "error", "message": f"Error generating code: {str(e)}"}
 
 def set_tokens_path(path):
     """Set the path to the tokens file"""
