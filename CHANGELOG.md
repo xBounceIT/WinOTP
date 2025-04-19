@@ -1,3 +1,6 @@
+# v0.7.6
+- Added single instance logic to prevent users from creating multiple windows of winotp
+
 # v0.7.5
 - Performance improvements to API calls and backend reducing cpu usage
 

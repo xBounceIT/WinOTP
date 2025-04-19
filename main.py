@@ -30,6 +30,7 @@ from utils.importers.winotp_importer import parse_winotp_json
 from utils.importers.twofas_importer import parse_2fas_json
 from utils.importers.authenticator_plugin import parse_authenticator_plugin_export
 from app import startup # Import the startup module
+from utils.single_instance import is_already_running, activate_existing_window
 
 # Globals for on-demand imports
 pyotp = None
@@ -1947,6 +1948,16 @@ def start_sync_startup_setting(api):
     api._sync_startup_setting()
 
 def main():
+    # --- Check if instance is already running ---
+    already_running, existing_hwnd = is_already_running()
+    if already_running:
+        print("WinOTP is already running. Activating existing window...")
+        if existing_hwnd:
+            activate_existing_window(existing_hwnd)
+        else:
+            print("Could not find existing window to activate.")
+        return  # Exit this instance
+
     # --- Ensure Application Data Directory Exists (for production mode) ---
     try:
         os.makedirs(winotp_data_dir, exist_ok=True)
