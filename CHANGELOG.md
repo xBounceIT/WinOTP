@@ -1,5 +1,6 @@
 # v0.7.6
 - Added single instance logic to prevent users from creating multiple windows of winotp
+- Added double click functionality on tray icon to bring back the app window
 
 # v0.7.5
 - Performance improvements to API calls and backend reducing cpu usage

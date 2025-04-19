@@ -49,7 +49,30 @@ AUTH_CONFIG_PATH = os.path.join(winotp_data_dir, 'auth_config.json')
 file_write_lock = threading.Lock()
 
 sort_ascending = True  # Default sort order
-tray_icon = None  # Global tray icon instance
+tray_icon = None
+
+# Define a custom Icon class for Windows that handles double-click
+if sys.platform == 'win32':
+    class Win32PystrayIcon(pystray.Icon):
+        # Windows message constants
+        WM_LBUTTONDBLCLK = 0x0203
+        
+        def _on_notify(self, wparam, lparam):
+            # Call the parent method to handle standard events
+            super()._on_notify(wparam, lparam)
+            
+            # Check if the event is a double-click
+            if lparam == self.WM_LBUTTONDBLCLK:
+                # Show and restore the window (same as "Show" menu item)
+                if hasattr(self, '_window'):
+                    self._window.show()
+                    self._window.restore()
+    
+    # Replace the default pystray.Icon with our custom class
+    CustomIcon = Win32PystrayIcon
+else:
+    # On other platforms, use the standard Icon class
+    CustomIcon = pystray.Icon
 
 def load_settings():
     """Load application settings"""
@@ -139,7 +162,14 @@ def create_tray_icon(window):
             pystray.MenuItem("Show", show_window),
             pystray.MenuItem("Quit", quit_app)
         )
-        icon = pystray.Icon("WinOTP", icon_32, "WinOTP", menu) # Use the extracted/resized 32x32 image
+        
+        # Create the icon using our custom class
+        icon = CustomIcon("WinOTP", icon_32, "WinOTP", menu) # Use the extracted/resized 32x32 image
+        
+        # Store a reference to the window for the double-click handler
+        if sys.platform == 'win32':
+            icon._window = window
+            
         return icon
     except Exception as e:
         print(f"Error creating tray icon: {e}")
