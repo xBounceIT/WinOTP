@@ -92,6 +92,13 @@ function updateVisuals() {
             // If time is about to expire (0 seconds left), add to expired tokens
             if (token.timeRemaining <= 0) {
                 expiredTokens.push(token);
+            } 
+            // If the token is close to expiring (5 seconds), make sure we have the next code ready
+            else if (token.timeRemaining === 5) {
+                // Clear any cached next code to ensure we get a fresh one
+                delete nextCodes[token.id];
+                // Pre-fetch the next code
+                fetchAndUpdateNextCode(token.id);
             }
         } else if (token.timeRemaining <= 0 && !expiredTokens.includes(token)) {
             // Add any already expired tokens that haven't been refreshed yet
@@ -160,12 +167,19 @@ async function refreshTokens() {
                     // Find the token in our array and update it
                     const tokenIndex = tokens.findIndex(t => t.id === result.id);
                     if (tokenIndex !== -1) {
+                        // Important: Clear the nextCodes cache for this token when a code refreshes
+                        // because the current code becomes the old "next code"
+                        delete nextCodes[tokenId];
+                        
                         tokens[tokenIndex].code = result.code;
                         tokens[tokenIndex].timeRemaining = result.timeRemaining;
                         
                         // Store the next code from the batch result
                         if (result.nextCode) {
                             nextCodes[tokenId] = result.nextCode;
+                        } else {
+                            // If nextCode isn't provided in batch result, fetch it separately
+                            fetchAndUpdateNextCode(tokenId);
                         }
                     }
                 } else {
@@ -212,6 +226,18 @@ async function refreshTokens() {
     }
 }
 
+// Helper function to fetch and update next code
+async function fetchAndUpdateNextCode(tokenId) {
+    try {
+        const nextCodeResult = await window.pywebview.api.get_next_code(tokenId);
+        if (nextCodeResult.status === 'success' && nextCodeResult.code) {
+            nextCodes[tokenId] = nextCodeResult.code;
+        }
+    } catch (error) {
+        console.error(`Failed to fetch next code for token ${tokenId}:`, error);
+    }
+}
+
 // Legacy token refresh method as fallback
 async function fallbackRefreshTokens(expiredTokens) {
     try {
@@ -226,6 +252,9 @@ async function fallbackRefreshTokens(expiredTokens) {
                 // Find the token in our array and update it
                 const tokenIndex = tokens.findIndex(t => t.id === result.id);
                 if (tokenIndex !== -1) {
+                    // Clear the nextCodes cache for this token when a code refreshes
+                    delete nextCodes[token.id];
+                    
                     tokens[tokenIndex].code = result.code;
                     tokens[tokenIndex].timeRemaining = result.timeRemaining;
                     
@@ -310,10 +339,11 @@ async function updateTokenDisplay(token) {
                 let nextCode;
                 
                 // Check if we already have the next code for this token
-                if (nextCodes[token.id]) {
+                // OR fetch a new one if it's very close to expiration (more accurate)
+                if (nextCodes[token.id] && timeRemaining > 2) {
                     nextCode = nextCodes[token.id];
                 } else {
-                    // Only fetch the next code if we don't have it yet
+                    // When very close to expiration, always fetch the latest next code
                     const nextCodeResult = await window.pywebview.api.get_next_code(token.id);
                     if (nextCodeResult.status === 'success' && nextCodeResult.code) {
                         nextCode = nextCodeResult.code;

@@ -1,3 +1,6 @@
+# v0.7.7
+- Fixed regression with next code preview, showing the same code after the first preview.
+
 # v0.7.6
 - Added single instance logic to prevent users from creating multiple windows of winotp
 - Added double click functionality on tray icon to bring back the app window
