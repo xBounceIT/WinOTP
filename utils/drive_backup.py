@@ -14,7 +14,7 @@ from utils.crypto import decrypt_tokens_file
 from utils.file_io import read_json
 
 SCOPES = ['https://www.googleapis.com/auth/drive.file']
-TOKEN_PATH = os.path.join(os.path.dirname(__file__), 'token_drive.pickle')
+TOKEN_PATH = os.path.join(os.path.expandvars('%APPDATA%'), 'WinOTP', 'token_drive.pickle')
 CREDS_PATH = os.path.join(os.path.dirname(__file__), 'drive_secret.json')
 AUTH_CONFIG_PATH = os.path.join(os.path.expandvars('%APPDATA%'), 'WinOTP', 'auth_config.json')
 
