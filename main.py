@@ -84,7 +84,9 @@ def load_settings():
             "minimize_to_tray": False,
             "update_check_enabled": True,
             "run_at_startup": False,
-            "next_code_preview_enabled": False
+            "next_code_preview_enabled": False,
+            "backup_to_google_drive": False,
+            "last_backup_date_google_drive": ""
         }
         
         if os.path.exists(settings_path):
@@ -270,6 +272,7 @@ class Api:
             self.export_tokens_to_json,
             self.get_minimize_to_tray,
             self.get_setting,
+            self.set_setting,
             self.set_minimize_to_tray,
             self.set_update_check_enabled,
             self.set_next_code_preview,
@@ -1274,7 +1277,8 @@ class Api:
                 "update_check_enabled": True,
                 "minimize_to_tray": False,
                 "run_at_startup": False,
-                "next_code_preview_enabled": False
+                "next_code_preview_enabled": False,
+                "backup_to_google_drive": False
             }
             
             # If the key is not in settings but has a default value, add it
@@ -1292,6 +1296,31 @@ class Api:
                 return registry_state
             
             return self._settings.get(key, default_values.get(key))
+            
+    def set_setting(self, key, value):
+        """Set a specific application setting"""
+        with self._settings_lock:
+            self._settings[key] = value
+            success = self._save_settings()
+            
+            # Special handling for Google Drive backup
+            if key == "backup_to_google_drive" and value == True:
+                try:
+                    # Trigger Google Drive authentication immediately
+                    from utils.drive_backup import authenticate_google_drive
+                    authenticate_google_drive()
+                    return {"status": "success", "message": "Google Drive backup enabled and authenticated"}
+                except Exception as e:
+                    print(f"Error authenticating with Google Drive: {e}")
+                    # Revert the setting if authentication fails
+                    self._settings[key] = False
+                    self._save_settings()
+                    return {"status": "error", "message": f"Failed to authenticate with Google Drive: {str(e)}"}
+            
+            if success:
+                return {"status": "success", "message": f"Setting '{key}' updated successfully"}
+            else:
+                return {"status": "error", "message": f"Failed to update setting '{key}'"}
 
     def _save_settings(self):
         """Internal method to save settings and handle errors"""
@@ -2012,6 +2041,21 @@ def migrate_data_from_old_location():
     return len(migrated_files) > 0
 
 def main():
+    # Check if debug mode is enabled via command line arguments
+    debug_mode = "--debug" in sys.argv or "-d" in sys.argv
+
+    # Select the appropriate file paths based on mode
+    global tokens_path, settings_path, AUTH_CONFIG_PATH # Declare globals to modify them
+    if debug_mode:
+        # Use local .dev files for debug mode
+        tokens_path = os.path.abspath("tokens.json.dev")
+        settings_path = os.path.abspath("app_settings.json.dev")
+        AUTH_CONFIG_PATH = os.path.abspath("auth_config.json.dev")
+        print(f"DEBUG MODE: Using local development files:")
+        print(f"  - Tokens: {tokens_path}")
+        print(f"  - Settings: {settings_path}")
+        print(f"  - Auth Config: {AUTH_CONFIG_PATH}")
+
     # --- Check if instance is already running ---
     already_running, existing_hwnd = is_already_running()
     if already_running:
@@ -2027,6 +2071,36 @@ def main():
         os.makedirs(winotp_data_dir, exist_ok=True)
         print(f"Production data directory: {winotp_data_dir}")
         
+        # --- Google Drive backup logic ---
+        from datetime import datetime
+        from utils.drive_backup import upload_tokens_json_to_drive, check_backup_exists
+        settings = load_settings()
+        today_str = datetime.now().date().isoformat()
+        if settings.get("backup_to_google_drive", False):
+            # Check if we need to perform a backup (either no backup today or backup file doesn't exist)
+            backup_exists = False
+            if settings.get("last_backup_date_google_drive", "") == today_str:
+                # If we've backed up today, verify the file actually exists on Google Drive
+                try:
+                    backup_exists = check_backup_exists()
+                    if not backup_exists:
+                        print("Today's backup file not found on Google Drive. Will create a new backup.")
+                except Exception as e:
+                    print(f"Error checking if backup exists: {e}")
+                    # If we can't check, assume it doesn't exist to be safe
+                    backup_exists = False
+            
+            # Perform backup if needed
+            if not backup_exists:
+                try:
+                    # Use the global tokens_path variable directly
+                    upload_tokens_json_to_drive(local_file_path=tokens_path)
+                    settings["last_backup_date_google_drive"] = today_str
+                    save_settings(settings)
+                    print("Google Drive backup completed and date updated.")
+                except Exception as e:
+                    print(f"Google Drive backup failed: {e}")
+    
         # Check if we need to migrate data from old location
         migrate_data_from_old_location()
     except OSError as e:
@@ -2034,20 +2108,7 @@ def main():
         # Potentially critical error if not in debug mode
         pass # Or sys.exit(1)
 
-    # Check if debug mode is enabled via command line arguments
-    debug_mode = "--debug" in sys.argv or "-d" in sys.argv
-
-    # Select the appropriate file paths based on mode
-    global tokens_path, settings_path, AUTH_CONFIG_PATH # Declare globals to modify them
-    if debug_mode:
-        # Use local .dev files for debug mode
-        tokens_path = os.path.abspath("tokens.json.dev")
-        settings_path = os.path.abspath("app_settings.json.dev")
-        AUTH_CONFIG_PATH = os.path.abspath("auth_config.json.dev")
-        print(f"DEBUG MODE: Using local development files:")
-        print(f"  - Tokens: {tokens_path}")
-        print(f"  - Settings: {settings_path}")
-        print(f"  - Auth Config: {AUTH_CONFIG_PATH}")
+    # Already set the file paths at the beginning of the function
     else:
         # Use data directory paths for production mode (paths are already set globally)
         # Ensure these are absolute paths

@@ -1,4 +1,6 @@
-# v0.7.8
+# v0.8.0
+- Added Google Drive backup functionality
+- Added Onedrive backup functionality for both personal and business accounts
 - Fixed disable protection modal positioning
 - moved json files location to AppData Roaming WinOtp folder
 
