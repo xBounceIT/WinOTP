@@ -37,8 +37,11 @@ pyotp = None
 pyzbar = None
 Image = None
 
-# Path to the user's app data directory
-winotp_data_dir = os.path.join(os.path.expanduser('~'), 'Documents', 'WinOTP')
+# Path to the user's app data directory (new location in AppData)
+winotp_data_dir = os.path.join(os.path.expandvars('%APPDATA%'), 'WinOTP')
+
+# Path to the old data directory (in Documents)
+old_winotp_data_dir = os.path.join(os.path.expanduser('~'), 'Documents', 'WinOTP')
 
 # Global file paths with default values for app data directory
 tokens_path = os.path.join(winotp_data_dir, 'tokens.json')
@@ -1977,6 +1980,37 @@ def start_sync_startup_setting(api):
     time.sleep(2)  # Give webview time to initialize
     api._sync_startup_setting()
 
+def migrate_data_from_old_location():
+    """Migrate data from old Documents location to new AppData location if needed"""
+    if not os.path.exists(old_winotp_data_dir):
+        print(f"No old data directory found at {old_winotp_data_dir}")
+        return False
+    
+    print(f"Found old data directory at {old_winotp_data_dir}, migrating data...")
+    
+    # Make sure the new directory exists
+    os.makedirs(winotp_data_dir, exist_ok=True)
+    
+    # List of files to migrate
+    files_to_migrate = ['tokens.json', 'app_settings.json', 'auth_config.json']
+    migrated_files = []
+    
+    for filename in files_to_migrate:
+        old_path = os.path.join(old_winotp_data_dir, filename)
+        new_path = os.path.join(winotp_data_dir, filename)
+        
+        # Only migrate if the old file exists and the new one doesn't
+        if os.path.exists(old_path) and not os.path.exists(new_path):
+            try:
+                import shutil
+                shutil.copy2(old_path, new_path)
+                migrated_files.append(filename)
+                print(f"Migrated {filename} from Documents to AppData")
+            except Exception as e:
+                print(f"Error migrating {filename}: {e}")
+    
+    return len(migrated_files) > 0
+
 def main():
     # --- Check if instance is already running ---
     already_running, existing_hwnd = is_already_running()
@@ -1992,6 +2026,9 @@ def main():
     try:
         os.makedirs(winotp_data_dir, exist_ok=True)
         print(f"Production data directory: {winotp_data_dir}")
+        
+        # Check if we need to migrate data from old location
+        migrate_data_from_old_location()
     except OSError as e:
         print(f"Error creating data directory {winotp_data_dir}: {e}")
         # Potentially critical error if not in debug mode
