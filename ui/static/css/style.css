@@ -363,6 +363,19 @@ body::-webkit-scrollbar-thumb:hover {
     text-align: right;
 }
 
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
 .modal {
     display: none;
     position: fixed;
@@ -1635,7 +1648,8 @@ input:checked + .slider:before {
 
 /* Ensure modal buttons inherit general button styles */
 .modal-actions .btn {
-    /* Use styles defined for .btn, .btn-primary, .btn-secondary */
+    margin: 0 5px;
+    min-width: 80px;
 }
 
 /* End Custom Modal Styles */
