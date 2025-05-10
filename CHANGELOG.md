@@ -1,3 +1,6 @@
+# v0.7.8
+- Fixed disable protection modal positioning
+
 # v0.7.7
 - Fixed regression with next code preview, showing the same code after the first preview.
 
