@@ -16,7 +16,7 @@ async function loadAllIcons() {
             return;
         }
         
-        console.log("Loading all essential icons...");
+
         
         // Load all icons in parallel using Promise.all
         await Promise.all([
@@ -28,7 +28,7 @@ async function loadAllIcons() {
             loadEditIcon()
         ]);
         
-        console.log("All essential icons loaded successfully");
+
     } catch (error) {
         console.error('Error loading all icons:', error);
     }
@@ -43,7 +43,7 @@ async function loadPlusIcon() {
         }
         
         const result = await window.pywebview.api.get_icon_base64('plus.png');
-        console.log("Plus icon load result:", result);
+
         
         if (result.status === 'success') {
             cachedPlusIcon = result.data;
@@ -64,7 +64,7 @@ async function loadPlusIcon() {
                 plusIconImg.src = 'data:image/png;base64,' + cachedPlusIcon;
                 plusIconImg.style.display = 'inline';
                 plusBtn.appendChild(plusIconImg);
-                console.log("Plus icon loaded successfully");
+
             }
         } else {
             console.error('Error loading plus icon:', result.message);
@@ -127,7 +127,7 @@ async function loadSortIcon() {
             sortIconImg.src = 'data:image/png;base64,' + (sortAscending ? cachedSortAscIcon : cachedSortDescIcon);
             sortIconImg.style.display = 'inline';
             sortBtn.appendChild(sortIconImg);
-            console.log("Sort icon loaded successfully");
+
         }
     } catch (error) {
         console.error('Exception loading sort icon:', error);
@@ -146,7 +146,7 @@ async function loadSettingsIcon() {
         }
         
         const result = await window.pywebview.api.get_icon_base64('settings.png');
-        console.log("Settings icon load result:", result);
+
         
         if (result.status === 'success') {
             cachedSettingsIcon = result.data;
@@ -164,7 +164,7 @@ async function loadSettingsIcon() {
                 settingsIconImg.src = 'data:image/png;base64,' + cachedSettingsIcon;
                 settingsIconImg.style.display = 'inline';
                 settingsBtn.appendChild(settingsIconImg);
-                console.log("Settings icon loaded successfully");
+
             }
         } else {
             console.error('Error loading settings icon:', result.message);
@@ -193,7 +193,7 @@ async function loadAboutIcon() {
         }
         
         const result = await window.pywebview.api.get_icon_base64('question.png');
-        console.log("About icon load result:", result);
+
         
         if (result.status === 'success') {
             cachedAboutIcon = result.data;
@@ -229,7 +229,7 @@ async function loadCopyIcon() {
         }
         
         const result = await window.pywebview.api.get_icon_base64('copy.png');
-        console.log("Copy icon load result:", result);
+
         
         if (result.status === 'success') {
             cachedCopyIcon = result.data;
@@ -251,7 +251,7 @@ async function loadCrossIcon() {
         }
         
         const result = await window.pywebview.api.get_icon_base64('cross.png');
-        console.log("Cross icon load result:", result);
+
         
         if (result.status === 'success') {
             cachedCrossIcon = result.data;
@@ -273,7 +273,7 @@ async function loadEditIcon() {
         }
         
         const result = await window.pywebview.api.get_icon_base64('edit.png');
-        console.log("Edit icon load result:", result);
+
         
         if (result.status === 'success') {
             cachedEditIcon = result.data;
@@ -397,7 +397,7 @@ async function loadBackIconForImport() {
         }
         
         const result = await window.pywebview.api.get_icon_base64('back_arrow.png');
-        console.log("Back icon load result for import page:", result);
+
         
         if (result.status === 'success') {
             const backIcon = document.getElementById('backFromImportIcon');
@@ -431,7 +431,7 @@ async function loadBackIconForProtection() {
         }
         
         const result = await window.pywebview.api.get_icon_base64('back_arrow.png');
-        console.log("Back icon load result for protection page:", result);
+
         
         if (result.status === 'success') {
             const backIcon = document.getElementById('backFromProtectionIcon');
@@ -465,7 +465,7 @@ async function loadBackIconForGoogleAuth() {
         }
         
         const result = await window.pywebview.api.get_icon_base64('back_arrow.png');
-        console.log("Back icon load result for Google Auth import page:", result);
+
         
         if (result.status === 'success') {
             const backIcon = document.getElementById('backFromGoogleAuthIcon');
