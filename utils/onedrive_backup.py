@@ -122,6 +122,45 @@ def authenticate_user():
         document.getElementById('oneDriveAuthOpenBtn').onclick = function() {{
             window.open('{verification_uri}', '_blank');
         }};
+        
+        // Load copy icon
+        if (window.cachedCopyIcon) {{
+            document.getElementById('copyAuthIcon').src = `data:image/png;base64,${{window.cachedCopyIcon}}`;
+        }} else {{
+            // Fallback icon if cached icon not available
+            document.getElementById('copyAuthIcon').src = 'static/img/copy.png';
+        }}
+        
+        // Add copy functionality
+        document.getElementById('copyAuthCodeBtn').onclick = function() {{
+            const code = document.getElementById('oneDriveAuthCode').innerText;
+            navigator.clipboard.writeText(code)
+                .then(() => {{
+                    // Visual feedback
+                    const copyBtn = document.getElementById('copyAuthCodeBtn');
+                    copyBtn.classList.add('copied');
+                    
+                    // Show temporary 'Copied!' tooltip
+                    const tooltip = document.createElement('div');
+                    tooltip.className = 'copy-tooltip';
+                    tooltip.textContent = 'Copied!';
+                    copyBtn.appendChild(tooltip);
+                    
+                    // Remove copied state after 2 seconds
+                    setTimeout(() => {{
+                        copyBtn.classList.remove('copied');
+                        setTimeout(() => {{
+                            if (tooltip && tooltip.parentNode) {{
+                                tooltip.remove();
+                            }}
+                        }}, 300);
+                    }}, 2000);
+                }})
+                .catch(err => {{
+                    console.error('Failed to copy code: ', err);
+                }});
+        }};
+        
         document.getElementById('oneDriveAuthModal').style.display = 'flex';
     ''')
     
