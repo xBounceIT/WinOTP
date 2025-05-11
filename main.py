@@ -2106,10 +2106,21 @@ def main():
         tokens_path = os.path.abspath("tokens.json.dev")
         settings_path = os.path.abspath("app_settings.json.dev")
         AUTH_CONFIG_PATH = os.path.abspath("auth_config.json.dev")
+        # Set Google Drive and OneDrive token paths to utils folder in debug mode
+        utils_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'utils')
+        DRIVE_PICKLE_PATH = os.path.join(utils_dir, 'token_drive.pickle')
+        ONEDRIVE_TOKEN_PATH = os.path.join(utils_dir, 'token_onedrive.json')
+        # Patch the token path globals in the backup modules
+        import utils.drive_backup as drive_backup
+        import utils.onedrive_backup as onedrive_backup
+        drive_backup.TOKEN_PATH = DRIVE_PICKLE_PATH
+        onedrive_backup.TOKEN_PATH = ONEDRIVE_TOKEN_PATH
         print(f"DEBUG MODE: Using local development files:")
         print(f"  - Tokens: {tokens_path}")
         print(f"  - Settings: {settings_path}")
         print(f"  - Auth Config: {AUTH_CONFIG_PATH}")
+        print(f"  - Google Drive pickle: {DRIVE_PICKLE_PATH}")
+        print(f"  - OneDrive token: {ONEDRIVE_TOKEN_PATH}")
 
     # --- Check if instance is already running ---
     already_running, existing_hwnd = is_already_running()
