@@ -22,21 +22,66 @@ AUTH_CONFIG_PATH = os.path.join(os.path.expandvars('%APPDATA%'), 'WinOTP', 'auth
 def authenticate_google_drive():
     """
     Authenticate and return a Google Drive service client.
+    Returns None if authentication is cancelled.
     """
     creds = None
     if os.path.exists(TOKEN_PATH):
         with open(TOKEN_PATH, 'rb') as token:
             creds = pickle.load(token)
-    if not creds or not creds.valid:
-        if creds and creds.expired and creds.refresh_token:
+    
+    # If credentials exist and are valid, return the service immediately
+    if creds and creds.valid:
+        service = build('drive', 'v3', credentials=creds)
+        return service
+    
+    # If credentials exist but are expired, try to refresh them
+    if creds and creds.expired and creds.refresh_token:
+        try:
             creds.refresh(Request())
-        else:
-            flow = InstalledAppFlow.from_client_secrets_file(CREDS_PATH, SCOPES)
-            creds = flow.run_local_server(port=0)
+            with open(TOKEN_PATH, 'wb') as token:
+                pickle.dump(creds, token)
+            service = build('drive', 'v3', credentials=creds)
+            return service
+        except Exception as e:
+            print(f"Error refreshing Google Drive credentials: {e}")
+            # Fall through to interactive authentication
+    
+    # Otherwise, need to perform interactive authentication
+    try:
+        # Import webview here to avoid circular imports
+        import webview
+        
+        # Show a notification that authentication is about to begin
+        webview.windows[0].evaluate_js('''
+            showNotification("Opening Google authentication in browser...", "info");
+            // Set global variable for cancellation tracking
+            window.googleAuthCancelled = false;
+        ''')
+        
+        # Create the flow for authentication
+        flow = InstalledAppFlow.from_client_secrets_file(CREDS_PATH, SCOPES)
+        
+        # Run the local server for auth
+        creds = flow.run_local_server(port=0)
+        
+        # Check if authentication was cancelled
+        cancelled = webview.windows[0].evaluate_js('window.googleAuthCancelled === true')
+        if cancelled:
+            print("Google Drive authentication cancelled by user")
+            return None
+        
+        # Save the credentials for future use
+        os.makedirs(os.path.dirname(TOKEN_PATH), exist_ok=True)
         with open(TOKEN_PATH, 'wb') as token:
             pickle.dump(creds, token)
-    service = build('drive', 'v3', credentials=creds)
-    return service
+        
+        # Build and return the service
+        service = build('drive', 'v3', credentials=creds)
+        return service
+        
+    except Exception as e:
+        print(f"Error during Google Drive authentication: {e}")
+        return None
 
 
 def get_backup_filename():

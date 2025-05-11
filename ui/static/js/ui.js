@@ -192,12 +192,44 @@ async function showSettingsPage() {
                 try {
                     await waitForPywebviewApi();
                     const isEnabled = event.target.checked;
+                    let cancelAuthListener = null;
+                    
+                    // Create cancel button listener if this is enabling the backup
+                    if (isEnabled) {
+                        // Give user a way to cancel Google authentication by pressing ESC key
+                        cancelAuthListener = function(e) {
+                            if (e.key === 'Escape') {
+                                window.googleAuthCancelled = true;
+                                showNotification('Google Drive authentication cancelled', 'info');
+                                googleDriveBackupToggle.checked = false;
+                                document.removeEventListener('keydown', cancelAuthListener);
+                            }
+                        };
+                        document.addEventListener('keydown', cancelAuthListener);
+                        
+                        // Show info about how to cancel
+                        showNotification('Press ESC key to cancel Google authentication', 'info', 10000);
+                    }
+                    
                     const result = await window.pywebview.api.set_setting('backup_to_google_drive', isEnabled);
+                    
+                    // Remove the cancel listener if it was created
+                    if (cancelAuthListener) {
+                        document.removeEventListener('keydown', cancelAuthListener);
+                    }
+                    
                     if (result && result.status === 'success') {
                         showNotification(`Google Drive backup ${isEnabled ? 'enabled' : 'disabled'}`, 'success');
+                    } else if (result && result.status === 'cancelled') {
+                        // Authentication was cancelled
+                        showNotification('Google Drive authentication cancelled', 'info');
+                        googleDriveBackupToggle.checked = false;
                     } else {
                         showNotification(result.message || 'Failed to update Google Drive backup setting', 'error');
-                        event.target.checked = !event.target.checked;
+                        // Only toggle back if not already handled by a cancellation
+                        if (!result || result.status !== 'cancelled') {
+                            event.target.checked = !event.target.checked;
+                        }
                     }
                 } catch (error) {
                     console.error('Error updating Google Drive backup setting:', error);

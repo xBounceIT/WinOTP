@@ -1370,19 +1370,24 @@ class Api:
             # Special handling for Google Drive backup
             elif key == "backup_to_google_drive" and value == True:
                 try:
-                    # Save setting first as this was the previous behavior
-                    self._settings[key] = value
-                    self._save_settings()
-                    
-                    # Trigger Google Drive authentication immediately
+                    # Trigger Google Drive authentication immediately (don't save setting until successful)
                     from utils.drive_backup import authenticate_google_drive
-                    authenticate_google_drive()
-                    return {"status": "success", "message": "Google Drive backup enabled and authenticated"}
+                    service = authenticate_google_drive()
+                    
+                    # Check if authentication was cancelled or failed
+                    if service is None:
+                        print("Google Drive authentication was cancelled or failed")
+                        return {"status": "cancelled", "message": "Google Drive authentication was cancelled"}
+                    
+                    # Only save the setting after successful authentication
+                    self._settings[key] = value
+                    success = self._save_settings()
+                    if success:
+                        return {"status": "success", "message": "Google Drive backup enabled and authenticated"}
+                    else:
+                        return {"status": "error", "message": "Failed to save settings after authentication"}
                 except Exception as e:
                     print(f"Error authenticating with Google Drive: {e}")
-                    # Revert the setting if authentication fails
-                    self._settings[key] = False
-                    self._save_settings()
                     return {"status": "error", "message": f"Failed to authenticate with Google Drive: {str(e)}"}
             
             # For all other settings, just save normally
