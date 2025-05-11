@@ -2065,34 +2065,43 @@ def start_sync_startup_setting(api):
     api._sync_startup_setting()
 
 def migrate_data_from_old_location():
-    """Migrate data from old Documents location to new AppData location if needed"""
+    """Migrate data from old Documents location to new AppData location if needed.
+    After successful migration, delete the old data directory."""
+    import shutil
     if not os.path.exists(old_winotp_data_dir):
         print(f"No old data directory found at {old_winotp_data_dir}")
         return False
-    
+
     print(f"Found old data directory at {old_winotp_data_dir}, migrating data...")
-    
+
     # Make sure the new directory exists
     os.makedirs(winotp_data_dir, exist_ok=True)
-    
+
     # List of files to migrate
     files_to_migrate = ['tokens.json', 'app_settings.json', 'auth_config.json']
     migrated_files = []
-    
+
     for filename in files_to_migrate:
         old_path = os.path.join(old_winotp_data_dir, filename)
         new_path = os.path.join(winotp_data_dir, filename)
-        
+
         # Only migrate if the old file exists and the new one doesn't
         if os.path.exists(old_path) and not os.path.exists(new_path):
             try:
-                import shutil
                 shutil.copy2(old_path, new_path)
                 migrated_files.append(filename)
                 print(f"Migrated {filename} from Documents to AppData")
             except Exception as e:
                 print(f"Error migrating {filename}: {e}")
-    
+
+    # After migration, delete the old directory if any files were migrated
+    if migrated_files:
+        try:
+            shutil.rmtree(old_winotp_data_dir)
+            print(f"Old data directory {old_winotp_data_dir} deleted after migration.")
+        except Exception as e:
+            print(f"Error deleting old data directory {old_winotp_data_dir}: {e}")
+
     return len(migrated_files) > 0
 
 def main():
