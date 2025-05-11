@@ -1,14 +1,11 @@
 import os
 import json
 import tempfile
-import os
 import webbrowser
 from datetime import datetime
-from urllib.parse import parse_qs, urlparse
 import requests
 import msal
-from utils.file_io import read_json, write_json
-from pathlib import Path
+from utils.file_io import read_json
 
 # OneDrive API settings
 # Using 'common' endpoint to support both personal and business accounts
@@ -44,40 +41,53 @@ def get_auth_token():
             
             # Load the token cache - handle different MSAL versions
             try:
-                # First attempt: Try the public deserialize() method (newer MSAL versions)
                 with open(TOKEN_PATH, 'r') as f:
                     cache_data = f.read()
                 try:
-                    # Try to parse as JSON first (in case we saved it as JSON)
                     json_data = json.loads(cache_data)
-                    # If it's a token result directly, use it
                     if 'access_token' in json_data:
                         print("Found direct token in cache")
                         return json_data
                 except json.JSONDecodeError:
-                    # Not JSON, probably serialized cache data
                     pass
-                    
-                # Try to deserialize the cache data
-                app.token_cache.deserialize(cache_data)
-                print("Token cache loaded using deserialize() method")
+                # Try both MSAL cache deserialization methods for compatibility
+                try:
+                    app.token_cache.deserialize(cache_data)
+                    print("Token cache loaded using deserialize() method")
+                except AttributeError:
+                    try:
+                        app.token_cache._deserialize(cache_data)
+                        print("Token cache loaded using _deserialize() method (legacy)")
+                    except Exception as e2:
+                        print(f"Both deserialize methods failed: {e2}")
+                        return authenticate_user()
             except Exception as e:
                 print(f"Error loading token cache: {e}")
-                # If we can't load the cache, we'll authenticate again
                 return authenticate_user()
             
             # Get accounts
             accounts = app.get_accounts()
-            if accounts:
-                # If account exists, try to get token silently
+            if not accounts:
+                print("No accounts found in token cache. Forcing re-authentication.")
+                return authenticate_user()
+            # If account exists, try to get token silently
+            try:
                 result = app.acquire_token_silent(SCOPES, account=accounts[0])
-                if result:
+                if result and 'access_token' in result:
                     print("Token retrieved from cache")
                     return result
+                else:
+                    print("Token not found in cache or silent acquisition failed. Forcing re-authentication.")
+                    return authenticate_user()
+            except Exception as e:
+                print(f"Exception during acquire_token_silent: {e}. Forcing re-authentication.")
+                return authenticate_user()
         except Exception as e:
             print(f"Error loading token from cache: {e}")
-    
+            return authenticate_user()
+
     # If we don't have a valid token, authenticate the user
+    print("No valid token found. Forcing re-authentication.")
     return authenticate_user()
 
 
@@ -196,6 +206,27 @@ def authenticate_user():
     except Exception as e:
         print(f"Error saving token cache: {e}")
     
+    # Save the token cache after authentication
+    try:
+        cache_data = None
+        # Try public serialize() first
+        if hasattr(app.token_cache, 'serialize'):
+            cache_data = app.token_cache.serialize()
+            print("Token cache serialized using serialize()")
+        elif hasattr(app.token_cache, '_serialize'):
+            cache_data = app.token_cache._serialize()
+            print("Token cache serialized using _serialize() (legacy)")
+        if cache_data:
+            with open(TOKEN_PATH, 'w') as f:
+                f.write(cache_data if isinstance(cache_data, str) else cache_data.decode('utf-8'))
+            print(f"Token cache saved successfully to {TOKEN_PATH}")
+        else:
+            # Last resort: Save the token result as JSON
+            with open(TOKEN_PATH, 'w') as f:
+                json.dump(result, f)
+            print("Saved only the token result as fallback (no cache serialization available)")
+    except Exception as e:
+        print(f"Warning: Could not save token cache after authentication: {e}")
     print("Authentication successful")
     return result
 
@@ -264,57 +295,42 @@ def get_or_create_folder(access_token, folder_name):
         "Content-Type": "application/json"
     }
     
-    # Check if folder exists
-    search_url = f"https://graph.microsoft.com/v1.0/me/drive/root/children?$filter=name eq '{folder_name}' and folder ne null"
-    print(f"Searching for folder with URL: {search_url}")
+    # List all children in root and filter for folder by name in Python
+    search_url = "https://graph.microsoft.com/v1.0/me/drive/root/children"
+    print(f"Listing children with URL: {search_url}")
     print(f"Using headers: {headers}")
-    
     try:
         response = requests.get(search_url, headers=headers)
-        print(f"Folder search response status code: {response.status_code}")
-        print(f"Folder search response: {response.text}")
-        
-        if response.status_code != 200:
-            print(f"Error searching for folder: {response.text}")
-            return None
-        
-        result = response.json()
-        folders = result.get("value", [])
-        print(f"Found {len(folders)} folders matching '{folder_name}'")
-        
-        if folders:
-            # Folder exists, return its ID
-            folder_id = folders[0]["id"]
-            print(f"Folder '{folder_name}' found with ID: {folder_id}")
-            return folder_id
-        
-        # Folder doesn't exist, create it
-        print(f"Folder '{folder_name}' not found, creating it...")
-        create_url = "https://graph.microsoft.com/v1.0/me/drive/root/children"
-        create_data = {
-            "name": folder_name,
-            "folder": {},
-            "@microsoft.graph.conflictBehavior": "rename"
-        }
-        print(f"Creating folder with URL: {create_url}")
-        print(f"Create folder data: {create_data}")
+        print(f"Folder list response status code: {response.status_code}")
+        print(f"Folder list response: {response.text}")
+        if response.status_code == 200:
+            items = response.json().get("value", [])
+            for item in items:
+                if item["name"] == folder_name and "folder" in item:
+                    print(f"Found existing folder '{folder_name}' with ID: {item['id']}")
+                    return item["id"]
+        else:
+            print(f"Error listing children: {response.text}")
     except Exception as e:
         print(f"Exception during folder search: {str(e)}")
         return None
     
+    # Folder not found, create it
+    print(f"Folder '{folder_name}' not found, creating it...")
+    create_url = "https://graph.microsoft.com/v1.0/me/drive/root/children"
+    create_data = {
+        "name": folder_name,
+        "folder": {},
+        "@microsoft.graph.conflictBehavior": "rename"
+    }
+    print(f"Creating folder with URL: {create_url}")
+    print(f"Create folder data: {create_data}")
     try:
         print(f"Sending POST request to create folder: {create_url}")
         response = requests.post(create_url, headers=headers, json=create_data)
         print(f"Folder creation response status code: {response.status_code}")
         print(f"Folder creation response: {response.text}")
-        
-        if response.status_code not in [200, 201]:
-            print(f"Error creating folder: {response.text}")
-            return None
-        
-        folder_id = response.json()["id"]
-        print(f"Folder '{folder_name}' created with ID: {folder_id}")
-        return folder_id
+        return None
     except Exception as e:
         print(f"Exception during folder creation: {str(e)}")
         return None
@@ -332,56 +348,27 @@ def upload_tokens_json_to_onedrive(local_file_path='tokens.json', folder_name='W
         print(f"Current working directory: {os.getcwd()}")
         print(f"Local file exists: {os.path.exists(local_file_path)}")
         print(f"Local file absolute path: {os.path.abspath(local_file_path)}")
-        
         # Print MSAL version for debugging
         print(f"MSAL version: {msal.__version__ if hasattr(msal, '__version__') else 'Unknown'}")
-        
-        # Print token path
         print(f"Token path: {TOKEN_PATH}")
         print(f"Token file exists: {os.path.exists(TOKEN_PATH)}")
-        
-        # Make sure the token directory exists
         os.makedirs(os.path.dirname(TOKEN_PATH), exist_ok=True)
-        
-        # Read the tokens file
         tokens_data = read_json(local_file_path)
-        
-        # Check if the file is encrypted
         is_encrypted = tokens_data.get("encrypted", False) if isinstance(tokens_data, dict) else False
         print(f"File is encrypted: {is_encrypted}")
-        
-        # Initialize decrypted_tokens
         decrypted_tokens = {}
-        
         if is_encrypted:
             print("File is encrypted, creating unencrypted backup...")
-            # We need to extract the actual token data from the encrypted file
-            # Since we can't decrypt without the actual password/PIN, we'll create a clean version
-            # by reading the tokens from memory if possible
-            
-            # Try to import the main module to access loaded tokens
             try:
                 import sys
-                import os
-                
-                # Add the parent directory to sys.path if needed
                 parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
                 if parent_dir not in sys.path:
                     sys.path.append(parent_dir)
-                
-                # Try to import the main module and access the API instance
                 from main import Api
-                
-                # Create a temporary API instance to access tokens
                 temp_api = Api()
-                
-                # Load tokens if needed
                 if not temp_api._tokens_loaded:
                     temp_api.load_tokens()
-                
-                # Get the tokens from the API instance
                 if hasattr(temp_api, 'tokens') and temp_api.tokens:
-                    # Convert the tokens to a clean format for backup
                     for token_id, token_data in temp_api.tokens.items():
                         decrypted_tokens[token_id] = {
                             "issuer": token_data.get("issuer", "Unknown"),
@@ -392,43 +379,83 @@ def upload_tokens_json_to_onedrive(local_file_path='tokens.json', folder_name='W
                     print(f"Successfully extracted {len(decrypted_tokens)} tokens from memory")
                 else:
                     print("No tokens found in memory")
-                    # If we can't get tokens from memory, create an empty backup
                     decrypted_tokens = {}
             except Exception as e:
                 print(f"Error accessing tokens from memory: {e}")
-                # If we can't access tokens from memory, create an empty backup
                 decrypted_tokens = {}
         else:
-            # File is not encrypted, use as is
             print("File is not encrypted, using as is")
             decrypted_tokens = tokens_data
-        
         # Create a temporary file with the tokens
         with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.json') as temp_file:
             json.dump(decrypted_tokens, temp_file, indent=4)
             temp_file_path = temp_file.name
-        
-        # Get backup filename
         backup_filename = get_backup_filename()
         print(f"Backup filename: {backup_filename}")
-        
-        # Get authentication token
         print("Getting authentication token...")
         token_result = get_auth_token()
         if not token_result or "access_token" not in token_result:
-            raise Exception("Failed to get authentication token")
-        
+            print("Failed to get authentication token")
+            return False
         print("Authentication token obtained successfully")
         access_token = token_result["access_token"]
-        
-        # Get or create the backup folder
         print(f"Getting or creating backup folder '{folder_name}'...")
         folder_id = get_or_create_folder(access_token, folder_name)
         if not folder_id:
-            raise Exception(f"Failed to get or create folder '{folder_name}'")
-        
-        print(f"Using folder ID: {folder_id}")
-        
+            print(f"Failed to get or create folder '{folder_name}'")
+            return False
+        headers = {"Authorization": f"Bearer {access_token}"}
+        # Check if file exists
+        search_url = f"https://graph.microsoft.com/v1.0/me/drive/items/{folder_id}/children?$filter=name eq '{backup_filename}'"
+        try:
+            response = requests.get(search_url, headers=headers)
+            if response.status_code != 200:
+                print(f"Error searching for file: {response.text}")
+                return False
+            result = response.json()
+            files = result.get("value", [])
+        except Exception as e:
+            print(f"Exception during file search: {e}")
+            return False
+        with open(temp_file_path, 'rb') as f:
+            file_content = f.read()
+        if files:
+            file_id = files[0]["id"]
+            print(f"Updating existing file with ID: {file_id}")
+            update_url = f"https://graph.microsoft.com/v1.0/me/drive/items/{file_id}/content"
+            try:
+                response = requests.put(update_url, headers=headers, data=file_content)
+                if response.status_code not in [200, 201]:
+                    print(f"Error updating file: {response.text}")
+                    return False
+                print(f"File updated successfully with status code: {response.status_code}")
+                print(f"File URL: {response.json().get('webUrl', 'Unknown')}")
+            except Exception as e:
+                print(f"Exception during file update: {e}")
+                return False
+        else:
+            print(f"Creating new file '{backup_filename}'")
+            upload_url = f"https://graph.microsoft.com/v1.0/me/drive/items/{folder_id}:/{backup_filename}:/content"
+            try:
+                response = requests.put(upload_url, headers=headers, data=file_content)
+                if response.status_code not in [200, 201]:
+                    print(f"Error creating file: {response.text}")
+                    return False
+                print(f"File created successfully with status code: {response.status_code}")
+                print(f"File URL: {response.json().get('webUrl', 'Unknown')}")
+            except Exception as e:
+                print(f"Exception during file creation: {e}")
+                return False
+        try:
+            os.unlink(temp_file_path)
+        except Exception as e:
+            print(f"Warning: Could not delete temporary file {temp_file_path}: {e}")
+        print(f"OneDrive backup complete: {backup_filename}")
+        return True
+    except Exception as e:
+        print(f"Error during OneDrive backup: {e}")
+        # (Removed invalid code fragment)
+
         # Check if the file already exists
         headers = {
             "Authorization": f"Bearer {access_token}",

@@ -111,6 +111,7 @@ def load_settings():
 
 def save_settings(settings):
     """Save application settings"""
+    print("=== Entered save_settings ===")
     try:
         # Get old settings to compare
         old_settings = {}
@@ -120,20 +121,40 @@ def save_settings(settings):
         # Save the new settings
         write_json(settings_path, settings)
         
-        # Check if OneDrive backup was just enabled
-        if settings.get('backup_to_onedrive', False) and not old_settings.get('backup_to_onedrive', False):
-            print("OneDrive backup was just enabled, triggering immediate backup...")
+        # Debug: print current and old settings before checking OneDrive backup condition
+        print(f"DEBUG: settings = {settings}")
+        print(f"DEBUG: old_settings = {old_settings}")
+        # Always check if OneDrive backup is enabled and if backup has not been executed today on OneDrive
+        if settings.get('backup_to_onedrive', False):
+            print("DEBUG: Checking OneDrive for today's backup file...")
             try:
-                from utils.onedrive_backup import upload_tokens_json_to_onedrive
-                from datetime import datetime
-                upload_tokens_json_to_onedrive(local_file_path=tokens_path)
-                settings['last_backup_date_onedrive'] = datetime.now().date().isoformat()
-                write_json(settings_path, settings)
-                print("OneDrive backup completed and date updated.")
-            except Exception as e:
-                print(f"Error during immediate OneDrive backup: {e}")
+                from utils.onedrive_backup import check_backup_exists, upload_tokens_json_to_onedrive
+                backup_exists = check_backup_exists()
+                print(f"DEBUG: check_backup_exists returned {backup_exists}")
+                if not backup_exists:
+                    print("OneDrive backup enabled and not yet run today (no file found), triggering backup...")
+                    backup_success = upload_tokens_json_to_onedrive(local_file_path=tokens_path)
+                    if backup_success:
+                        from datetime import datetime
+                        today_str = datetime.now().strftime('%Y-%m-%d')
+                        settings['last_backup_date_onedrive'] = today_str
+                        write_json(settings_path, settings)
+                        print("OneDrive backup completed and last_backup_date_onedrive updated.")
+                    else:
+                        print("OneDrive backup failed: Backup was not uploaded to OneDrive. last_backup_date_onedrive NOT updated.")
+                else:
+                    print("OneDrive backup already exists for today; skipping.")
+            except Exception as backup_exc:
+                print(f"Error during OneDrive backup: {backup_exc}")
+                import traceback
+                traceback.print_exc()
+                import traceback
+                print("Error during immediate OneDrive backup.")
+                traceback.print_exc()
     except Exception as e:
-        print(f"Error saving settings: {e}")
+        print(f"Error saving settings (outer except): {e}")
+        import traceback
+        traceback.print_exc()
         return False
 
 def create_tray_icon(window):
