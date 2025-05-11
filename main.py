@@ -1341,12 +1341,39 @@ class Api:
     def set_setting(self, key, value):
         """Set a specific application setting"""
         with self._settings_lock:
-            self._settings[key] = value
-            success = self._save_settings()
+            # Special handling for OneDrive backup - don't save setting until after authentication
+            if key == "backup_to_onedrive" and value == True:
+                try:
+                    # Trigger OneDrive authentication immediately
+                    from utils.onedrive_backup import get_auth_token
+                    token_result = get_auth_token()
+                    
+                    # Check if authentication was cancelled or failed
+                    if token_result is None:
+                        print("OneDrive authentication was cancelled by user")
+                        return {"status": "cancelled", "message": "OneDrive authentication was cancelled"}
+                    if "access_token" not in token_result:
+                        print("OneDrive authentication failed")
+                        return {"status": "error", "message": "Failed to authenticate with OneDrive"}
+                    
+                    # Only save the setting after successful authentication
+                    self._settings[key] = value
+                    success = self._save_settings()
+                    if success:
+                        return {"status": "success", "message": "OneDrive backup enabled and authenticated"}
+                    else:
+                        return {"status": "error", "message": "Failed to save settings after authentication"}
+                except Exception as e:
+                    print(f"Error authenticating with OneDrive: {e}")
+                    return {"status": "error", "message": f"Failed to authenticate with OneDrive: {str(e)}"}
             
             # Special handling for Google Drive backup
-            if key == "backup_to_google_drive" and value == True:
+            elif key == "backup_to_google_drive" and value == True:
                 try:
+                    # Save setting first as this was the previous behavior
+                    self._settings[key] = value
+                    self._save_settings()
+                    
                     # Trigger Google Drive authentication immediately
                     from utils.drive_backup import authenticate_google_drive
                     authenticate_google_drive()
@@ -1358,24 +1385,15 @@ class Api:
                     self._save_settings()
                     return {"status": "error", "message": f"Failed to authenticate with Google Drive: {str(e)}"}
             
-            # Special handling for OneDrive backup
-            if key == "backup_to_onedrive" and value == True:
-                try:
-                    # Trigger OneDrive authentication immediately
-                    from utils.onedrive_backup import get_auth_token
-                    get_auth_token()
-                    return {"status": "success", "message": "OneDrive backup enabled and authenticated"}
-                except Exception as e:
-                    print(f"Error authenticating with OneDrive: {e}")
-                    # Revert the setting if authentication fails
-                    self._settings[key] = False
-                    self._save_settings()
-                    return {"status": "error", "message": f"Failed to authenticate with OneDrive: {str(e)}"}
-            
-            if success:
-                return {"status": "success", "message": f"Setting '{key}' updated successfully"}
+            # For all other settings, just save normally
             else:
-                return {"status": "error", "message": f"Failed to update setting '{key}'"}
+                self._settings[key] = value
+                success = self._save_settings()
+                
+                if success:
+                    return {"status": "success", "message": f"Setting '{key}' updated successfully"}
+                else:
+                    return {"status": "error", "message": f"Failed to update setting '{key}'"}
 
     def _save_settings(self):
         """Internal method to save settings and handle errors"""

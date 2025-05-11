@@ -32,6 +32,7 @@ TOKEN_PATH = os.path.join(os.path.expandvars('%APPDATA%'), 'WinOTP', 'token_oned
 def get_auth_token():
     """
     Get the authentication token for OneDrive, either from cache or by authenticating the user.
+    Returns None if authentication was cancelled by the user.
     """
     # Check if we have a cached token
     if os.path.exists(TOKEN_PATH):
@@ -116,11 +117,23 @@ def authenticate_user():
     print(f"Authentication code: {user_code}")
     print(f"Verification URI: {verification_uri}")
     
-    # Show the authentication code in the UI modal
+    # Show the authentication code in the UI modal and set up cancel functionality
     webview.windows[0].evaluate_js(f'''
         document.getElementById('oneDriveAuthCode').innerText = '{user_code}';
         document.getElementById('oneDriveAuthOpenBtn').onclick = function() {{
             window.open('{verification_uri}', '_blank');
+        }};
+        document.getElementById('oneDriveAuthCancelBtn').onclick = function() {{
+            document.getElementById('oneDriveAuthModal').style.display = 'none';
+            window.pywebviewAuthCancelled = true;
+            // Reset the OneDrive toggle to unchecked when canceling
+            const toggle = document.getElementById('oneDriveBackupToggle');
+            if (toggle) {{
+                toggle.checked = false;
+                // Trigger the change event handler to update the backend
+                const event = new Event('change');
+                toggle.dispatchEvent(event);
+            }}
         }};
         document.getElementById('oneDriveAuthModal').style.display = 'flex';
     ''')
@@ -131,17 +144,29 @@ def authenticate_user():
     # Poll for token in a background thread
     result_container = {}
     auth_completed = threading.Event()
+    auth_cancelled = threading.Event()
     
     def token_acquisition_thread():
         try:
-            # Poll for token
-            result = app.acquire_token_by_device_flow(flow)
-            result_container['result'] = result
+            # Poll for token, but periodically check if authentication was cancelled
+            # Set up cancellation check
+            cancelled = False
             
-            # Signal that authentication is complete
+            # Start token acquisition (which is blocking)
+            result = app.acquire_token_by_device_flow(flow)
+            
+            # Check if cancelled
+            cancelled = webview.windows[0].evaluate_js('window.pywebviewAuthCancelled === true')
+            if cancelled:
+                result_container['error'] = 'Authentication cancelled by user'
+                result_container['cancelled'] = True
+            else:
+                result_container['result'] = result
+            
+            # Signal that authentication is complete one way or another
             auth_completed.set()
             
-            # Hide the modal dialog
+            # Hide the modal dialog if still visible
             webview.windows[0].evaluate_js('''
                 document.getElementById('oneDriveAuthModal').style.display = 'none';
             ''')
@@ -154,16 +179,22 @@ def authenticate_user():
     thread.daemon = True
     thread.start()
     
-    # Wait for authentication to complete
+    # Wait for authentication to complete or cancellation
     auth_completed.wait()
     
-    # Check for errors
+    # Check for errors or cancellation
     if 'error' in result_container:
         # Hide the modal dialog in case of error
         webview.windows[0].evaluate_js('''
             document.getElementById('oneDriveAuthModal').style.display = 'none';
         ''')
-        raise Exception(f"Error in authentication: {result_container['error']}")
+        
+        # If it was cancelled by the user, don't raise an exception
+        if 'cancelled' in result_container and result_container['cancelled']:
+            print('Authentication was cancelled by the user')
+            return None
+        else:
+            raise Exception(f"Error in authentication: {result_container['error']}")
     
     result = result_container.get('result', {})
     if "error" in result:
@@ -247,6 +278,9 @@ def check_backup_exists(folder_name="WinOTP Backups"):
     try:
         # Get authentication token
         token_result = get_auth_token()
+        if token_result is None:
+            print("Authentication was cancelled by user")
+            return False
         if not token_result or "access_token" not in token_result:
             print("Failed to get authentication token")
             return False

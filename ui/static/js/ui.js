@@ -218,11 +218,19 @@ async function showSettingsPage() {
                     await waitForPywebviewApi();
                     const isEnabled = event.target.checked;
                     const result = await window.pywebview.api.set_setting('backup_to_onedrive', isEnabled);
+                    
                     if (result && result.status === 'success') {
                         showNotification(`OneDrive backup ${isEnabled ? 'enabled' : 'disabled'}`, 'success');
+                    } else if (result && result.status === 'cancelled') {
+                        // Authentication was cancelled by the user - toggle is already reset by the cancel button
+                        showNotification('OneDrive authentication cancelled', 'info');
+                        // UI state already handled by cancel button, no need to toggle again
                     } else {
                         showNotification(result.message || 'Failed to update OneDrive backup setting', 'error');
-                        event.target.checked = !event.target.checked;
+                        // Only toggle back if not already handled by a cancellation
+                        if (!result || result.status !== 'cancelled') {
+                            event.target.checked = !event.target.checked;
+                        }
                     }
                 } catch (error) {
                     console.error('Error updating OneDrive backup setting:', error);
