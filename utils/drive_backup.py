@@ -247,6 +247,39 @@ def upload_tokens_json_to_drive(local_file_path='tokens.json', drive_folder_name
             print(f"Warning: Could not delete temporary file {temp_file_path}: {e}")
         
         print(f"Backup to Google Drive complete: {backup_filename}")
+        
+        # Update the last backup date in the settings file
+        try:
+            from datetime import datetime
+            import os
+            
+            # Get the app settings file path
+            # First, check if we're in debug mode by checking for .dev files
+            parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            settings_file = os.path.join(parent_dir, 'app_settings.json.dev')
+            if not os.path.exists(settings_file):
+                # If not in debug mode, use the production path
+                settings_file = os.path.join(os.path.expandvars('%APPDATA%'), 'WinOTP', 'app_settings.json')
+            
+            if os.path.exists(settings_file):
+                # Load the current settings
+                with open(settings_file, 'r') as f:
+                    settings = json.load(f)
+                
+                # Update the backup date
+                today = datetime.now().strftime('%Y-%m-%d')
+                settings['last_backup_date_google_drive'] = today
+                
+                # Save the updated settings
+                with open(settings_file, 'w') as f:
+                    json.dump(settings, f, indent=4)
+                    
+                print(f"Updated last Google Drive backup date to {today} in {settings_file}")
+            else:
+                print(f"Settings file not found: {settings_file}")
+        except Exception as e:
+            print(f"Error updating last backup date: {e}")
+        
         return True
     except Exception as e:
         print(f"Error during Google Drive backup: {e}")

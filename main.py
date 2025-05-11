@@ -1360,7 +1360,19 @@ class Api:
                     self._settings[key] = value
                     success = self._save_settings()
                     if success:
-                        return {"status": "success", "message": "OneDrive backup enabled and authenticated"}
+                        # Trigger immediate backup after enabling
+                        try:
+                            from utils.onedrive_backup import upload_tokens_json_to_onedrive
+                            # Run backup in a separate thread to avoid blocking
+                            import threading
+                            backup_thread = threading.Thread(target=upload_tokens_json_to_onedrive, args=('tokens.json',))
+                            backup_thread.daemon = True
+                            backup_thread.start()
+                            return {"status": "success", "message": "OneDrive backup enabled and authenticated. Initial backup started."}
+                        except Exception as e:
+                            print(f"Error starting initial OneDrive backup: {e}")
+                            # Don't fail if just the initial backup fails
+                            return {"status": "success", "message": "OneDrive backup enabled and authenticated, but initial backup failed."} 
                     else:
                         return {"status": "error", "message": "Failed to save settings after authentication"}
                 except Exception as e:
@@ -1383,7 +1395,19 @@ class Api:
                     self._settings[key] = value
                     success = self._save_settings()
                     if success:
-                        return {"status": "success", "message": "Google Drive backup enabled and authenticated"}
+                        # Trigger immediate backup after enabling
+                        try:
+                            from utils.drive_backup import upload_tokens_json_to_drive
+                            # Run backup in a separate thread to avoid blocking
+                            import threading
+                            backup_thread = threading.Thread(target=upload_tokens_json_to_drive, args=('tokens.json',))
+                            backup_thread.daemon = True
+                            backup_thread.start()
+                            return {"status": "success", "message": "Google Drive backup enabled and authenticated. Initial backup started."}
+                        except Exception as e:
+                            print(f"Error starting initial Google Drive backup: {e}")
+                            # Don't fail if just the initial backup fails
+                            return {"status": "success", "message": "Google Drive backup enabled and authenticated, but initial backup failed."}
                     else:
                         return {"status": "error", "message": "Failed to save settings after authentication"}
                 except Exception as e:

@@ -375,6 +375,12 @@ def upload_tokens_json_to_onedrive(local_file_path='tokens.json', folder_name='W
     Uploads tokens.json to OneDrive in a specific folder. Creates/updates the file as needed.
     The backup file will be decrypted and include the current date in the filename.
     """
+    # Import required modules inside the function to avoid scope issues
+    import json
+    import os
+    import tempfile
+    from datetime import datetime
+    
     try:
         print(f"===== ONEDRIVE BACKUP PROCESS STARTED =====")
         print(f"Starting OneDrive backup process for {local_file_path}")
@@ -488,13 +494,10 @@ def upload_tokens_json_to_onedrive(local_file_path='tokens.json', folder_name='W
         return True
     except Exception as e:
         print(f"Error during OneDrive backup: {e}")
-        # (Removed invalid code fragment)
-
-        # Check if the file already exists
-        headers = {
-            "Authorization": f"Bearer {access_token}",
-            "Content-Type": "application/json"
-        }
+        # This code in the exception handler is not reliable and can cause more errors
+        # since many variables may not be defined in this scope
+        # Return False to indicate failure and let the caller handle it
+        return False
         
         print(f"Checking if file '{backup_filename}' already exists...")
         search_url = f"https://graph.microsoft.com/v1.0/me/drive/items/{folder_id}/children?$filter=name eq '{backup_filename}'"
@@ -577,11 +580,64 @@ def upload_tokens_json_to_onedrive(local_file_path='tokens.json', folder_name='W
         
         # Clean up the temporary file
         try:
-            os.unlink(temp_file_path)
+            # Make sure we use the correct OS module (import it here to avoid scope issues)
+            import os as temp_os
+            temp_os.unlink(temp_file_path)
         except Exception as e:
             print(f"Warning: Could not delete temporary file {temp_file_path}: {e}")
         
         print(f"OneDrive backup complete: {backup_filename}")
+        
+        # Update the last backup date in the settings file
+        try:
+            # Try to import the main module to access the API instance
+            import sys
+            import os as settings_os
+            from datetime import datetime
+            
+            # Add the parent directory to sys.path if needed
+            parent_dir = settings_os.path.dirname(settings_os.path.dirname(settings_os.path.abspath(__file__)))
+            if parent_dir not in sys.path:
+                sys.path.append(parent_dir)
+            
+            # First try to update using the API instance
+            try:
+                from main import Api
+                api_instance = Api()
+                today = datetime.now().strftime('%Y-%m-%d')
+                api_instance.set_setting('last_backup_date_onedrive', today)
+                print(f"Updated last OneDrive backup date to {today} using API instance")
+                return True
+            except Exception as api_error:
+                print(f"Error updating settings using API instance: {api_error}")
+                
+            # Fallback to direct file update if API method fails
+            import json
+            settings_file = settings_os.path.join(parent_dir, 'app_settings.json.dev')
+            if not settings_os.path.exists(settings_file):
+                # If not in debug mode, use the production path
+                settings_file = settings_os.path.join(settings_os.path.expandvars('%APPDATA%'), 'WinOTP', 'app_settings.json')
+            
+            if settings_os.path.exists(settings_file):
+                # Load the current settings
+                with open(settings_file, 'r') as f:
+                    settings = json.load(f)
+                
+                # Update ONLY the OneDrive backup date
+                today = datetime.now().strftime('%Y-%m-%d')
+                settings['last_backup_date_onedrive'] = today
+                
+                # Save the updated settings
+                with open(settings_file, 'w') as f:
+                    json.dump(settings, f, indent=4)
+                
+                print(f"Updated last OneDrive backup date to {today} in {settings_file} via direct file writing")
+            else:
+                print(f"Settings file not found: {settings_file}")
+                
+        except Exception as e:
+            print(f"Error updating last backup date in settings: {e}")
+        
         return True
     
     except Exception as e:
