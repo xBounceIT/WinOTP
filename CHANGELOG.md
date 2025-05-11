@@ -1,8 +1,11 @@
 # v0.8.0
-- Added Google Drive backup functionality
-- Added Onedrive backup functionality for both personal and business accounts
+- Added cloud backup functionality:
+  - Google Drive backup with automatic daily backups
+  - OneDrive backup with automatic daily backups
+  - Unencrypted backups with date-stamped filenames
+  - Automatic backup verification to ensure files exist
 - Fixed disable protection modal positioning
-- moved json files location to AppData Roaming WinOtp folder
+- Moved json files location to AppData Roaming WinOTP folder
 
 # v0.7.7
 - Fixed regression with next code preview, showing the same code after the first preview.

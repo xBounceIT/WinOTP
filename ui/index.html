@@ -26,6 +26,21 @@
         </div>
     </div>
     <!-- End Custom Credential Prompt Modal -->
+    
+    <!-- OneDrive Authentication Modal -->
+    <div id="oneDriveAuthModal" class="modal-overlay" style="display: none;">
+        <div class="modal-content">
+            <h5>Microsoft Authentication</h5>
+            <p>Enter this code on the Microsoft authentication page:</p>
+            <div id="oneDriveAuthCode" class="auth-code"></div>
+            <p>A browser window has been opened. If not, click the button below:</p>
+            <div class="modal-actions">
+                <button id="oneDriveAuthOpenBtn" class="btn btn-primary">Open Microsoft Login</button>
+            </div>
+            <p class="mt-3 text-center">This window will close automatically once authentication is complete.</p>
+        </div>
+    </div>
+    <!-- End OneDrive Authentication Modal -->
 
     <!-- Main Content Area -->
     <div class="container-fluid h-100">

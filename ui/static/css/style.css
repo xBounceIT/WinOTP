@@ -1661,4 +1661,18 @@ input:checked + .slider:before {
     padding: 10px;
     border-radius: 8px;
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+}
+
+/* Authentication code display */
+.auth-code {
+    font-size: 28px;
+    font-weight: bold;
+    text-align: center;
+    margin: 20px 0;
+    padding: 15px;
+    background-color: #f0f0f0;
+    border-radius: 4px;
+    letter-spacing: 2px;
+    font-family: monospace;
+    user-select: all;
 } 

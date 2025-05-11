@@ -86,7 +86,9 @@ def load_settings():
             "run_at_startup": False,
             "next_code_preview_enabled": False,
             "backup_to_google_drive": False,
-            "last_backup_date_google_drive": ""
+            "last_backup_date_google_drive": "",
+            "backup_to_onedrive": False,
+            "last_backup_date_onedrive": ""
         }
         
         if os.path.exists(settings_path):
@@ -110,8 +112,26 @@ def load_settings():
 def save_settings(settings):
     """Save application settings"""
     try:
+        # Get old settings to compare
+        old_settings = {}
+        if os.path.exists(settings_path):
+            old_settings = load_settings()
+        
+        # Save the new settings
         write_json(settings_path, settings)
-        return True
+        
+        # Check if OneDrive backup was just enabled
+        if settings.get('backup_to_onedrive', False) and not old_settings.get('backup_to_onedrive', False):
+            print("OneDrive backup was just enabled, triggering immediate backup...")
+            try:
+                from utils.onedrive_backup import upload_tokens_json_to_onedrive
+                from datetime import datetime
+                upload_tokens_json_to_onedrive(local_file_path=tokens_path)
+                settings['last_backup_date_onedrive'] = datetime.now().date().isoformat()
+                write_json(settings_path, settings)
+                print("OneDrive backup completed and date updated.")
+            except Exception as e:
+                print(f"Error during immediate OneDrive backup: {e}")
     except Exception as e:
         print(f"Error saving settings: {e}")
         return False
@@ -1317,6 +1337,20 @@ class Api:
                     self._save_settings()
                     return {"status": "error", "message": f"Failed to authenticate with Google Drive: {str(e)}"}
             
+            # Special handling for OneDrive backup
+            if key == "backup_to_onedrive" and value == True:
+                try:
+                    # Trigger OneDrive authentication immediately
+                    from utils.onedrive_backup import get_auth_token
+                    get_auth_token()
+                    return {"status": "success", "message": "OneDrive backup enabled and authenticated"}
+                except Exception as e:
+                    print(f"Error authenticating with OneDrive: {e}")
+                    # Revert the setting if authentication fails
+                    self._settings[key] = False
+                    self._save_settings()
+                    return {"status": "error", "message": f"Failed to authenticate with OneDrive: {str(e)}"}
+            
             if success:
                 return {"status": "success", "message": f"Setting '{key}' updated successfully"}
             else:
@@ -2071,12 +2105,14 @@ def main():
         os.makedirs(winotp_data_dir, exist_ok=True)
         print(f"Production data directory: {winotp_data_dir}")
         
-        # --- Google Drive backup logic ---
+        # --- Cloud backup logic ---
         from datetime import datetime
-        from utils.drive_backup import upload_tokens_json_to_drive, check_backup_exists
         settings = load_settings()
         today_str = datetime.now().date().isoformat()
+        
+        # --- Google Drive backup logic ---
         if settings.get("backup_to_google_drive", False):
+            from utils.drive_backup import upload_tokens_json_to_drive, check_backup_exists
             # Check if we need to perform a backup (either no backup today or backup file doesn't exist)
             backup_exists = False
             if settings.get("last_backup_date_google_drive", "") == today_str:
@@ -2100,6 +2136,33 @@ def main():
                     print("Google Drive backup completed and date updated.")
                 except Exception as e:
                     print(f"Google Drive backup failed: {e}")
+        
+        # --- OneDrive backup logic ---
+        if settings.get("backup_to_onedrive", False):
+            from utils.onedrive_backup import upload_tokens_json_to_onedrive, check_backup_exists as check_onedrive_backup_exists
+            # Check if we need to perform a backup (either no backup today or backup file doesn't exist)
+            backup_exists = False
+            if settings.get("last_backup_date_onedrive", "") == today_str:
+                # If we've backed up today, verify the file actually exists on OneDrive
+                try:
+                    backup_exists = check_onedrive_backup_exists()
+                    if not backup_exists:
+                        print("Today's backup file not found on OneDrive. Will create a new backup.")
+                except Exception as e:
+                    print(f"Error checking if OneDrive backup exists: {e}")
+                    # If we can't check, assume it doesn't exist to be safe
+                    backup_exists = False
+            
+            # Perform backup if needed
+            if not backup_exists:
+                try:
+                    # Use the global tokens_path variable directly
+                    upload_tokens_json_to_onedrive(local_file_path=tokens_path)
+                    settings["last_backup_date_onedrive"] = today_str
+                    save_settings(settings)
+                    print("OneDrive backup completed and date updated.")
+                except Exception as e:
+                    print(f"OneDrive backup failed: {e}")
     
         # Check if we need to migrate data from old location
         migrate_data_from_old_location()

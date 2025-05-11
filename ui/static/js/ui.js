@@ -103,6 +103,7 @@ async function showSettingsPage() {
             nextCodePreviewEnabled,
             runAtStartupEnabled,
             backupToGoogleDriveEnabled,
+            backupToOneDriveEnabled,
             backIconResult,
             aboutIconResult
         ] = await Promise.all([
@@ -112,6 +113,7 @@ async function showSettingsPage() {
             window.pywebview.api.get_setting('next_code_preview_enabled'),
             window.pywebview.api.get_setting('run_at_startup'),
             window.pywebview.api.get_setting('backup_to_google_drive'),
+            window.pywebview.api.get_setting('backup_to_onedrive'),
             window.pywebview.api.get_icon_base64('back_arrow.png'),
             window.pywebview.api.get_icon_base64('question.png')
         ]);
@@ -205,6 +207,31 @@ async function showSettingsPage() {
             });
         } else {
             console.error("Could not find element with ID 'googleDriveBackupToggle' in settings page.");
+        }
+
+        // Apply OneDrive backup setting
+        const oneDriveBackupToggle = document.getElementById('oneDriveBackupToggle');
+        if (oneDriveBackupToggle) {
+            oneDriveBackupToggle.checked = backupToOneDriveEnabled !== undefined ? backupToOneDriveEnabled : false;
+            oneDriveBackupToggle.addEventListener('change', async (event) => {
+                try {
+                    await waitForPywebviewApi();
+                    const isEnabled = event.target.checked;
+                    const result = await window.pywebview.api.set_setting('backup_to_onedrive', isEnabled);
+                    if (result && result.status === 'success') {
+                        showNotification(`OneDrive backup ${isEnabled ? 'enabled' : 'disabled'}`, 'success');
+                    } else {
+                        showNotification(result.message || 'Failed to update OneDrive backup setting', 'error');
+                        event.target.checked = !event.target.checked;
+                    }
+                } catch (error) {
+                    console.error('Error updating OneDrive backup setting:', error);
+                    showNotification('Failed to update OneDrive backup setting', 'error');
+                    event.target.checked = !event.target.checked;
+                }
+            });
+        } else {
+            console.error("Could not find element with ID 'oneDriveBackupToggle' in settings page.");
         }
 
         // Set up event listener for Minimize to Tray toggle
