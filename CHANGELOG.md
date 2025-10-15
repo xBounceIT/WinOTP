@@ -1,3 +1,6 @@
+# v0.8.1
+- Fixed QR image import functionality
+
 # v0.8.0
 - Added cloud backup functionality:
   - Google Drive backup with automatic daily backups

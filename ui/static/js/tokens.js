@@ -684,7 +684,14 @@ async function saveManualToken() {
 
 // Handle QR code file upload
 async function handleQrFileUpload(event) {
-    const file = event.target.files[0];
+    const input = event.target;
+    const file = input && input.files ? input.files[0] : null;
+
+    // Reset file input early so the same file can be re-selected if needed
+    if (input) {
+        input.value = '';
+    }
+
     if (!file) return;
 
     try {
@@ -694,10 +701,51 @@ async function handleQrFileUpload(event) {
             return;
         }
         
-        // Call API to scan QR code from file
-        const result = await window.pywebview.api.scan_qr_from_file(file.path);
+        let result;
+
+        if (file.path) {
+            // Native path is available (desktop environment)
+            result = await window.pywebview.api.scan_qr_from_file(file.path);
+        } else {
+            // Browser environment – read file contents and send as data URL
+            const dataUrl = await new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = () => reject(reader.error || new Error('Failed to read file'));
+                reader.readAsDataURL(file);
+            });
+
+            result = await window.pywebview.api.scan_qr_code(dataUrl);
+        }
+
         if (result.status === 'success') {
-            const tokenData = result.data;
+            let tokenData = result.data;
+
+            if (typeof tokenData === 'string' && tokenData.startsWith('otpauth-migration://')) {
+                // Handle Google Authenticator migration QR codes via dedicated importer
+                const importResult = await window.pywebview.api.import_tokens_from_google_auth_qr(tokenData);
+                showNotification(importResult.message, importResult.status === 'success' ? 'success' : 'error');
+                if (importResult.status === 'success') {
+                    showMainPage();
+                    await forceReloadTokens();
+                }
+                return;
+            }
+
+            if (Array.isArray(tokenData)) {
+                const [issuer, secret, name] = tokenData;
+                tokenData = {
+                    issuer: issuer || 'Unknown',
+                    name: name || 'Unknown',
+                    secret: secret || ''
+                };
+            }
+
+            if (!tokenData || !tokenData.secret) {
+                showNotification('QR code did not contain a valid secret.', 'error');
+                return;
+            }
+
             const addResult = await window.pywebview.api.add_token(tokenData);
             
             if (addResult.status === 'success') {
@@ -714,9 +762,6 @@ async function handleQrFileUpload(event) {
     } catch (error) {
         showNotification('Error processing QR code: ' + error, 'error');
     }
-    
-    // Reset file input
-    event.target.value = '';
 }
 
 // Toggle sort order
