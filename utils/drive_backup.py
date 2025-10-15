@@ -9,7 +9,7 @@ from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 
 # Import utilities for decryption
-from utils.auth import get_auth_type, is_auth_enabled
+from utils.auth import get_auth_type
 from utils.crypto import decrypt_tokens_file
 from utils.file_io import read_json
 
@@ -137,63 +137,28 @@ def upload_tokens_json_to_drive(local_file_path='tokens.json', drive_folder_name
         
         # Read the tokens file
         tokens_data = read_json(local_file_path)
-        
-        # Check if the file is encrypted
-        is_encrypted = tokens_data.get("encrypted", False) if isinstance(tokens_data, dict) else False
-        print(f"File is encrypted: {is_encrypted}")
-        
-        # Initialize decrypted_tokens
+
+        print("Preparing data for Google Drive backup...")
         decrypted_tokens = {}
-        
-        if is_encrypted:
-            print("File is encrypted, creating unencrypted backup...")
-            # We need to extract the actual token data from the encrypted file
-            # Since we can't decrypt without the actual password/PIN, we'll create a clean version
-            # by reading the tokens from memory if possible
-            
-            # Try to import the main module to access loaded tokens
+        if isinstance(tokens_data, dict) and tokens_data.get("encrypted", False):
+            print("File is encrypted, attempting to decrypt backup payload...")
             try:
-                import sys
-                import os
-                
-                # Add the parent directory to sys.path if needed
-                parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-                if parent_dir not in sys.path:
-                    sys.path.append(parent_dir)
-                
-                # Try to import the main module and access the API instance
-                from main import Api
-                
-                # Create a temporary API instance to access tokens
-                temp_api = Api()
-                
-                # Load tokens if needed
-                if not temp_api._tokens_loaded:
-                    temp_api.load_tokens()
-                
-                # Get the tokens from the API instance
-                if hasattr(temp_api, 'tokens') and temp_api.tokens:
-                    # Convert the tokens to a clean format for backup
-                    for token_id, token_data in temp_api.tokens.items():
-                        decrypted_tokens[token_id] = {
-                            "issuer": token_data.get("issuer", "Unknown"),
-                            "name": token_data.get("name", "Unknown"),
-                            "secret": token_data.get("secret", ""),
-                            "created": token_data.get("created", "")
-                        }
-                    print(f"Successfully extracted {len(decrypted_tokens)} tokens from memory")
+                auth_type = get_auth_type()
+                auth_config = read_json(AUTH_CONFIG_PATH) or {}
+                if auth_type == "pin":
+                    decrypted_tokens = decrypt_tokens_file(local_file_path, auth_config.get("pin_hash", "")) or {}
+                elif auth_type == "password":
+                    decrypted_tokens = decrypt_tokens_file(local_file_path, auth_config.get("password_hash", "")) or {}
                 else:
-                    print("No tokens found in memory")
-                    # If we can't get tokens from memory, create an empty backup
                     decrypted_tokens = {}
-            except Exception as e:
-                print(f"Error accessing tokens from memory: {e}")
-                # If we can't access tokens from memory, create an empty backup
+            except Exception as decrypt_error:
+                print(f"Error decrypting tokens for backup: {decrypt_error}")
                 decrypted_tokens = {}
-        else:
-            # File is not encrypted, use as is
+        elif isinstance(tokens_data, dict):
             print("File is not encrypted, using as is")
             decrypted_tokens = tokens_data
+        else:
+            decrypted_tokens = {}
         
         # Create a temporary file with the tokens
         with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.json') as temp_file:
@@ -247,39 +212,6 @@ def upload_tokens_json_to_drive(local_file_path='tokens.json', drive_folder_name
             print(f"Warning: Could not delete temporary file {temp_file_path}: {e}")
         
         print(f"Backup to Google Drive complete: {backup_filename}")
-        
-        # Update the last backup date in the settings file
-        try:
-            from datetime import datetime
-            import os
-            
-            # Get the app settings file path
-            # First, check if we're in debug mode by checking for .dev files
-            parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-            settings_file = os.path.join(parent_dir, 'app_settings.json.dev')
-            if not os.path.exists(settings_file):
-                # If not in debug mode, use the production path
-                settings_file = os.path.join(os.path.expandvars('%APPDATA%'), 'WinOTP', 'app_settings.json')
-            
-            if os.path.exists(settings_file):
-                # Load the current settings
-                with open(settings_file, 'r') as f:
-                    settings = json.load(f)
-                
-                # Update the backup date
-                today = datetime.now().strftime('%Y-%m-%d')
-                settings['last_backup_date_google_drive'] = today
-                
-                # Save the updated settings
-                with open(settings_file, 'w') as f:
-                    json.dump(settings, f, indent=4)
-                    
-                print(f"Updated last Google Drive backup date to {today} in {settings_file}")
-            else:
-                print(f"Settings file not found: {settings_file}")
-        except Exception as e:
-            print(f"Error updating last backup date: {e}")
-        
         return True
     except Exception as e:
         print(f"Error during Google Drive backup: {e}")

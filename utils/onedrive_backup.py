@@ -5,6 +5,8 @@ import webbrowser
 from datetime import datetime
 import requests
 import msal
+from utils.auth import get_auth_type
+from utils.crypto import decrypt_tokens_file
 from utils.file_io import read_json
 
 # OneDrive API settings
@@ -27,13 +29,27 @@ CLIENT_ID = "fec71448-5af2-4b56-aa74-114bfb6cd647"  # Replace with your actual c
 SCOPES = ["Files.ReadWrite"]
 REDIRECT_URI = "http://localhost:8000"
 TOKEN_PATH = os.path.join(os.path.expandvars('%APPDATA%'), 'WinOTP', 'token_onedrive.json')
+AUTH_CONFIG_PATH = os.path.join(os.path.expandvars('%APPDATA%'), 'WinOTP', 'auth_config.json')
 
 
-def get_auth_token():
+def _is_access_token_valid(token):
+    """Basic validation for bearer tokens returned by Microsoft Graph."""
+    return isinstance(token, str) and len(token) > 0
+
+
+def get_auth_token(force_refresh=False):
     """
     Get the authentication token for OneDrive, either from cache or by authenticating the user.
     Returns None if authentication was cancelled by the user.
     """
+    if force_refresh:
+        try:
+            if os.path.exists(TOKEN_PATH):
+                os.remove(TOKEN_PATH)
+                print("Removed cached OneDrive token to force refresh.")
+        except Exception as e:
+            print(f"Unable to remove cached token during force refresh: {e}")
+
     # Check if we have a cached token
     if os.path.exists(TOKEN_PATH):
         try:
@@ -47,8 +63,11 @@ def get_auth_token():
                 try:
                     json_data = json.loads(cache_data)
                     if 'access_token' in json_data:
-                        print("Found direct token in cache")
-                        return json_data
+                        if not force_refresh and _is_access_token_valid(json_data.get("access_token")):
+                            print("Found direct token in cache")
+                            return json_data
+                        print("Cached direct token is invalid or refresh requested. Triggering re-auth.")
+                        return authenticate_user()
                 except json.JSONDecodeError:
                     pass
                 # Try both MSAL cache deserialization methods for compatibility
@@ -74,7 +93,7 @@ def get_auth_token():
             # If account exists, try to get token silently
             try:
                 result = app.acquire_token_silent(SCOPES, account=accounts[0])
-                if result and 'access_token' in result:
+                if result and 'access_token' in result and _is_access_token_valid(result.get("access_token")):
                     print("Token retrieved from cache")
                     return result
                 else:
@@ -119,6 +138,7 @@ def authenticate_user():
     
     # Show the authentication code in the UI modal and set up cancel functionality
     webview.windows[0].evaluate_js(f'''
+        window.pywebviewAuthCancelled = false;
         document.getElementById('oneDriveAuthCode').innerText = '{user_code}';
         document.getElementById('oneDriveAuthOpenBtn').onclick = function() {{
             window.open('{verification_uri}', '_blank');
@@ -156,11 +176,12 @@ def authenticate_user():
             result = app.acquire_token_by_device_flow(flow)
             
             # Check if cancelled
-            cancelled = webview.windows[0].evaluate_js('window.pywebviewAuthCancelled === true')
+            cancelled = webview.windows[0].evaluate_js('Boolean(window.pywebviewAuthCancelled)')
             if cancelled:
                 result_container['error'] = 'Authentication cancelled by user'
                 result_container['cancelled'] = True
             else:
+                webview.windows[0].evaluate_js('window.pywebviewAuthCancelled = false;')
                 result_container['result'] = result
             
             # Signal that authentication is complete one way or another
@@ -278,11 +299,17 @@ def check_backup_exists(folder_name="WinOTP Backups"):
     try:
         # Get authentication token
         token_result = get_auth_token()
+        if not token_result or "access_token" not in token_result or not _is_access_token_valid(token_result.get("access_token")):
+            print("Cached OneDrive token invalid while checking for backup. Refreshing...")
+            token_result = get_auth_token(force_refresh=True)
         if token_result is None:
             print("Authentication was cancelled by user")
             return False
         if not token_result or "access_token" not in token_result:
             print("Failed to get authentication token")
+            return False
+        if not _is_access_token_valid(token_result.get("access_token")):
+            print("Failed to obtain valid access token for backup check.")
             return False
         
         access_token = token_result["access_token"]
@@ -394,38 +421,27 @@ def upload_tokens_json_to_onedrive(local_file_path='tokens.json', folder_name='W
         print(f"Token file exists: {os.path.exists(TOKEN_PATH)}")
         os.makedirs(os.path.dirname(TOKEN_PATH), exist_ok=True)
         tokens_data = read_json(local_file_path)
-        is_encrypted = tokens_data.get("encrypted", False) if isinstance(tokens_data, dict) else False
-        print(f"File is encrypted: {is_encrypted}")
+        print("Preparing data for OneDrive backup...")
         decrypted_tokens = {}
-        if is_encrypted:
+        if isinstance(tokens_data, dict) and tokens_data.get("encrypted", False):
             print("File is encrypted, creating unencrypted backup...")
             try:
-                import sys
-                parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-                if parent_dir not in sys.path:
-                    sys.path.append(parent_dir)
-                from main import Api
-                temp_api = Api()
-                if not temp_api._tokens_loaded:
-                    temp_api.load_tokens()
-                if hasattr(temp_api, 'tokens') and temp_api.tokens:
-                    for token_id, token_data in temp_api.tokens.items():
-                        decrypted_tokens[token_id] = {
-                            "issuer": token_data.get("issuer", "Unknown"),
-                            "name": token_data.get("name", "Unknown"),
-                            "secret": token_data.get("secret", ""),
-                            "created": token_data.get("created", "")
-                        }
-                    print(f"Successfully extracted {len(decrypted_tokens)} tokens from memory")
+                auth_type = get_auth_type()
+                auth_config = read_json(AUTH_CONFIG_PATH) or {}
+                if auth_type == "pin":
+                    decrypted_tokens = decrypt_tokens_file(local_file_path, auth_config.get("pin_hash", "")) or {}
+                elif auth_type == "password":
+                    decrypted_tokens = decrypt_tokens_file(local_file_path, auth_config.get("password_hash", "")) or {}
                 else:
-                    print("No tokens found in memory")
                     decrypted_tokens = {}
-            except Exception as e:
-                print(f"Error accessing tokens from memory: {e}")
+            except Exception as decrypt_error:
+                print(f"Error decrypting tokens for OneDrive backup: {decrypt_error}")
                 decrypted_tokens = {}
-        else:
+        elif isinstance(tokens_data, dict):
             print("File is not encrypted, using as is")
             decrypted_tokens = tokens_data
+        else:
+            decrypted_tokens = {}
         # Create a temporary file with the tokens
         with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.json') as temp_file:
             json.dump(decrypted_tokens, temp_file, indent=4)
@@ -434,6 +450,12 @@ def upload_tokens_json_to_onedrive(local_file_path='tokens.json', folder_name='W
         print(f"Backup filename: {backup_filename}")
         print("Getting authentication token...")
         token_result = get_auth_token()
+        if not token_result or "access_token" not in token_result or not _is_access_token_valid(token_result.get("access_token")):
+            print("Cached OneDrive token invalid or missing. Attempting to refresh...")
+            token_result = get_auth_token(force_refresh=True)
+            if not token_result or "access_token" not in token_result or not _is_access_token_valid(token_result.get("access_token")):
+                print("Failed to obtain a valid OneDrive access token after refresh.")
+                return False
         if not token_result or "access_token" not in token_result:
             print("Failed to get authentication token")
             return False
@@ -441,6 +463,14 @@ def upload_tokens_json_to_onedrive(local_file_path='tokens.json', folder_name='W
         access_token = token_result["access_token"]
         print(f"Getting or creating backup folder '{folder_name}'...")
         folder_id = get_or_create_folder(access_token, folder_name)
+        if folder_id is None:
+            print("Retrying folder lookup after refreshing OneDrive credentials...")
+            token_result = get_auth_token(force_refresh=True)
+            if not token_result or "access_token" not in token_result or not _is_access_token_valid(token_result.get("access_token")):
+                print("Failed to refresh OneDrive credentials for folder lookup.")
+                return False
+            access_token = token_result["access_token"]
+            folder_id = get_or_create_folder(access_token, folder_name)
         if not folder_id:
             print(f"Failed to get or create folder '{folder_name}'")
             return False
@@ -587,57 +617,6 @@ def upload_tokens_json_to_onedrive(local_file_path='tokens.json', folder_name='W
             print(f"Warning: Could not delete temporary file {temp_file_path}: {e}")
         
         print(f"OneDrive backup complete: {backup_filename}")
-        
-        # Update the last backup date in the settings file
-        try:
-            # Try to import the main module to access the API instance
-            import sys
-            import os as settings_os
-            from datetime import datetime
-            
-            # Add the parent directory to sys.path if needed
-            parent_dir = settings_os.path.dirname(settings_os.path.dirname(settings_os.path.abspath(__file__)))
-            if parent_dir not in sys.path:
-                sys.path.append(parent_dir)
-            
-            # First try to update using the API instance
-            try:
-                from main import Api
-                api_instance = Api()
-                today = datetime.now().strftime('%Y-%m-%d')
-                api_instance.set_setting('last_backup_date_onedrive', today)
-                print(f"Updated last OneDrive backup date to {today} using API instance")
-                return True
-            except Exception as api_error:
-                print(f"Error updating settings using API instance: {api_error}")
-                
-            # Fallback to direct file update if API method fails
-            import json
-            settings_file = settings_os.path.join(parent_dir, 'app_settings.json.dev')
-            if not settings_os.path.exists(settings_file):
-                # If not in debug mode, use the production path
-                settings_file = settings_os.path.join(settings_os.path.expandvars('%APPDATA%'), 'WinOTP', 'app_settings.json')
-            
-            if settings_os.path.exists(settings_file):
-                # Load the current settings
-                with open(settings_file, 'r') as f:
-                    settings = json.load(f)
-                
-                # Update ONLY the OneDrive backup date
-                today = datetime.now().strftime('%Y-%m-%d')
-                settings['last_backup_date_onedrive'] = today
-                
-                # Save the updated settings
-                with open(settings_file, 'w') as f:
-                    json.dump(settings, f, indent=4)
-                
-                print(f"Updated last OneDrive backup date to {today} in {settings_file} via direct file writing")
-            else:
-                print(f"Settings file not found: {settings_file}")
-                
-        except Exception as e:
-            print(f"Error updating last backup date in settings: {e}")
-        
         return True
     
     except Exception as e:

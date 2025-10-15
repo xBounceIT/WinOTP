@@ -8,8 +8,6 @@ import time
 from datetime import datetime
 import base64
 import io
-import pystray
-from PIL import Image
 import logging
 import urllib.request
 import re
@@ -29,13 +27,65 @@ from utils import asset_manager # Import asset_manager
 from utils.importers.winotp_importer import parse_winotp_json
 from utils.importers.twofas_importer import parse_2fas_json
 from utils.importers.authenticator_plugin import parse_authenticator_plugin_export
-from app import startup # Import the startup module
 from utils.single_instance import is_already_running, activate_existing_window
 
 # Globals for on-demand imports
 pyotp = None
 pyzbar = None
 Image = None
+_pystray_module = None
+_pil_image_module = None
+_startup_module = None
+_tray_icon_class = None
+
+
+def _ensure_pystray():
+    """Lazy import for pystray to avoid startup overhead."""
+    global _pystray_module
+    if _pystray_module is None:
+        import pystray as loaded_pystray
+        _pystray_module = loaded_pystray
+    return _pystray_module
+
+
+def _ensure_pil_image():
+    """Lazy import for PIL.Image used by tray icon utilities."""
+    global _pil_image_module, Image
+    if _pil_image_module is None:
+        from PIL import Image as pil_image
+        _pil_image_module = pil_image
+        Image = pil_image
+    return _pil_image_module
+
+
+def _get_tray_icon_class():
+    """Return platform-appropriate tray icon class only when needed."""
+    global _tray_icon_class
+    if _tray_icon_class is None:
+        pystray_mod = _ensure_pystray()
+        if sys.platform == 'win32':
+            class Win32PystrayIcon(pystray_mod.Icon):
+                WM_LBUTTONDBLCLK = 0x0203
+
+                def _on_notify(self, wparam, lparam):
+                    super()._on_notify(wparam, lparam)
+                    if lparam == self.WM_LBUTTONDBLCLK and hasattr(self, '_window'):
+                        self._window.show()
+                        self._window.restore()
+
+            _tray_icon_class = Win32PystrayIcon
+        else:
+            _tray_icon_class = pystray_mod.Icon
+    return _tray_icon_class
+
+
+def _get_startup_module():
+    """Lazily import startup helper module to delay COM initialization."""
+    global _startup_module
+    if _startup_module is None:
+        from app import startup as startup_module
+        _startup_module = startup_module
+    return _startup_module
 
 # Path to the user's app data directory (new location in AppData)
 winotp_data_dir = os.path.join(os.path.expandvars('%APPDATA%'), 'WinOTP')
@@ -54,29 +104,6 @@ file_write_lock = threading.Lock()
 sort_ascending = True  # Default sort order
 tray_icon = None
 
-# Define a custom Icon class for Windows that handles double-click
-if sys.platform == 'win32':
-    class Win32PystrayIcon(pystray.Icon):
-        # Windows message constants
-        WM_LBUTTONDBLCLK = 0x0203
-        
-        def _on_notify(self, wparam, lparam):
-            # Call the parent method to handle standard events
-            super()._on_notify(wparam, lparam)
-            
-            # Check if the event is a double-click
-            if lparam == self.WM_LBUTTONDBLCLK:
-                # Show and restore the window (same as "Show" menu item)
-                if hasattr(self, '_window'):
-                    self._window.show()
-                    self._window.restore()
-    
-    # Replace the default pystray.Icon with our custom class
-    CustomIcon = Win32PystrayIcon
-else:
-    # On other platforms, use the standard Icon class
-    CustomIcon = pystray.Icon
-
 def load_settings():
     """Load application settings"""
     try:
@@ -92,13 +119,14 @@ def load_settings():
         }
         
         if os.path.exists(settings_path):
-            current_settings = read_json(settings_path)
+            current_settings = read_json(settings_path) or {}
+            defaults_added = False
             # Ensure all default settings exist
             for key, value in default_settings.items():
                 if key not in current_settings:
                     current_settings[key] = value
-            # Save if any defaults were added
-            if len(current_settings) > len(read_json(settings_path)):
+                    defaults_added = True
+            if defaults_added:
                 write_json(settings_path, current_settings)
             return current_settings
         
@@ -109,60 +137,31 @@ def load_settings():
         print(f"Error loading settings: {e}")
         return default_settings
 
+
+def persist_settings(settings):
+    """Persist settings to disk without triggering side effects."""
+    try:
+        write_json(settings_path, settings)
+        return True
+    except Exception as e:
+        print(f"Error persisting settings: {e}")
+        return False
+
 def save_settings(settings):
     """Save application settings"""
     print("=== Entered save_settings ===")
-    try:
-        # Get old settings to compare
-        old_settings = {}
-        if os.path.exists(settings_path):
-            old_settings = load_settings()
-        
-        # Save the new settings
-        write_json(settings_path, settings)
-        
-        # Debug: print current and old settings before checking OneDrive backup condition
-        print(f"DEBUG: settings = {settings}")
-        print(f"DEBUG: old_settings = {old_settings}")
-        # Always check if OneDrive backup is enabled and if backup has not been executed today on OneDrive
-        if settings.get('backup_to_onedrive', False):
-            print("DEBUG: Checking OneDrive for today's backup file...")
-            try:
-                from utils.onedrive_backup import check_backup_exists, upload_tokens_json_to_onedrive
-                backup_exists = check_backup_exists()
-                print(f"DEBUG: check_backup_exists returned {backup_exists}")
-                if not backup_exists:
-                    print("OneDrive backup enabled and not yet run today (no file found), triggering backup...")
-                    backup_success = upload_tokens_json_to_onedrive(local_file_path=tokens_path)
-                    if backup_success:
-                        from datetime import datetime
-                        today_str = datetime.now().strftime('%Y-%m-%d')
-                        settings['last_backup_date_onedrive'] = today_str
-                        write_json(settings_path, settings)
-                        print("OneDrive backup completed and last_backup_date_onedrive updated.")
-                    else:
-                        print("OneDrive backup failed: Backup was not uploaded to OneDrive. last_backup_date_onedrive NOT updated.")
-                else:
-                    print("OneDrive backup already exists for today; skipping.")
-            except Exception as backup_exc:
-                print(f"Error during OneDrive backup: {backup_exc}")
-                import traceback
-                traceback.print_exc()
-                import traceback
-                print("Error during immediate OneDrive backup.")
-                traceback.print_exc()
-    except Exception as e:
-        print(f"Error saving settings (outer except): {e}")
-        import traceback
-        traceback.print_exc()
-        return False
+    return persist_settings(settings)
 
 def create_tray_icon(window):
     """Create system tray icon"""
     try:
+        image_module = _ensure_pil_image()
+        pystray_module = _ensure_pystray()
+        icon_class = _get_tray_icon_class()
+        
         # Load the icon image container
         icon_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ui", "static", "icons", "app.ico")
-        image_container = Image.open(icon_path)
+        image_container = image_module.open(icon_path)
         
         # Print original container size (usually largest frame)
         print(f"Pillow loaded ICO container, largest frame size: {image_container.size}")
@@ -177,12 +176,12 @@ def create_tray_icon(window):
             print("Warning: 32x32 frame not found in ICO. Falling back to largest and resizing.")
             # Fallback: Resize the largest image if 32x32 is missing
             target_size = (32, 32)
-            icon_32 = image_container.resize(target_size, Image.Resampling.LANCZOS)
+            icon_32 = image_container.resize(target_size, image_module.Resampling.LANCZOS)
             print(f"Resized largest frame to: {icon_32.size}")
         except Exception as e_extract:
              print(f"Error extracting 32x32 frame: {e_extract}. Falling back to largest and resizing.")
              target_size = (32, 32)
-             icon_32 = image_container.resize(target_size, Image.Resampling.LANCZOS)
+             icon_32 = image_container.resize(target_size, image_module.Resampling.LANCZOS)
              print(f"Resized largest frame to: {icon_32.size}")
         # --- End frame extraction ---
 
@@ -205,12 +204,12 @@ def create_tray_icon(window):
 
         # Create the tray icon using the 32x32 image
         menu = (
-            pystray.MenuItem("Show", show_window),
-            pystray.MenuItem("Quit", quit_app)
+            pystray_module.MenuItem("Show", show_window),
+            pystray_module.MenuItem("Quit", quit_app)
         )
         
         # Create the icon using our custom class
-        icon = CustomIcon("WinOTP", icon_32, "WinOTP", menu) # Use the extracted/resized 32x32 image
+        icon = icon_class("WinOTP", icon_32, "WinOTP", menu) # Use the extracted/resized 32x32 image
         
         # Store a reference to the window for the double-click handler
         if sys.platform == 'win32':
@@ -226,11 +225,17 @@ def import_lazy_modules():
     global pyotp, gzip, Image, scan_qr_image, calculate_offset, get_accurate_timestamp_30s
     
     try:
-        import pyotp
-        import gzip
-        from PIL import Image
-        from utils.qr_scanner import scan_qr_image
-        from utils.ntp_sync import calculate_offset, get_accurate_timestamp_30s
+        import pyotp as pyotp_module
+        import gzip as gzip_module
+        from utils.qr_scanner import scan_qr_image as qr_scanner
+        from utils.ntp_sync import calculate_offset as offset_func, get_accurate_timestamp_30s as timestamp_func
+        
+        pyotp = pyotp_module
+        gzip = gzip_module
+        Image = _ensure_pil_image()
+        scan_qr_image = qr_scanner
+        calculate_offset = offset_func
+        get_accurate_timestamp_30s = timestamp_func
         
         print("Lazy modules imported successfully")
     except Exception as e:
@@ -238,6 +243,76 @@ def import_lazy_modules():
 
 # Start lazy import in background
 lazy_import_thread = None
+
+
+def _perform_startup_backups(api, delay_seconds=2.0):
+    """Run cloud backup checks without blocking startup."""
+    try:
+        if delay_seconds:
+            time.sleep(delay_seconds)
+        with api._settings_lock:
+            settings_snapshot = dict(api._settings)
+    except Exception as e:
+        print(f"Failed to prepare startup backups: {e}")
+        return
+
+    today_str = datetime.now().date().isoformat()
+    updated_fields = {}
+
+    # Google Drive backup
+    if settings_snapshot.get("backup_to_google_drive", False):
+        try:
+            from utils.drive_backup import upload_tokens_json_to_drive, check_backup_exists
+            needs_backup = settings_snapshot.get("last_backup_date_google_drive", "") != today_str
+            if not needs_backup:
+                try:
+                    needs_backup = not check_backup_exists()
+                    if needs_backup:
+                        print("Today's backup file not found on Google Drive. Will create a new backup.")
+                except Exception as check_error:
+                    print(f"Error checking Google Drive backup existence: {check_error}")
+                    needs_backup = True
+            if needs_backup and upload_tokens_json_to_drive(local_file_path=tokens_path):
+                updated_fields["last_backup_date_google_drive"] = today_str
+                print("Google Drive backup completed and date updated.")
+        except Exception as backup_error:
+            print(f"Error during Google Drive backup: {backup_error}")
+
+    # OneDrive backup
+    if settings_snapshot.get("backup_to_onedrive", False):
+        try:
+            from utils.onedrive_backup import upload_tokens_json_to_onedrive, check_backup_exists as check_onedrive_backup_exists
+            needs_backup = settings_snapshot.get("last_backup_date_onedrive", "") != today_str
+            if not needs_backup:
+                try:
+                    needs_backup = not check_onedrive_backup_exists()
+                    if needs_backup:
+                        print("Today's backup file not found on OneDrive. Will create a new backup.")
+                except Exception as check_error:
+                    print(f"Error checking OneDrive backup existence: {check_error}")
+                    needs_backup = True
+            if needs_backup and upload_tokens_json_to_onedrive(local_file_path=tokens_path):
+                updated_fields["last_backup_date_onedrive"] = today_str
+                print("OneDrive backup completed and date updated.")
+        except Exception as backup_error:
+            print(f"Error during OneDrive backup: {backup_error}")
+
+    if updated_fields:
+        try:
+            with api._settings_lock:
+                api._settings.update(updated_fields)
+                persist_settings(api._settings)
+        except Exception as e:
+            print(f"Error updating settings after backups: {e}")
+
+
+def schedule_startup_backups(api, delay_seconds=2.0):
+    """Schedule startup backups on a background thread."""
+    threading.Thread(
+        target=_perform_startup_backups,
+        args=(api, delay_seconds),
+        daemon=True
+    ).start()
 
 class Api:
     def __init__(self):
@@ -1330,7 +1405,8 @@ class Api:
             
             # Special handling for run_at_startup to ensure registry sync
             if key == "run_at_startup":
-                registry_state = startup.is_in_startup()
+                startup_module = _get_startup_module()
+                registry_state = startup_module.is_in_startup()
                 if key not in self._settings or self._settings[key] != registry_state:
                     self._settings[key] = registry_state
                     self._save_settings()
@@ -1833,29 +1909,30 @@ class Api:
     def _sync_startup_setting(self):
         """Synchronizes the registry startup state with the saved setting."""
         try:
+            startup_module = _get_startup_module()
             with self._settings_lock:
                 # Ensure the setting exists in the JSON file
                 if "run_at_startup" not in self._settings:
-                    self._settings["run_at_startup"] = startup.is_in_startup()
+                    self._settings["run_at_startup"] = startup_module.is_in_startup()
                     self._save_settings()
                 
                 should_run_at_startup = self._settings["run_at_startup"]
-                is_currently_in_startup = startup.is_in_startup()
+                is_currently_in_startup = startup_module.is_in_startup()
 
                 logging.info(f"Startup sync: Saved setting={should_run_at_startup}, Registry state={is_currently_in_startup}")
 
                 # First check if shortcut path needs updating (if app was moved)
                 if is_currently_in_startup:
-                    startup.check_and_update_startup_shortcut()
+                    startup_module.check_and_update_startup_shortcut()
 
                 # Then handle adding/removing from startup based on settings
                 if should_run_at_startup and not is_currently_in_startup:
                     logging.info("Adding app to startup based on saved setting.")
-                    if not startup.add_to_startup():
+                    if not startup_module.add_to_startup():
                         logging.error("Failed to add app to startup during sync.")
                 elif not should_run_at_startup and is_currently_in_startup:
                     logging.info("Removing app from startup based on saved setting.")
-                    if not startup.remove_from_startup():
+                    if not startup_module.remove_from_startup():
                         logging.error("Failed to remove app from startup during sync.")
         except Exception as e:
             logging.error(f"Error during startup setting sync: {e}")
@@ -1867,16 +1944,17 @@ class Api:
             print(f"Setting run_at_startup to {enabled}")
             
             with self._settings_lock:
+                startup_module = _get_startup_module()
                 # Check current settings before modification
                 logging.info(f"Current settings before modification: {self._settings}")
                 print(f"Current settings before modification: {self._settings}")
                 
                 # First try to modify the startup shortcut
                 if enabled:
-                    operation_success = startup.add_to_startup()
+                    operation_success = startup_module.add_to_startup()
                     message = "Added shortcut to startup folder." if operation_success else "Failed to add shortcut to startup folder."
                 else:
-                    operation_success = startup.remove_from_startup()
+                    operation_success = startup_module.remove_from_startup()
                     message = "Removed shortcut from startup folder." if operation_success else "Failed to remove shortcut from startup folder."
 
                 logging.info(f"Startup operation success: {operation_success}, message: {message}")
@@ -1947,9 +2025,9 @@ class Api:
                     else:
                         # If settings save failed, try to revert shortcut change
                         if enabled:
-                            startup.remove_from_startup()
+                            startup_module.remove_from_startup()
                         else:
-                            startup.add_to_startup()
+                            startup_module.add_to_startup()
                         return {"status": "error", "message": "Failed to save setting to file"}
                 else:
                     # Include specific error message from startup functions if possible
@@ -2170,7 +2248,9 @@ def main():
         import utils.drive_backup as drive_backup
         import utils.onedrive_backup as onedrive_backup
         drive_backup.TOKEN_PATH = DRIVE_PICKLE_PATH
+        drive_backup.AUTH_CONFIG_PATH = AUTH_CONFIG_PATH
         onedrive_backup.TOKEN_PATH = ONEDRIVE_TOKEN_PATH
+        onedrive_backup.AUTH_CONFIG_PATH = AUTH_CONFIG_PATH
         print(f"DEBUG MODE: Using local development files:")
         print(f"  - Tokens: {tokens_path}")
         print(f"  - Settings: {settings_path}")
@@ -2192,66 +2272,8 @@ def main():
     try:
         os.makedirs(winotp_data_dir, exist_ok=True)
         print(f"Production data directory: {winotp_data_dir}")
-        
-        # --- Cloud backup logic ---
-        from datetime import datetime
-        settings = load_settings()
-        today_str = datetime.now().date().isoformat()
-        
-        # --- Google Drive backup logic ---
-        if settings.get("backup_to_google_drive", False):
-            from utils.drive_backup import upload_tokens_json_to_drive, check_backup_exists
-            # Check if we need to perform a backup (either no backup today or backup file doesn't exist)
-            backup_exists = False
-            if settings.get("last_backup_date_google_drive", "") == today_str:
-                # If we've backed up today, verify the file actually exists on Google Drive
-                try:
-                    backup_exists = check_backup_exists()
-                    if not backup_exists:
-                        print("Today's backup file not found on Google Drive. Will create a new backup.")
-                except Exception as e:
-                    print(f"Error checking if backup exists: {e}")
-                    # If we can't check, assume it doesn't exist to be safe
-                    backup_exists = False
-            
-            # Perform backup if needed
-            if not backup_exists:
-                try:
-                    # Use the global tokens_path variable directly
-                    upload_tokens_json_to_drive(local_file_path=tokens_path)
-                    settings["last_backup_date_google_drive"] = today_str
-                    save_settings(settings)
-                    print("Google Drive backup completed and date updated.")
-                except Exception as e:
-                    print(f"Google Drive backup failed: {e}")
-        
-        # --- OneDrive backup logic ---
-        if settings.get("backup_to_onedrive", False):
-            from utils.onedrive_backup import upload_tokens_json_to_onedrive, check_backup_exists as check_onedrive_backup_exists
-            # Check if we need to perform a backup (either no backup today or backup file doesn't exist)
-            backup_exists = False
-            if settings.get("last_backup_date_onedrive", "") == today_str:
-                # If we've backed up today, verify the file actually exists on OneDrive
-                try:
-                    backup_exists = check_onedrive_backup_exists()
-                    if not backup_exists:
-                        print("Today's backup file not found on OneDrive. Will create a new backup.")
-                except Exception as e:
-                    print(f"Error checking if OneDrive backup exists: {e}")
-                    # If we can't check, assume it doesn't exist to be safe
-                    backup_exists = False
-            
-            # Perform backup if needed
-            if not backup_exists:
-                try:
-                    # Use the global tokens_path variable directly
-                    upload_tokens_json_to_onedrive(local_file_path=tokens_path)
-                    settings["last_backup_date_onedrive"] = today_str
-                    save_settings(settings)
-                    print("OneDrive backup completed and date updated.")
-                except Exception as e:
-                    print(f"OneDrive backup failed: {e}")
-    
+        # Ensure settings file exists before continuing
+        load_settings()
         # Check if we need to migrate data from old location
         migrate_data_from_old_location()
     except OSError as e:
@@ -2303,6 +2325,7 @@ def main():
 
     # Create API instance (which will load settings and tokens based on the set paths)
     api = Api()
+    schedule_startup_backups(api)
 
     # Copy static files to ui directory if they don't exist - this ensures the web server can find them
     ui_static_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ui", "static")

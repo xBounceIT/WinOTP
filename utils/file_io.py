@@ -77,7 +77,6 @@ def write_json(file_path, data):
         bool: True if successful, False otherwise
     """
     print(f"Writing JSON data to {file_path}")
-    print(f"Data to write: {data}")
     
     try:
         # Clear the cache to ensure we don't have stale data
@@ -90,26 +89,12 @@ def write_json(file_path, data):
             os.makedirs(directory, exist_ok=True)
             print(f"Created directory: {directory}")
         
-        # Write the file with explicit flush and fsync
+        # Write the file using JSON formatting
         with open(file_path, 'w') as file:
             json.dump(data, file, indent=4)
             file.flush()
             os.fsync(file.fileno())
-        print(f"Data written and flushed to file")
-        
-        # Verify the write was successful by reading it back
-        if os.path.exists(file_path):
-            try:
-                with open(file_path, 'r') as verify_file:
-                    verify_data = json.load(verify_file)
-                    if verify_data == data:
-                        print("Write verification successful")
-                    else:
-                        print("Warning: Write verification failed - data mismatch")
-                        print(f"Expected: {data}")
-                        print(f"Actual: {verify_data}")
-            except Exception as e:
-                print(f"Error during verification: {e}")
+        print("Data written and flushed to file")
         
         # Update cache if enabled
         if _cache_enabled:

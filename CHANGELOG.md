@@ -1,3 +1,8 @@
+# v0.8.2
+- Added token refresh robustness to OneDrive and Google Drive backup functionalities
+- Optimized resource usage with multi threading
+- Refactored backup logic with lazy imports
+
 # v0.8.1
 - Fixed QR image import functionality
 
