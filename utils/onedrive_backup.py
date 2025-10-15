@@ -391,6 +391,31 @@ def get_or_create_folder(access_token, folder_name):
         response = requests.post(create_url, headers=headers, json=create_data)
         print(f"Folder creation response status code: {response.status_code}")
         print(f"Folder creation response: {response.text}")
+        if response.status_code in (200, 201):
+            try:
+                folder_info = response.json()
+            except ValueError:
+                print("Folder creation succeeded but response body was not JSON.")
+                return None
+
+            folder_id = folder_info.get("id")
+            if folder_id:
+                print(f"Created folder '{folder_name}' with ID: {folder_id}")
+                return folder_id
+
+            print("Folder creation response did not include an ID.")
+            return None
+
+        if response.status_code == 409:
+            # Folder already exists despite the earlier lookup. Try fetching again.
+            print("Folder already exists. Refreshing folder list to retrieve ID.")
+            try:
+                return get_or_create_folder(access_token, folder_name)
+            except RecursionError:
+                print("Folder lookup recursion limit reached after conflict response.")
+                return None
+
+        print(f"Error creating folder: {response.text}")
         return None
     except Exception as e:
         print(f"Exception during folder creation: {str(e)}")
