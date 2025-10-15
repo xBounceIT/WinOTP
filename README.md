@@ -52,8 +52,8 @@ pip install -r requirements.txt
 
 ## Configuration
 
-By default, the application stores its configuration and data files in the user's Documents folder:
-`%USERPROFILE%\Documents\WinOTP`
+By default, the application stores its configuration and data files in a dedicated appdata roaming folder:
+`%appdata%\Roaming\WinOTP`
 
 The main files are:
 
