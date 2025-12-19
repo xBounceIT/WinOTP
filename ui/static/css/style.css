@@ -184,16 +184,21 @@ body::-webkit-scrollbar-thumb:hover {
     justify-content: space-between;
     align-items: center;
     margin-bottom: 10px;
+    min-height: 40px;
+    height: 40px;
 }
 
 .token-info {
     display: flex;
-    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    flex: 1;
 }
 
 .token-issuer {
     font-weight: 600;
     font-size: 16px;
+    line-height: 1.2;
 }
 
 .token-name {
@@ -201,6 +206,7 @@ body::-webkit-scrollbar-thumb:hover {
     color: var(--text-color);
     opacity: 0.8;
     font-weight: 500;
+    line-height: 1.2;
 }
 
 .token-actions {
@@ -1495,6 +1501,9 @@ input:checked + .slider:before {
      color: var(--secondary-text-color); /* Use secondary text color */
 }
 /* --- End Import Progress Page Styles --- */
+
+/* Service Icons Styles */
+@import url('service-icons.css');
 
 /* Media Queries for Responsiveness */
 @media (max-width: 600px) {

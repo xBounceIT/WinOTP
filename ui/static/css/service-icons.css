@@ -1,0 +1,147 @@
+/* Service Icons Styles for WinOTP */
+
+/* Ensure token-info supports service icons - override main CSS */
+.token-card .token-header .token-info {
+    display: flex !important;
+    align-items: center !important;
+    gap: 12px !important;
+    flex: 1 !important;
+    flex-direction: row !important;
+}
+
+/* Circular service icon - STRICT 32x32 size constraint */
+.service-icon {
+    width: 32px !important;
+    height: 32px !important;
+    min-width: 32px !important;
+    max-width: 32px !important;
+    min-height: 32px !important;
+    max-height: 32px !important;
+    border-radius: 50% !important;
+    background-color: var(--primary-color);
+    color: white;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-weight: 600;
+    font-size: 14px;
+    flex-shrink: 0 !important;
+    overflow: hidden !important;
+    border: 2px solid var(--border-color) !important;
+    transition: transform 0.2s ease;
+    box-sizing: border-box;
+    position: relative;
+    padding: 0 !important;
+    margin: 0 !important;
+}
+
+/* Icon image styling - FORCE 32x32 with object-fit */
+.service-icon img {
+    width: 32px !important;
+    height: 32px !important;
+    max-width: 32px !important;
+    max-height: 32px !important;
+    border-radius: 50% !important;
+    object-fit: cover !important;
+    display: block !important;
+    border: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+}
+
+/* Letter fallback styling - FORCE 32x32 circular with filled background */
+.service-icon .letter-fallback {
+    text-transform: uppercase;
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 32px; /* Match container height */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    text-align: center;
+    margin: 0;
+    padding: 0;
+}
+
+/* Hover effect - scale but keep within bounds */
+.token-card:hover .service-icon {
+    transform: scale(1.1);
+    border-color: var(--primary-color);
+}
+
+/* Token text info container */
+.token-text-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0; /* Prevent overflow */
+}
+
+.token-issuer {
+    font-weight: 600;
+    font-size: 16px;
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.token-name {
+    font-size: 14px;
+    color: var(--text-color);
+    opacity: 0.8;
+    font-weight: 500;
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Dark mode adjustments */
+@media (prefers-color-scheme: dark) {
+    .service-icon {
+        border-color: var(--border-color);
+    }
+    
+    .service-icon:hover {
+        border-color: var(--primary-color);
+    }
+}
+
+/* Loading animation for icons */
+@keyframes iconFadeIn {
+    from {
+        opacity: 0;
+        transform: scale(0.8);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+.service-icon.loaded {
+    animation: iconFadeIn 0.3s ease-out;
+}
+
+/* Placeholder style for missing icons */
+.service-icon.placeholder {
+    background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+    border: 2px dashed var(--border-color);
+}
+
+/* Ensure container doesn't expand */
+.token-header {
+    min-height: 40px; /* Fixed height to prevent expansion */
+}
+
+/* Emergency override for any rogue images */
+.service-icon img[src] {
+    width: 32px !important;
+    height: 32px !important;
+    max-width: 32px !important;
+    max-height: 32px !important;
+    object-fit: cover !important;
+}

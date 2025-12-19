@@ -8,6 +8,9 @@ let cachedCrossIcon = null; // Cache for the cross icon
 let cachedAboutIcon = ''; // Cache for the about icon
 let cachedEditIcon = null; // Cache for the edit icon
 
+// Service icon cache
+const cachedServiceIcons = {}; // Cache for service icons
+
 // Function to load all essential icons at once
 async function loadAllIcons() {
     try {
@@ -488,4 +491,139 @@ async function loadBackIconForGoogleAuth() {
             backBtn.innerHTML = '←';
         }
     }
-} 
+}
+
+// Load service icon for a specific issuer
+async function loadServiceIcon(issuer) {
+    if (!issuer) return null;
+    
+    // Check cache first
+    if (cachedServiceIcons[issuer]) {
+        return cachedServiceIcons[issuer];
+    }
+    
+    try {
+        // Import the service icon mapper functions
+        if (typeof getServiceIconFilename === 'undefined') {
+            console.error('Service icon mapper not loaded');
+            return null;
+        }
+        
+        // Get the icon filename for this issuer
+        const iconFilename = getServiceIconFilename(issuer);
+        
+        if (!iconFilename) {
+            // No icon mapping found, return null to use letter fallback
+            cachedServiceIcons[issuer] = null;
+            return null;
+        }
+        
+        // Try to load the icon via pywebview API
+        if (!window.pywebview || !window.pywebview.api) {
+            console.error("pywebview API not available for service icon");
+            return null;
+        }
+        
+        // Use the API to get the service icon
+        const result = await window.pywebview.api.get_icon_base64(`services/${iconFilename}`);
+        
+        if (result.status === 'success') {
+            const iconData = `data:image/png;base64,${result.data}`;
+            cachedServiceIcons[issuer] = iconData;
+            return iconData;
+        } else {
+            // Icon file not found, cache null
+            cachedServiceIcons[issuer] = null;
+            return null;
+        }
+    } catch (error) {
+        console.error(`Error loading service icon for ${issuer}:`, error);
+        cachedServiceIcons[issuer] = null;
+        return null;
+    }
+}
+
+// Create service icon HTML element
+function createServiceIconElement(issuer, iconData) {
+    const iconDiv = document.createElement('div');
+    iconDiv.className = 'service-icon';
+    
+    // Force all 32x32 circular styling on the container
+    iconDiv.style.width = '32px';
+    iconDiv.style.height = '32px';
+    iconDiv.style.minWidth = '32px';
+    iconDiv.style.maxWidth = '32px';
+    iconDiv.style.minHeight = '32px';
+    iconDiv.style.maxHeight = '32px';
+    iconDiv.style.borderRadius = '50%';
+    iconDiv.style.overflow = 'hidden';
+    iconDiv.style.boxSizing = 'border-box';
+    iconDiv.style.display = 'flex';
+    iconDiv.style.alignItems = 'center';
+    iconDiv.style.justifyContent = 'center';
+    
+    if (iconData) {
+        // Use the loaded icon image
+        const img = document.createElement('img');
+        img.src = iconData;
+        img.alt = issuer;
+        // Force strict size constraints on the image element
+        img.style.width = '32px';
+        img.style.height = '32px';
+        img.style.maxWidth = '32px';
+        img.style.maxHeight = '32px';
+        img.style.minWidth = '32px';
+        img.style.minHeight = '32px';
+        img.style.objectFit = 'cover';
+        img.style.display = 'block';
+        img.style.borderRadius = '50%';
+        img.onerror = function() {
+            // If image fails to load, switch to letter fallback
+            this.style.display = 'none';
+            const letterSpan = document.createElement('span');
+            letterSpan.className = 'letter-fallback';
+            letterSpan.textContent = getIssuerFirstLetter(issuer);
+            letterSpan.style.fontSize = '14px';
+            letterSpan.style.fontWeight = '700';
+            letterSpan.style.textTransform = 'uppercase';
+            letterSpan.style.lineHeight = '32px';
+            letterSpan.style.width = '100%';
+            letterSpan.style.height = '100%';
+            letterSpan.style.display = 'flex';
+            letterSpan.style.alignItems = 'center';
+            letterSpan.style.justifyContent = 'center';
+            letterSpan.style.textAlign = 'center';
+            iconDiv.appendChild(letterSpan);
+            // Set the circular background color for the fallback
+            iconDiv.style.backgroundColor = getColorFromIssuer(issuer);
+        };
+        iconDiv.appendChild(img);
+    } else {
+        // Use letter fallback - force all circular styling
+        const letterSpan = document.createElement('span');
+        letterSpan.className = 'letter-fallback';
+        letterSpan.textContent = getIssuerFirstLetter(issuer);
+        // Force letter styling
+        letterSpan.style.fontSize = '14px';
+        letterSpan.style.fontWeight = '700';
+        letterSpan.style.textTransform = 'uppercase';
+        letterSpan.style.lineHeight = '32px';
+        letterSpan.style.width = '100%';
+        letterSpan.style.height = '100%';
+        letterSpan.style.display = 'flex';
+        letterSpan.style.alignItems = 'center';
+        letterSpan.style.justifyContent = 'center';
+        letterSpan.style.textAlign = 'center';
+        letterSpan.style.margin = '0';
+        letterSpan.style.padding = '0';
+        iconDiv.appendChild(letterSpan);
+        
+        // Set background color based on issuer for circular icon
+        iconDiv.style.backgroundColor = getColorFromIssuer(issuer);
+    }
+    
+    // Add loaded class for animation
+    setTimeout(() => iconDiv.classList.add('loaded'), 10);
+    
+    return iconDiv;
+}

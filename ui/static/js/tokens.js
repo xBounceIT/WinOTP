@@ -462,97 +462,183 @@ async function renderTokens() {
         return;
     }
 
-    filteredTokens.forEach(token => {
+    // Process tokens asynchronously to load icons
+    for (const token of filteredTokens) {
         const tokenCard = document.createElement('div');
         tokenCard.className = 'token-card';
         tokenCard.id = `token-${token.id}`;
         
-        tokenCard.innerHTML = `
-            <div class="token-header">
-                <div class="token-info">
-                    <div class="token-issuer">${escapeHtml(token.issuer)}</div>
-                    <div class="token-name">${escapeHtml(token.name)}</div>
-                </div>
-                <div class="token-actions">
-                    <button class="btn btn-icon" onclick="toggleEditMode('${token.id}')">
-                        ${cachedEditIcon ? `<img src="data:image/png;base64,${cachedEditIcon}" alt="Edit token" width="20" height="20">` : '✏️'}
-                    </button>
-                    <button class="btn btn-icon" onclick="deleteToken('${token.id}')">
-                        ${cachedCrossIcon ? `<img src="data:image/png;base64,${cachedCrossIcon}" alt="Delete token" width="20" height="20">` : '🗑️'}
-                    </button>
-                </div>
+        // Create the token header with service icon
+        const headerDiv = document.createElement('div');
+        headerDiv.className = 'token-header';
+        
+        // Create token info container
+        const tokenInfoDiv = document.createElement('div');
+        tokenInfoDiv.className = 'token-info';
+        
+        // Load and add service icon
+        try {
+            const iconData = await loadServiceIcon(token.issuer);
+            const iconElement = createServiceIconElement(token.issuer, iconData);
+            tokenInfoDiv.appendChild(iconElement);
+        } catch (error) {
+            console.error(`Failed to load icon for ${token.issuer}:`, error);
+            // Fallback to letter icon
+            const fallbackIcon = createServiceIconElement(token.issuer, null);
+            tokenInfoDiv.appendChild(fallbackIcon);
+        }
+        
+        // Create text info container
+        const textInfoDiv = document.createElement('div');
+        textInfoDiv.className = 'token-text-info';
+        
+        const issuerDiv = document.createElement('div');
+        issuerDiv.className = 'token-issuer';
+        issuerDiv.textContent = token.issuer;
+        
+        const nameDiv = document.createElement('div');
+        nameDiv.className = 'token-name';
+        nameDiv.textContent = token.name;
+        
+        textInfoDiv.appendChild(issuerDiv);
+        textInfoDiv.appendChild(nameDiv);
+        tokenInfoDiv.appendChild(textInfoDiv);
+        
+        // Create actions container
+        const actionsDiv = document.createElement('div');
+        actionsDiv.className = 'token-actions';
+        
+        const editBtn = document.createElement('button');
+        editBtn.className = 'btn btn-icon';
+        editBtn.onclick = () => toggleEditMode(token.id);
+        editBtn.innerHTML = cachedEditIcon ? 
+            `<img src="data:image/png;base64,${cachedEditIcon}" alt="Edit token" width="20" height="20">` : '✏️';
+        
+        const deleteBtn = document.createElement('button');
+        deleteBtn.className = 'btn btn-icon';
+        deleteBtn.onclick = () => deleteToken(token.id);
+        deleteBtn.innerHTML = cachedCrossIcon ? 
+            `<img src="data:image/png;base64,${cachedCrossIcon}" alt="Delete token" width="20" height="20">` : '🗑️';
+        
+        actionsDiv.appendChild(editBtn);
+        actionsDiv.appendChild(deleteBtn);
+        
+        headerDiv.appendChild(tokenInfoDiv);
+        headerDiv.appendChild(actionsDiv);
+        
+        // Create edit form
+        const editFormDiv = document.createElement('div');
+        editFormDiv.className = 'token-edit-form';
+        editFormDiv.id = `edit-form-${token.id}`;
+        editFormDiv.style.display = 'none';
+        editFormDiv.innerHTML = `
+            <div class="form-group">
+                <label for="editTokenIssuer-${token.id}">Issuer:</label>
+                <input type="text" id="editTokenIssuer-${token.id}" value="${escapeHtml(token.issuer)}" />
             </div>
-            <div class="token-edit-form" id="edit-form-${token.id}" style="display: none;">
-                <div class="form-group">
-                    <label for="editTokenIssuer-${token.id}">Issuer:</label>
-                    <input type="text" id="editTokenIssuer-${token.id}" value="${escapeHtml(token.issuer)}" />
-                </div>
-                <div class="form-group">
-                    <label for="editTokenName-${token.id}">Account Name:</label>
-                    <input type="text" id="editTokenName-${token.id}" value="${escapeHtml(token.name)}" />
-                </div>
-                <div class="form-actions">
-                    <button class="btn" onclick="saveTokenEdit('${token.id}')">Save</button>
-                    <button class="btn btn-secondary" onclick="toggleEditMode('${token.id}')">Cancel</button>
-                </div>
+            <div class="form-group">
+                <label for="editTokenName-${token.id}">Account Name:</label>
+                <input type="text" id="editTokenName-${token.id}" value="${escapeHtml(token.name)}" />
             </div>
-            <div class="token-code" id="code-${token.id}">
-                <div class="codes-container">
-                    <div class="code-line">
-                        <span class="current-code">${formatCode(token.code)}</span>
-                        <button class="copy-button" onclick="copyCode('${token.id}')">
-                            ${cachedCopyIcon ? `<img src="data:image/png;base64,${cachedCopyIcon}" alt="Copy" width="16" height="16">` : '📋'}
-                        </button>
-                    </div>
-                </div>
-            </div>
-            <div class="token-footer">
-                <div class="token-progress-container">
-                    <div class="token-progress-bar" id="progress-${token.id}" style="width: ${(token.timeRemaining / 30) * 100}%"></div>
-                </div>
-                <div class="time-remaining" id="timer-${token.id}">${Math.ceil(token.timeRemaining)}s</div>
+            <div class="form-actions">
+                <button class="btn" onclick="saveTokenEdit('${token.id}')">Save</button>
+                <button class="btn btn-secondary" onclick="toggleEditMode('${token.id}')">Cancel</button>
             </div>
         `;
+        
+        // Create code section
+        const codeDiv = document.createElement('div');
+        codeDiv.className = 'token-code';
+        codeDiv.id = `code-${token.id}`;
+        
+        const codesContainer = document.createElement('div');
+        codesContainer.className = 'codes-container';
+        
+        const codeLine = document.createElement('div');
+        codeLine.className = 'code-line';
+        
+        const currentCodeSpan = document.createElement('span');
+        currentCodeSpan.className = 'current-code';
+        currentCodeSpan.textContent = formatCode(token.code);
+        
+        const copyBtn = document.createElement('button');
+        copyBtn.className = 'copy-button';
+        copyBtn.onclick = () => copyCode(token.id);
+        copyBtn.innerHTML = cachedCopyIcon ? 
+            `<img src="data:image/png;base64,${cachedCopyIcon}" alt="Copy" width="16" height="16">` : '📋';
+        
+        codeLine.appendChild(currentCodeSpan);
+        codeLine.appendChild(copyBtn);
+        codesContainer.appendChild(codeLine);
+        codeDiv.appendChild(codesContainer);
+        
+        // Create footer
+        const footerDiv = document.createElement('div');
+        footerDiv.className = 'token-footer';
+        
+        const progressContainer = document.createElement('div');
+        progressContainer.className = 'token-progress-container';
+        
+        const progressBar = document.createElement('div');
+        progressBar.className = 'token-progress-bar';
+        progressBar.id = `progress-${token.id}`;
+        progressBar.style.width = `${(token.timeRemaining / 30) * 100}%`;
+        
+        progressContainer.appendChild(progressBar);
+        
+        const timerDiv = document.createElement('div');
+        timerDiv.className = 'time-remaining';
+        timerDiv.id = `timer-${token.id}`;
+        timerDiv.textContent = `${Math.ceil(token.timeRemaining)}s`;
+        
+        footerDiv.appendChild(progressContainer);
+        footerDiv.appendChild(timerDiv);
+        
+        // Assemble the token card
+        tokenCard.appendChild(headerDiv);
+        tokenCard.appendChild(editFormDiv);
+        tokenCard.appendChild(codeDiv);
+        tokenCard.appendChild(footerDiv);
         
         tokenList.appendChild(tokenCard);
         
         // Restore animation states if available
         if (animationStates[token.id]) {
             const state = animationStates[token.id];
-            const progressBar = document.getElementById(`progress-${token.id}`);
+            const progressBarElement = document.getElementById(`progress-${token.id}`);
             const codeElement = document.getElementById(`code-${token.id}`);
-            const codesContainer = codeElement.querySelector('.codes-container');
-            const copyButton = codeElement.querySelector('.copy-button');
+            const codesContainerElement = codeElement.querySelector('.codes-container');
+            const copyButtonElement = codeElement.querySelector('.copy-button');
             
             // Restore progress bar state
-            if (progressBar && state.progressWidth) {
-                progressBar.style.width = state.progressWidth;
+            if (progressBarElement && state.progressWidth) {
+                progressBarElement.style.width = state.progressWidth;
                 if (state.progressClass) {
-                    progressBar.className = state.progressClass;
+                    progressBarElement.className = state.progressClass;
                 }
             }
             
             // Restore copy button state
-            if (copyButton && state.copyButtonClass) {
-                copyButton.className = state.copyButtonClass;
+            if (copyButtonElement && state.copyButtonClass) {
+                copyButtonElement.className = state.copyButtonClass;
                 if (state.copyButtonHtml) {
-                    copyButton.innerHTML = state.copyButtonHtml;
+                    copyButtonElement.innerHTML = state.copyButtonHtml;
                 }
             }
             
             // Restore next code container if it was visible
-            if (state.nextCodeVisible && state.nextCodeHtml && codesContainer) {
+            if (state.nextCodeVisible && state.nextCodeHtml && codesContainerElement) {
                 const nextCodeContainer = document.createElement('div');
                 nextCodeContainer.className = 'next-code-container';
                 nextCodeContainer.innerHTML = state.nextCodeHtml;
-                codesContainer.appendChild(nextCodeContainer);
+                codesContainerElement.appendChild(nextCodeContainer);
                 
                 // Force reflow before adding show class
                 void nextCodeContainer.offsetHeight;
                 nextCodeContainer.classList.add('show');
             }
         }
-    });
+    }
 }
 
 // Format TOTP code with spaces for readability

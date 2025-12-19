@@ -1113,15 +1113,12 @@ class Api:
             
             # Try each path until we find the icon
             for icon_path in icon_paths:
-
-                
                 # Check if the file exists
                 if os.path.exists(icon_path):
                     # Read the file and encode as base64
                     with open(icon_path, "rb") as f:
                         icon_data = base64.b64encode(f.read()).decode("utf-8")
                     
-
                     return {"status": "success", "data": icon_data}
                 else:
                     print(f"Icon not found at: {icon_path}")

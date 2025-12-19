@@ -6,7 +6,8 @@
 - Removed all cloud backup functionality (Google Drive and OneDrive) due to complex handling of oauth2
 - Removed cloud-related dependencies (google-auth, google-auth-oauthlib, google-api-python-client, msal)
 - Simplified codebase and improved privacy by removing external cloud service connections
-- Reduced application size by removing ~650 lines of cloud backup code
+- Reduced application size
+- Added icon support for many services
 
 # v0.8.2
 - Added token refresh robustness to OneDrive and Google Drive backup functionalities
