@@ -144,6 +144,7 @@ def create_backup(tokens_path, backup_folder=None, settings_path=None, tokens_da
 def should_create_backup(settings_path, backup_folder=None):
     """
     Check if a backup should be created based on the last backup date
+    and whether a backup file actually exists
     
     Args:
         settings_path (str): Path to app_settings.json
@@ -167,10 +168,33 @@ def should_create_backup(settings_path, backup_folder=None):
         last_backup_date = settings.get("last_backup_date")
         current_date = datetime.now().strftime('%Y-%m-%d')
         
-        # If no previous backup or different date, create backup
-        if not last_backup_date or last_backup_date != current_date:
+        # Check if backup file exists for today
+        backup_pattern = f"winotp_backup_{current_date}_*.json"
+        backup_files = []
+        
+        try:
+            if os.path.exists(backup_folder):
+                backup_files = [f for f in os.listdir(backup_folder) 
+                               if f.startswith(f"winotp_backup_{current_date}_") and f.endswith('.json')]
+        except Exception as e:
+            logging.warning(f"Could not check backup folder: {e}")
+            # If we can't access the folder, assume we need to create a backup
             return True
         
+        # If no previous backup date, create backup
+        if not last_backup_date:
+            return True
+        
+        # If date has changed, create backup
+        if last_backup_date != current_date:
+            return True
+        
+        # If date is current but no backup file exists, create backup
+        if last_backup_date == current_date and len(backup_files) == 0:
+            logging.warning(f"Backup date is {last_backup_date} but no backup file found. Creating new backup.")
+            return True
+        
+        # If we have a backup file for today, don't create another
         return False
         
     except Exception as e:
