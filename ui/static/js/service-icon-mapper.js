@@ -43,10 +43,14 @@ const SERVICE_ICON_MAP = {
     // Security and Enterprise services
     'akamai': 'akamai.png',
     'bitdefender': 'bitdefender.png',
+    'crowdstrike': 'crowdstrike.png',
     'fortinet': 'fortinet.png',
+    'libraesva': 'libraesva.png',
+    'phishbrain': 'libraesva.png',
     'reevo': 'reevo.png',
     'sophos': 'sophos.png',
-    'stormshield': 'stormshield.png'
+    'stormshield': 'stormshield.png',
+    'ubiquiti': 'ubiquiti.png'
 };
 
 // Get icon filename for a service name
