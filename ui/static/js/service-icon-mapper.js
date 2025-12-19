@@ -32,6 +32,7 @@ const SERVICE_ICON_MAP = {
     'proton': 'proton.png',
     'protonmail': 'proton.png',
     'salesforce': 'salesforce.png',
+    'samsung': 'samsung.png',
     'skype': 'skype.png',
     'teamviewer': 'teamviewer.png',
     'trello': 'trello.png',
