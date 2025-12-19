@@ -250,6 +250,177 @@ async function showSettingsPage() {
             console.error("Could not find element with ID 'nextCodePreviewToggle' in settings page.");
         }
 
+        // Set up event listener for Backup Enabled toggle
+        const backupEnabledToggle = document.getElementById('backupEnabledToggle');
+        if (backupEnabledToggle) {
+            // First, get the current backup status to set the initial toggle value and button states
+            let backupEnabled = false;
+            try {
+                const backupStatus = await window.pywebview.api.get_backup_status();
+                if (backupStatus.status === 'success') {
+                    backupEnabled = backupStatus.data.enabled;
+                    backupEnabledToggle.checked = backupEnabled;
+                    // Update button states immediately
+                    updateBackupButtonStates(backupEnabled);
+                }
+            } catch (error) {
+                console.error('Error getting backup status for toggle:', error);
+            }
+            
+            // Now set up the event listener
+            backupEnabledToggle.addEventListener('change', async function(e) {
+                try {
+                    await waitForPywebviewApi();
+                    const result = await window.pywebview.api.enable_backup(e.target.checked);
+                    if (result.status === 'success') {
+                        showNotification(result.message, 'success');
+                        // Update backup status display and button states
+                        updateBackupStatusDisplay();
+                        updateBackupButtonStates(e.target.checked);
+                    } else {
+                        showNotification(result.message, 'error');
+                        e.target.checked = !e.target.checked; // Revert on error
+                    }
+                } catch (error) {
+                    console.error('Error enabling backup:', error);
+                    showNotification('Failed to update backup setting', 'error');
+                    e.target.checked = !e.target.checked; // Revert on error
+                }
+            });
+        } else {
+            console.error("Could not find element with ID 'backupEnabledToggle' in settings page.");
+        }
+
+        // Helper function to update backup sections visibility based on backup enabled status
+        async function updateBackupButtonStates(backupEnabled) {
+            const backupSectionsContainer = document.getElementById('backupSectionsContainer');
+            const backupToggleItem = document.getElementById('backupEnabledToggle').closest('.setting-item');
+            
+            if (backupSectionsContainer) {
+                backupSectionsContainer.style.display = backupEnabled ? 'block' : 'none';
+            }
+            
+            // Remove bottom border from the backup toggle when sections are hidden
+            if (backupToggleItem) {
+                if (backupEnabled) {
+                    backupToggleItem.style.borderBottom = '1px solid var(--border-color)';
+                } else {
+                    backupToggleItem.style.borderBottom = 'none';
+                }
+            }
+        }
+
+        // Set up event listener for Select Backup Folder button
+        const selectBackupFolderBtn = document.getElementById('selectBackupFolderBtn');
+        if (selectBackupFolderBtn) {
+            selectBackupFolderBtn.addEventListener('click', async function() {
+                try {
+                    await waitForPywebviewApi();
+                    
+                    // Use webview's file dialog to select a folder location
+                    const selectedFiles = await window.pywebview.api.select_directory_dialog();
+                    
+                    if (selectedFiles && selectedFiles.status === 'success' && selectedFiles.path) {
+                        // The dialog already validated the filename and directory
+                        // Set the selected directory as backup folder
+                        const result = await window.pywebview.api.set_backup_folder(selectedFiles.path);
+                        if (result.status === 'success') {
+                            showNotification('Backup folder selected successfully', 'success');
+                            // Update backup folder display
+                            updateBackupFolderDisplay();
+                        } else {
+                            showNotification(result.message || 'Failed to set backup folder', 'error');
+                        }
+                    } else if (selectedFiles && selectedFiles.status === 'error') {
+                        // Show the error message from the API
+                        showNotification(selectedFiles.message, 'error');
+                    } else {
+                        // User cancelled or no directory selected
+                        console.log('Folder selection cancelled');
+                    }
+                } catch (error) {
+                    console.error('Error selecting backup folder:', error);
+                    showNotification('Failed to select backup folder: ' + error.message, 'error');
+                }
+            });
+        } else {
+            console.error("Could not find element with ID 'selectBackupFolderBtn' in settings page.");
+        }
+
+        // Set up event listener for Create Backup button
+        const createBackupBtn = document.getElementById('createBackupBtn');
+        if (createBackupBtn) {
+            createBackupBtn.addEventListener('click', async function() {
+                try {
+                    await waitForPywebviewApi();
+                    const result = await window.pywebview.api.create_manual_backup();
+                    if (result.status === 'success') {
+                        showNotification(result.message, 'success');
+                        // Update backup status display
+                        updateBackupStatusDisplay();
+                    } else {
+                        showNotification(result.message, 'error');
+                    }
+                } catch (error) {
+                    console.error('Error creating backup:', error);
+                    showNotification('Failed to create backup', 'error');
+                }
+            });
+        } else {
+            console.error("Could not find element with ID 'createBackupBtn' in settings page.");
+        }
+
+        // Helper function to update backup folder display
+        async function updateBackupFolderDisplay() {
+            try {
+                await waitForPywebviewApi();
+                const status = await window.pywebview.api.get_backup_status();
+                if (status.status === 'success') {
+                    const backupFolderDisplay = document.getElementById('backupFolderDisplay');
+                    if (backupFolderDisplay) {
+                        if (status.data.backup_folder) {
+                            // Show last part of the path for privacy
+                            const parts = status.data.backup_folder.split(/[/\\]/);
+                            const folderName = parts[parts.length - 1];
+                            backupFolderDisplay.textContent = `Current folder: ${folderName}`;
+                        } else {
+                            backupFolderDisplay.textContent = 'Default folder';
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('Error updating backup folder display:', error);
+            }
+        }
+
+        // Helper function to update backup status display
+        async function updateBackupStatusDisplay() {
+            try {
+                await waitForPywebviewApi();
+                const status = await window.pywebview.api.get_backup_status();
+                if (status.status === 'success') {
+                    const backupStatusDisplay = document.getElementById('backupStatusDisplay');
+                    if (backupStatusDisplay) {
+                        if (status.data.last_backup_date) {
+                            backupStatusDisplay.textContent = `Last backup: ${status.data.last_backup_date}`;
+                        } else {
+                            backupStatusDisplay.textContent = 'No backups found';
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('Error updating backup status display:', error);
+            }
+        }
+
+        // Initialize backup displays and ensure correct initial state
+        updateBackupFolderDisplay();
+        updateBackupStatusDisplay();
+        
+        // Ensure backup sections visibility is correct on initial load
+        const initialBackupEnabled = backupEnabledToggle.checked;
+        updateBackupButtonStates(initialBackupEnabled);
+
         // Apply back icon
         if (backIconResult.status === 'success') {
             const backIcon = document.getElementById('backIcon');

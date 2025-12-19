@@ -28,6 +28,10 @@ from utils.importers.winotp_importer import parse_winotp_json
 from utils.importers.twofas_importer import parse_2fas_json
 from utils.importers.authenticator_plugin import parse_authenticator_plugin_export
 from utils.single_instance import is_already_running, activate_existing_window
+from utils.backup import (
+    create_backup, should_create_backup, get_backup_status, 
+    enable_backup, set_backup_folder, list_backups, restore_from_backup
+)
 
 # Globals for on-demand imports
 pyotp = None
@@ -111,7 +115,10 @@ def load_settings():
             "minimize_to_tray": False,
             "update_check_enabled": True,
             "run_at_startup": False,
-            "next_code_preview_enabled": False
+            "next_code_preview_enabled": False,
+            "backup_enabled": False,
+            "backup_folder": "",
+            "last_backup_date": ""
         }
         
         if os.path.exists(settings_path):
@@ -334,7 +341,14 @@ class Api:
             self.set_run_at_startup,
             self.clear_cache,
             self.get_fresh_token_code,
-            self.batch_get_token_codes
+            self.batch_get_token_codes,
+            # Backup API methods
+            self.get_backup_status,
+            self.enable_backup,
+            self.set_backup_folder,
+            self.create_manual_backup,
+            self.list_backups,
+            self.restore_from_backup
         )
     
     def load_tokens(self):
@@ -2039,6 +2053,90 @@ class Api:
         except Exception as e:
             return {"status": "error", "message": f"Error generating codes in batch: {str(e)}"}
 
+    def get_backup_status(self):
+        """Get current backup configuration status"""
+        try:
+            status = get_backup_status(settings_path)
+            return {"status": "success", "data": status}
+        except Exception as e:
+            return {"status": "error", "message": f"Failed to get backup status: {str(e)}"}
+
+    def enable_backup(self, enabled):
+        """Enable or disable backup functionality"""
+        try:
+            result = enable_backup(settings_path, enabled)
+            return result
+        except Exception as e:
+            return {"status": "error", "message": f"Failed to enable/disable backup: {str(e)}"}
+
+    def set_backup_folder(self, backup_folder):
+        """Set custom backup folder"""
+        try:
+            result = set_backup_folder(settings_path, backup_folder)
+            return result
+        except Exception as e:
+            return {"status": "error", "message": f"Failed to set backup folder: {str(e)}"}
+
+    def create_manual_backup(self):
+        """Create a manual backup of tokens"""
+        try:
+            # Use the same tokens that are loaded in memory (already decrypted)
+            # This ensures backup uses the same data structure as export
+            result = create_backup(tokens_path, settings_path=settings_path, tokens_data=self.tokens)
+            return result
+        except Exception as e:
+            return {"status": "error", "message": f"Failed to create backup: {str(e)}"}
+
+    def list_backups(self):
+        """List all backup files"""
+        try:
+            backups = list_backups()
+            return {"status": "success", "data": backups}
+        except Exception as e:
+            return {"status": "error", "message": f"Failed to list backups: {str(e)}"}
+
+    def restore_from_backup(self, backup_path):
+        """Restore tokens from a backup file"""
+        try:
+            result = restore_from_backup(backup_path, tokens_path)
+            return result
+        except Exception as e:
+            return {"status": "error", "message": f"Failed to restore from backup: {str(e)}"}
+
+    def select_directory_dialog(self):
+        """Open a folder selection dialog using webview's file dialog with JSON file requirement"""
+        try:
+            # Use webview's file dialog to select a folder location
+            # User must select or create a file named 'winotp_backup.json' in the desired folder
+            result = self._window.create_file_dialog(
+                webview.SAVE_DIALOG,
+                directory='~',
+                save_filename='winotp_backup.json',  # Pre-fill with the required filename
+                file_types=('JSON Files (*.json)',)   # Only show JSON files
+            )
+            
+            if result:
+                # Validate the selected file is named correctly
+                filename = os.path.basename(result)
+                if filename != 'winotp_backup.json':
+                    return {"status": "error", "message": f"Please select or create a file named 'winotp_backup.json', not '{filename}'"}
+                
+                # Extract directory from the selected path
+                directory = os.path.dirname(result)
+                
+                # Verify the directory exists and is valid
+                if not os.path.exists(directory):
+                    return {"status": "error", "message": "Selected folder does not exist"}
+                
+                if not os.path.isdir(directory):
+                    return {"status": "error", "message": "Selected path is not a folder"}
+                
+                return {"status": "success", "path": directory}
+            else:
+                return {"status": "cancelled", "message": "Folder selection cancelled"}
+        except Exception as e:
+            return {"status": "error", "message": f"Failed to open folder dialog: {str(e)}"}
+
 def set_tokens_path(path):
     """Set the path to the tokens file"""
     global tokens_path
@@ -2169,6 +2267,26 @@ def main():
     print("Starting background update check...")
     update_thread = threading.Thread(target=asset_manager.check_for_updates, daemon=True)
     update_thread.start()
+
+    # Check if automatic backup should be created
+    print("Checking if automatic backup is needed...")
+    try:
+        if should_create_backup(settings_path):
+            print("Creating automatic backup...")
+            # Create API instance first to load tokens
+            api = Api()
+            # Load tokens to get decrypted data
+            api.load_tokens()
+            # Create backup using the loaded tokens
+            backup_result = create_backup(tokens_path, settings_path=settings_path, tokens_data=api.tokens)
+            if backup_result["status"] == "success":
+                print(f"Automatic backup created successfully: {backup_result.get('backup_path', 'Unknown path')}")
+            else:
+                print(f"Automatic backup failed: {backup_result.get('message', 'Unknown error')}")
+        else:
+            print("Automatic backup not needed (disabled or already created today)")
+    except Exception as e:
+        print(f"Error during automatic backup check: {e}")
 
     # Create API instance (which will load settings and tokens based on the set paths)
     api = Api()

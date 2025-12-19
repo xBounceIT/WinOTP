@@ -610,6 +610,39 @@ body::-webkit-scrollbar-thumb:hover {
     line-height: 1.4;
 }
 
+/* Backup section styles */
+.backup-folder-display {
+    font-size: 13px;
+    color: #666;
+    background-color: var(--hover-color);
+    padding: 8px 12px;
+    border-radius: 4px;
+    margin-top: 8px;
+    border: 1px solid var(--border-color);
+    font-style: italic;
+}
+
+.backup-status-display {
+    font-size: 13px;
+    color: #666;
+    background-color: var(--hover-color);
+    padding: 8px 12px;
+    border-radius: 4px;
+    margin-top: 8px;
+    border: 1px solid var(--border-color);
+    font-style: italic;
+}
+
+
+@media (prefers-color-scheme: dark) {
+    .backup-folder-display,
+    .backup-status-display {
+        color: #999;
+        background-color: var(--card-background);
+        border-color: var(--border-color);
+    }
+}
+
 .form-separator {
     display: flex;
     align-items: center;
@@ -1676,4 +1709,4 @@ input:checked + .slider:before {
     font-family: monospace;
     user-select: all;
     color: #ffffff;
-} 
+}

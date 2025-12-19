@@ -92,6 +92,43 @@
 
 
         <div class="settings-section">
+            <h2>Backup</h2>
+            <div class="setting-item">
+                <div>
+                    <div class="setting-label">Enable Automatic Backup</div>
+                    <div class="setting-description">Create automatic backups of your tokens when the app opens</div>
+                </div>
+                <label class="switch">
+                    <input type="checkbox" id="backupEnabledToggle">
+                    <span class="slider"></span>
+                </label>
+            </div>
+            <div id="backupSectionsContainer" style="display: none;">
+                <div class="setting-item">
+                    <div>
+                        <div class="setting-label">Backup Folder</div>
+                        <div class="setting-description">Choose where to store your backup files</div>
+                        <div id="backupFolderDisplay" class="backup-folder-display">Default folder</div>
+                    </div>
+                    <button id="selectBackupFolderBtn" class="btn">Select Folder</button>
+                </div>
+                <div class="setting-item">
+                    <div>
+                        <div class="setting-label">Manual Backup</div>
+                        <div class="setting-description">Create a backup of your tokens now</div>
+                    </div>
+                    <button id="createBackupBtn" class="btn">Create Backup</button>
+                </div>
+                <div class="setting-item">
+                    <div>
+                        <div class="setting-label">Backup Status</div>
+                        <div id="backupStatusDisplay" class="backup-status-display">No backups found</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="settings-section">
             <h2>Update Checker</h2>
             <div class="setting-item">
                 <div>

@@ -1,5 +1,9 @@
 # v0.9.0
-- Removed all cloud backup functionality (Google Drive and OneDrive)
+- **NEW: Added comprehensive backup functionality**
+  - Automatic daily backups when app opens (configurable)
+  - Manual backup creation with timestamped files
+  - Custom backup folder selection with enhanced dialog
+- Removed all cloud backup functionality (Google Drive and OneDrive) due to complex handling of oauth2
 - Removed cloud-related dependencies (google-auth, google-auth-oauthlib, google-api-python-client, msal)
 - Simplified codebase and improved privacy by removing external cloud service connections
 - Reduced application size by removing ~650 lines of cloud backup code
