@@ -38,8 +38,8 @@ def create_backup(tokens_path, backup_folder=None, settings_path=None, tokens_da
         # Ensure backup folder exists
         os.makedirs(backup_folder, exist_ok=True)
         
-        # Generate timestamped filename
-        timestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+        # Generate date-only filename
+        timestamp = datetime.now().strftime('%Y-%m-%d')
         backup_filename = f'winotp_backup_{timestamp}.json'
         backup_path = os.path.join(backup_folder, backup_filename)
         
@@ -169,13 +169,13 @@ def should_create_backup(settings_path, backup_folder=None):
         current_date = datetime.now().strftime('%Y-%m-%d')
         
         # Check if backup file exists for today
-        backup_pattern = f"winotp_backup_{current_date}_*.json"
+        backup_filename = f"winotp_backup_{current_date}.json"
         backup_files = []
         
         try:
             if os.path.exists(backup_folder):
                 backup_files = [f for f in os.listdir(backup_folder) 
-                               if f.startswith(f"winotp_backup_{current_date}_") and f.endswith('.json')]
+                               if f == backup_filename]
         except Exception as e:
             logging.warning(f"Could not check backup folder: {e}")
             # If we can't access the folder, assume we need to create a backup

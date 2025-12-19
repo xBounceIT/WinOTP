@@ -379,10 +379,8 @@ async function showSettingsPage() {
                     const backupFolderDisplay = document.getElementById('backupFolderDisplay');
                     if (backupFolderDisplay) {
                         if (status.data.backup_folder) {
-                            // Show last part of the path for privacy
-                            const parts = status.data.backup_folder.split(/[/\\]/);
-                            const folderName = parts[parts.length - 1];
-                            backupFolderDisplay.textContent = `Current folder: ${folderName}`;
+                            // Show the full path
+                            backupFolderDisplay.textContent = `Current folder: ${status.data.backup_folder}`;
                         } else {
                             backupFolderDisplay.textContent = 'Default folder';
                         }
@@ -403,8 +401,10 @@ async function showSettingsPage() {
                     if (backupStatusDisplay) {
                         if (status.data.last_backup_date) {
                             backupStatusDisplay.textContent = `Last backup: ${status.data.last_backup_date}`;
+                            backupStatusDisplay.className = 'backup-status-display has-backup';
                         } else {
                             backupStatusDisplay.textContent = 'No backups found';
+                            backupStatusDisplay.className = 'backup-status-display no-backup';
                         }
                     }
                 }
