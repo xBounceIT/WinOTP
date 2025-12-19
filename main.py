@@ -111,11 +111,7 @@ def load_settings():
             "minimize_to_tray": False,
             "update_check_enabled": True,
             "run_at_startup": False,
-            "next_code_preview_enabled": False,
-            "backup_to_google_drive": False,
-            "last_backup_date_google_drive": "",
-            "backup_to_onedrive": False,
-            "last_backup_date_onedrive": ""
+            "next_code_preview_enabled": False
         }
         
         if os.path.exists(settings_path):
@@ -245,74 +241,6 @@ def import_lazy_modules():
 lazy_import_thread = None
 
 
-def _perform_startup_backups(api, delay_seconds=2.0):
-    """Run cloud backup checks without blocking startup."""
-    try:
-        if delay_seconds:
-            time.sleep(delay_seconds)
-        with api._settings_lock:
-            settings_snapshot = dict(api._settings)
-    except Exception as e:
-        print(f"Failed to prepare startup backups: {e}")
-        return
-
-    today_str = datetime.now().date().isoformat()
-    updated_fields = {}
-
-    # Google Drive backup
-    if settings_snapshot.get("backup_to_google_drive", False):
-        try:
-            from utils.drive_backup import upload_tokens_json_to_drive, check_backup_exists
-            needs_backup = settings_snapshot.get("last_backup_date_google_drive", "") != today_str
-            if not needs_backup:
-                try:
-                    needs_backup = not check_backup_exists()
-                    if needs_backup:
-                        print("Today's backup file not found on Google Drive. Will create a new backup.")
-                except Exception as check_error:
-                    print(f"Error checking Google Drive backup existence: {check_error}")
-                    needs_backup = True
-            if needs_backup and upload_tokens_json_to_drive(local_file_path=tokens_path):
-                updated_fields["last_backup_date_google_drive"] = today_str
-                print("Google Drive backup completed and date updated.")
-        except Exception as backup_error:
-            print(f"Error during Google Drive backup: {backup_error}")
-
-    # OneDrive backup
-    if settings_snapshot.get("backup_to_onedrive", False):
-        try:
-            from utils.onedrive_backup import upload_tokens_json_to_onedrive, check_backup_exists as check_onedrive_backup_exists
-            needs_backup = settings_snapshot.get("last_backup_date_onedrive", "") != today_str
-            if not needs_backup:
-                try:
-                    needs_backup = not check_onedrive_backup_exists()
-                    if needs_backup:
-                        print("Today's backup file not found on OneDrive. Will create a new backup.")
-                except Exception as check_error:
-                    print(f"Error checking OneDrive backup existence: {check_error}")
-                    needs_backup = True
-            if needs_backup and upload_tokens_json_to_onedrive(local_file_path=tokens_path):
-                updated_fields["last_backup_date_onedrive"] = today_str
-                print("OneDrive backup completed and date updated.")
-        except Exception as backup_error:
-            print(f"Error during OneDrive backup: {backup_error}")
-
-    if updated_fields:
-        try:
-            with api._settings_lock:
-                api._settings.update(updated_fields)
-                persist_settings(api._settings)
-        except Exception as e:
-            print(f"Error updating settings after backups: {e}")
-
-
-def schedule_startup_backups(api, delay_seconds=2.0):
-    """Schedule startup backups on a background thread."""
-    threading.Thread(
-        target=_perform_startup_backups,
-        args=(api, delay_seconds),
-        daemon=True
-    ).start()
 
 class Api:
     def __init__(self):
@@ -711,8 +639,14 @@ class Api:
             
             # Scan the processed image for QR codes
             processed_image = process_result["image"]
+            original_image = process_result.get("original", screenshot)
+
             print("Scanning captured image for QR codes...")
             qr_result = scan_qr_image(processed_image)
+
+            if not qr_result and original_image is not processed_image:
+                logging.info("Retrying QR scan with original screenshot after processed scan failed")
+                qr_result = scan_qr_image(original_image)
             
             if not qr_result:
                 logging.warning("No QR code found in the captured image")
@@ -1417,88 +1351,14 @@ class Api:
     def set_setting(self, key, value):
         """Set a specific application setting"""
         with self._settings_lock:
-            # Special handling for OneDrive backup - don't save setting until after authentication
-            if key == "backup_to_onedrive" and value == True:
-                try:
-                    # Trigger OneDrive authentication immediately
-                    from utils.onedrive_backup import get_auth_token
-                    token_result = get_auth_token()
-                    
-                    # Check if authentication was cancelled or failed
-                    if token_result is None:
-                        print("OneDrive authentication was cancelled by user")
-                        return {"status": "cancelled", "message": "OneDrive authentication was cancelled"}
-                    if "access_token" not in token_result:
-                        print("OneDrive authentication failed")
-                        return {"status": "error", "message": "Failed to authenticate with OneDrive"}
-                    
-                    # Only save the setting after successful authentication
-                    self._settings[key] = value
-                    success = self._save_settings()
-                    if success:
-                        # Trigger immediate backup after enabling
-                        try:
-                            from utils.onedrive_backup import upload_tokens_json_to_onedrive
-                            # Run backup in a separate thread to avoid blocking
-                            import threading
-                            backup_thread = threading.Thread(target=upload_tokens_json_to_onedrive, args=('tokens.json',))
-                            backup_thread.daemon = True
-                            backup_thread.start()
-                            return {"status": "success", "message": "OneDrive backup enabled and authenticated. Initial backup started."}
-                        except Exception as e:
-                            print(f"Error starting initial OneDrive backup: {e}")
-                            # Don't fail if just the initial backup fails
-                            return {"status": "success", "message": "OneDrive backup enabled and authenticated, but initial backup failed."} 
-                    else:
-                        return {"status": "error", "message": "Failed to save settings after authentication"}
-                except Exception as e:
-                    print(f"Error authenticating with OneDrive: {e}")
-                    return {"status": "error", "message": f"Failed to authenticate with OneDrive: {str(e)}"}
+            # For all settings, just save normally
+            self._settings[key] = value
+            success = self._save_settings()
             
-            # Special handling for Google Drive backup
-            elif key == "backup_to_google_drive" and value == True:
-                try:
-                    # Trigger Google Drive authentication immediately (don't save setting until successful)
-                    from utils.drive_backup import authenticate_google_drive
-                    service = authenticate_google_drive()
-                    
-                    # Check if authentication was cancelled or failed
-                    if service is None:
-                        print("Google Drive authentication was cancelled or failed")
-                        return {"status": "cancelled", "message": "Google Drive authentication was cancelled"}
-                    
-                    # Only save the setting after successful authentication
-                    self._settings[key] = value
-                    success = self._save_settings()
-                    if success:
-                        # Trigger immediate backup after enabling
-                        try:
-                            from utils.drive_backup import upload_tokens_json_to_drive
-                            # Run backup in a separate thread to avoid blocking
-                            import threading
-                            backup_thread = threading.Thread(target=upload_tokens_json_to_drive, args=('tokens.json',))
-                            backup_thread.daemon = True
-                            backup_thread.start()
-                            return {"status": "success", "message": "Google Drive backup enabled and authenticated. Initial backup started."}
-                        except Exception as e:
-                            print(f"Error starting initial Google Drive backup: {e}")
-                            # Don't fail if just the initial backup fails
-                            return {"status": "success", "message": "Google Drive backup enabled and authenticated, but initial backup failed."}
-                    else:
-                        return {"status": "error", "message": "Failed to save settings after authentication"}
-                except Exception as e:
-                    print(f"Error authenticating with Google Drive: {e}")
-                    return {"status": "error", "message": f"Failed to authenticate with Google Drive: {str(e)}"}
-            
-            # For all other settings, just save normally
+            if success:
+                return {"status": "success", "message": f"Setting '{key}' updated successfully"}
             else:
-                self._settings[key] = value
-                success = self._save_settings()
-                
-                if success:
-                    return {"status": "success", "message": f"Setting '{key}' updated successfully"}
-                else:
-                    return {"status": "error", "message": f"Failed to update setting '{key}'"}
+                return {"status": "error", "message": f"Failed to update setting '{key}'"}
 
     def _save_settings(self):
         """Internal method to save settings and handle errors"""
@@ -2240,23 +2100,10 @@ def main():
         tokens_path = os.path.abspath("tokens.json.dev")
         settings_path = os.path.abspath("app_settings.json.dev")
         AUTH_CONFIG_PATH = os.path.abspath("auth_config.json.dev")
-        # Set Google Drive and OneDrive token paths to utils folder in debug mode
-        utils_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'utils')
-        DRIVE_PICKLE_PATH = os.path.join(utils_dir, 'token_drive.pickle')
-        ONEDRIVE_TOKEN_PATH = os.path.join(utils_dir, 'token_onedrive.json')
-        # Patch the token path globals in the backup modules
-        import utils.drive_backup as drive_backup
-        import utils.onedrive_backup as onedrive_backup
-        drive_backup.TOKEN_PATH = DRIVE_PICKLE_PATH
-        drive_backup.AUTH_CONFIG_PATH = AUTH_CONFIG_PATH
-        onedrive_backup.TOKEN_PATH = ONEDRIVE_TOKEN_PATH
-        onedrive_backup.AUTH_CONFIG_PATH = AUTH_CONFIG_PATH
         print(f"DEBUG MODE: Using local development files:")
         print(f"  - Tokens: {tokens_path}")
         print(f"  - Settings: {settings_path}")
         print(f"  - Auth Config: {AUTH_CONFIG_PATH}")
-        print(f"  - Google Drive pickle: {DRIVE_PICKLE_PATH}")
-        print(f"  - OneDrive token: {ONEDRIVE_TOKEN_PATH}")
 
     # --- Check if instance is already running ---
     already_running, existing_hwnd = is_already_running()
@@ -2325,7 +2172,6 @@ def main():
 
     # Create API instance (which will load settings and tokens based on the set paths)
     api = Api()
-    schedule_startup_backups(api)
 
     # Copy static files to ui directory if they don't exist - this ensures the web server can find them
     ui_static_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ui", "static")

@@ -102,8 +102,6 @@ async function showSettingsPage() {
             updateCheckEnabled,
             nextCodePreviewEnabled,
             runAtStartupEnabled,
-            backupToGoogleDriveEnabled,
-            backupToOneDriveEnabled,
             backIconResult,
             aboutIconResult
         ] = await Promise.all([
@@ -112,8 +110,6 @@ async function showSettingsPage() {
             window.pywebview.api.get_setting('update_check_enabled'),
             window.pywebview.api.get_setting('next_code_preview_enabled'),
             window.pywebview.api.get_setting('run_at_startup'),
-            window.pywebview.api.get_setting('backup_to_google_drive'),
-            window.pywebview.api.get_setting('backup_to_onedrive'),
             window.pywebview.api.get_icon_base64('back_arrow.png'),
             window.pywebview.api.get_icon_base64('question.png')
         ]);
@@ -184,95 +180,6 @@ async function showSettingsPage() {
             console.error("Could not find element with ID 'runAtStartupToggle' in settings page.");
         }
 
-        // Apply Google Drive backup setting
-        const googleDriveBackupToggle = document.getElementById('googleDriveBackupToggle');
-        if (googleDriveBackupToggle) {
-            googleDriveBackupToggle.checked = backupToGoogleDriveEnabled !== undefined ? backupToGoogleDriveEnabled : false;
-            googleDriveBackupToggle.addEventListener('change', async (event) => {
-                try {
-                    await waitForPywebviewApi();
-                    const isEnabled = event.target.checked;
-                    let cancelAuthListener = null;
-                    
-                    // Create cancel button listener if this is enabling the backup
-                    if (isEnabled) {
-                        // Give user a way to cancel Google authentication by pressing ESC key
-                        cancelAuthListener = function(e) {
-                            if (e.key === 'Escape') {
-                                window.googleAuthCancelled = true;
-                                showNotification('Google Drive authentication cancelled', 'info');
-                                googleDriveBackupToggle.checked = false;
-                                document.removeEventListener('keydown', cancelAuthListener);
-                            }
-                        };
-                        document.addEventListener('keydown', cancelAuthListener);
-                        
-                        // Show info about how to cancel
-                        showNotification('Press ESC key to cancel Google authentication', 'info', 10000);
-                    }
-                    
-                    const result = await window.pywebview.api.set_setting('backup_to_google_drive', isEnabled);
-                    
-                    // Remove the cancel listener if it was created
-                    if (cancelAuthListener) {
-                        document.removeEventListener('keydown', cancelAuthListener);
-                    }
-                    
-                    if (result && result.status === 'success') {
-                        showNotification(`Google Drive backup ${isEnabled ? 'enabled' : 'disabled'}`, 'success');
-                    } else if (result && result.status === 'cancelled') {
-                        // Authentication was cancelled
-                        showNotification('Google Drive authentication cancelled', 'info');
-                        googleDriveBackupToggle.checked = false;
-                    } else {
-                        showNotification(result.message || 'Failed to update Google Drive backup setting', 'error');
-                        // Only toggle back if not already handled by a cancellation
-                        if (!result || result.status !== 'cancelled') {
-                            event.target.checked = !event.target.checked;
-                        }
-                    }
-                } catch (error) {
-                    console.error('Error updating Google Drive backup setting:', error);
-                    showNotification('Failed to update Google Drive backup setting', 'error');
-                    event.target.checked = !event.target.checked;
-                }
-            });
-        } else {
-            console.error("Could not find element with ID 'googleDriveBackupToggle' in settings page.");
-        }
-
-        // Apply OneDrive backup setting
-        const oneDriveBackupToggle = document.getElementById('oneDriveBackupToggle');
-        if (oneDriveBackupToggle) {
-            oneDriveBackupToggle.checked = backupToOneDriveEnabled !== undefined ? backupToOneDriveEnabled : false;
-            oneDriveBackupToggle.addEventListener('change', async (event) => {
-                try {
-                    await waitForPywebviewApi();
-                    const isEnabled = event.target.checked;
-                    const result = await window.pywebview.api.set_setting('backup_to_onedrive', isEnabled);
-                    
-                    if (result && result.status === 'success') {
-                        showNotification(`OneDrive backup ${isEnabled ? 'enabled' : 'disabled'}`, 'success');
-                    } else if (result && result.status === 'cancelled') {
-                        // Authentication was cancelled by the user - toggle is already reset by the cancel button
-                        showNotification('OneDrive authentication cancelled', 'info');
-                        // UI state already handled by cancel button, no need to toggle again
-                    } else {
-                        showNotification(result.message || 'Failed to update OneDrive backup setting', 'error');
-                        // Only toggle back if not already handled by a cancellation
-                        if (!result || result.status !== 'cancelled') {
-                            event.target.checked = !event.target.checked;
-                        }
-                    }
-                } catch (error) {
-                    console.error('Error updating OneDrive backup setting:', error);
-                    showNotification('Failed to update OneDrive backup setting', 'error');
-                    event.target.checked = !event.target.checked;
-                }
-            });
-        } else {
-            console.error("Could not find element with ID 'oneDriveBackupToggle' in settings page.");
-        }
 
         // Set up event listener for Minimize to Tray toggle
         const minimizeToTrayToggle = document.getElementById('minimizeToTrayToggle');
@@ -606,4 +513,4 @@ document.addEventListener('DOMContentLoaded', () => {
     // ... other event listeners ...
 
     // ... other event listeners ...
-}); 
+});

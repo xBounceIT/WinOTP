@@ -7,9 +7,9 @@ and process it for QR code scanning.
 
 import io
 import logging
-from PIL import Image, ImageGrab
-from datetime import datetime
 import traceback
+from datetime import datetime
+from PIL import Image, ImageGrab, ImageOps, ImageEnhance, ImageFilter
 
 def capture_screen_region(region=None):
     """
@@ -77,17 +77,42 @@ def process_captured_image(image):
         dict: A dictionary containing the processed image
     """
     try:
-        # Apply basic image enhancements to improve QR code detection
-        # Convert to grayscale
-        image_processed = image.convert('L')
-        
-        # Log processing details
-        logging.info(f"Processed image dimensions: {image_processed.width}x{image_processed.height}")
-        
+        # Apply a series of enhancements to improve QR code detection reliability.
+        image_processed = image.convert('L')  # grayscale gives pyzbar stable input
+        image_processed = ImageOps.autocontrast(image_processed)
+        image_processed = ImageEnhance.Contrast(image_processed).enhance(1.8)
+        image_processed = ImageEnhance.Sharpness(image_processed).enhance(2.0)
+        image_processed = image_processed.filter(ImageFilter.UnsharpMask(radius=1, percent=150))
+
+        # Upscale small captures so the QR modules remain legible after preprocessing.
+        min_dimension = min(image_processed.width, image_processed.height)
+        if min_dimension < 320:
+            scale_factor = max(2, int(320 / min_dimension))
+            new_size = (
+                image_processed.width * scale_factor,
+                image_processed.height * scale_factor
+            )
+            image_processed = image_processed.resize(new_size, Image.LANCZOS)
+            logging.info(
+                "Upscaled processed image to %sx%s using factor %s",
+                image_processed.width,
+                image_processed.height,
+                scale_factor
+            )
+
+        logging.info(
+            "Processed image dimensions: %sx%s (original %sx%s)",
+            image_processed.width,
+            image_processed.height,
+            image.width,
+            image.height
+        )
+
         return {
             "status": "success",
             "message": "Image processed successfully",
-            "image": image_processed
+            "image": image_processed,
+            "original": image
         }
     except Exception as e:
         logging.error(f"Error processing captured image: {e}")
