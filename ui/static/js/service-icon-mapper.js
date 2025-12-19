@@ -29,7 +29,8 @@ const SERVICE_ICON_MAP = {
     'notion': 'notion.png',
     'okta': 'okta.png',
     'outlook': 'outlook.png',
-    'protonmail': 'protonmail.png',
+    'proton': 'proton.png',
+    'protonmail': 'proton.png',
     'salesforce': 'salesforce.png',
     'skype': 'skype.png',
     'teamviewer': 'teamviewer.png',
@@ -38,7 +39,14 @@ const SERVICE_ICON_MAP = {
     'wordpress': 'wordpress.png',
     'yahoo': 'yahoo.png',
     'youtube': 'youtube.png',
-    'zoom': 'zoom.png'
+    'zoom': 'zoom.png',
+    // Security and Enterprise services
+    'akamai': 'akamai.png',
+    'bitdefender': 'bitdefender.png',
+    'fortinet': 'fortinet.png',
+    'reevo': 'reevo.png',
+    'sophos': 'sophos.png',
+    'stormshield': 'stormshield.png'
 };
 
 // Get icon filename for a service name
