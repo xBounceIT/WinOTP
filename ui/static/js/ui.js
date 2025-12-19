@@ -355,15 +355,15 @@ async function showSettingsPage() {
                     await waitForPywebviewApi();
                     const result = await window.pywebview.api.create_manual_backup();
                     if (result.status === 'success') {
-                        showNotification(result.message, 'success');
+                        showNotification('Manual backup executed successfully', 'success');
                         // Update backup status display
                         updateBackupStatusDisplay();
                     } else {
-                        showNotification(result.message, 'error');
+                        showNotification('Manual backup failed', 'error');
                     }
                 } catch (error) {
                     console.error('Error creating backup:', error);
-                    showNotification('Failed to create backup', 'error');
+                    showNotification('Manual backup failed', 'error');
                 }
             });
         } else {

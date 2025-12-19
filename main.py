@@ -2083,9 +2083,14 @@ class Api:
             # Use the same tokens that are loaded in memory (already decrypted)
             # This ensures backup uses the same data structure as export
             result = create_backup(tokens_path, settings_path=settings_path, tokens_data=self.tokens)
-            return result
+            
+            # Simplify the notification message
+            if result["status"] == "success":
+                return {"status": "success", "message": "Manual backup executed successfully"}
+            else:
+                return {"status": "error", "message": "Manual backup failed"}
         except Exception as e:
-            return {"status": "error", "message": f"Failed to create backup: {str(e)}"}
+            return {"status": "error", "message": "Manual backup failed"}
 
     def list_backups(self):
         """List all backup files"""
