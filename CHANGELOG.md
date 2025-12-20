@@ -1,3 +1,7 @@
+# v0.9.1
+- Fixed issue where every token with the letter "x" in it would display the X (ex-twitter) icon
+- Fixed issue where Gravity Zone tokens wouldn't use the Bitdefender icon
+
 # v0.9.0
 - **NEW: Added comprehensive backup functionality**
   - Automatic daily backups when app opens (configurable)
