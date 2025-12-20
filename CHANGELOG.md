@@ -11,7 +11,7 @@
 - Removed cloud-related dependencies (google-auth, google-auth-oauthlib, google-api-python-client, msal)
 - Simplified codebase and improved privacy by removing external cloud service connections
 - Reduced application size
-- Added icon support for many services
+- Added icon display and support for many services
 
 # v0.8.2
 - Added token refresh robustness to OneDrive and Google Drive backup functionalities
