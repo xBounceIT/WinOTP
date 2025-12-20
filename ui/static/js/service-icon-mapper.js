@@ -58,6 +58,8 @@ const SERVICE_ICON_MAP = {
     // Security and Enterprise services
     'akamai': 'akamai.png',
     'bitdefender': 'bitdefender.png',
+    'gravityzone': 'bitdefender.png',
+    'gravity zone': 'bitdefender.png',
     'crowdstrike': 'crowdstrike.png',
     'fortinet': 'fortinet.png',
     'libraesva': 'libraesva.png',
@@ -80,8 +82,15 @@ function getServiceIconFilename(issuer) {
         return SERVICE_ICON_MAP[normalized];
     }
     
+    // Services that should only match exactly (not partial)
+    const exactOnlyServices = ['twitter', 'x'];
+    
     // Check for partial matches (e.g., "Amazon Web Services" -> "amazon")
+    // But exclude services that should only match exactly
     for (const [service, filename] of Object.entries(SERVICE_ICON_MAP)) {
+        if (exactOnlyServices.includes(service)) {
+            continue; // Skip exact-only services in partial matching
+        }
         if (normalized.includes(service)) {
             return filename;
         }
