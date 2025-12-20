@@ -34,6 +34,13 @@ const SERVICE_ICON_MAP = {
     'salesforce': 'salesforce.png',
     'samsung': 'samsung.png',
     'skype': 'skype.png',
+    // New services
+    'openai': 'openai.png',
+    'chatgpt': 'openai.png',
+    'kick': 'kick.png',
+    'no-ip': 'no-ip.png',
+    'nextcloud': 'nextcloud.png',
+    'firefox': 'firefox.png',
     'teamviewer': 'teamviewer.png',
     'trello': 'trello.png',
     'tumblr': 'tumblr.png',
