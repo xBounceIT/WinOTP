@@ -5,7 +5,7 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
-// Check NTP synchronization status
+// Check time synchronization status (now using local time)
 async function checkNtpStatus() {
     try {
         if (!window.pywebview || !window.pywebview.api) {
@@ -23,17 +23,22 @@ async function checkNtpStatus() {
             
             if (status.synced) {
                 statusIndicator.className = 'status-indicator synced';
-                statusText.textContent = `Synced (${status.offset_ms.toFixed(2)}ms offset)`;
+                // Show local time mode indicator
+                if (status.mode === 'local') {
+                    statusText.textContent = 'Local Time Active';
+                } else {
+                    statusText.textContent = `Synced (${status.offset_ms.toFixed(2)}ms offset)`;
+                }
             } else if (status.syncing) {
                 statusIndicator.className = 'status-indicator syncing';
-                statusText.textContent = 'Synchronizing...';
+                statusText.textContent = 'Initializing...';
             } else {
                 statusIndicator.className = 'status-indicator error';
-                statusText.textContent = 'Not synchronized';
+                statusText.textContent = 'Not initialized';
             }
         }
     } catch (error) {
-        console.error('Error checking NTP status:', error);
+        console.error('Error checking time sync status:', error);
     }
     
     // Check again in 30 seconds

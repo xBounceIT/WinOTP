@@ -186,6 +186,7 @@ body::-webkit-scrollbar-thumb:hover {
     margin-bottom: 10px;
     min-height: 40px;
     height: 40px;
+    width: 100%;
 }
 
 .token-info {
@@ -193,12 +194,19 @@ body::-webkit-scrollbar-thumb:hover {
     align-items: center;
     gap: 12px;
     flex: 1;
+    min-width: 0; /* Allow flex items to shrink below content size */
+    overflow: hidden; /* Prevent content from exceeding container */
 }
 
 .token-issuer {
     font-weight: 600;
     font-size: 16px;
     line-height: 1.2;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+    min-width: 0;
 }
 
 .token-name {
@@ -207,6 +215,11 @@ body::-webkit-scrollbar-thumb:hover {
     opacity: 0.8;
     font-weight: 500;
     line-height: 1.2;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+    min-width: 0;
 }
 
 .token-actions {

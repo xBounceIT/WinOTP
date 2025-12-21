@@ -760,12 +760,12 @@ class Api:
             return {"status": "error", "message": f"Failed to start camera: {str(e)}"}
     
     def get_ntp_status(self):
-        """Get NTP synchronization status"""
+        """Get time synchronization status (now using local time)"""
         try:
             status = get_sync_status()
             return {"status": "success", "data": status}
         except Exception as e:
-            return {"status": "error", "message": f"Failed to get NTP status: {str(e)}"}
+            return {"status": "error", "message": f"Failed to get time sync status: {str(e)}"}
     
     def toggle_sort_order(self):
         """Toggle the sort order of tokens"""

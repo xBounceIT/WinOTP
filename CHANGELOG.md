@@ -1,3 +1,7 @@
+# v0.9.2
+- Fixed account name overflow issue in the GUI
+- Moved time sync from external NTP server to host local time
+
 # v0.9.1
 - Fixed issue where every token with the letter "x" in it would display the X (ex-twitter) icon
 - Fixed issue where Gravity Zone tokens wouldn't use the Bitdefender icon
