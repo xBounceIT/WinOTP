@@ -1,3 +1,7 @@
+# v0.9.3
+- Fixed QR code scanning from screen capture
+- Optimized startup performance by deferring lazy imports to the first use
+
 # v0.9.2
 - Fixed account name overflow issue in the GUI
 - Moved time sync from external NTP server to host local time
