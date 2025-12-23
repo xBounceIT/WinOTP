@@ -1,7 +1,7 @@
 from PIL import Image
 from pyzbar.pyzbar import decode
 import re
-from urllib.parse import unquote
+from urllib.parse import unquote, urlparse, parse_qs
 
 def scan_qr_image(image_input):
     """Scan a QR code image and extract TOTP information
@@ -32,33 +32,59 @@ def scan_qr_image(image_input):
             
         # Get the data from the first QR code
         qr_data = decoded_objects[0].data.decode('utf-8')
+        print(f"QR code decoded successfully, data: {qr_data[:100]}...")
         
         # Check if it's a Google Authenticator migration QR code
         if qr_data.startswith('otpauth-migration://offline?data='):
             # Return the raw data for Google Auth migration QR codes
             return qr_data
         
-        # Parse the otpauth URL
-        # Format: otpauth://totp/ISSUER:ACCOUNT?secret=SECRET&issuer=ISSUER
-        match = re.match(r'otpauth://totp/([^:]+):([^?]+)\?secret=([^&]+)(&.*)?', qr_data)
+        # Check if it's an otpauth URL
+        if not qr_data.startswith('otpauth://totp/'):
+            print(f"Not a TOTP otpauth URL: {qr_data[:50]}")
+            return None
         
-        if match:
-            issuer = unquote(match.group(1))
-            name = unquote(match.group(2))
-            secret = match.group(3)
+        # Parse the otpauth URL using urllib for robustness
+        try:
+            parsed = urlparse(qr_data)
+            
+            # Extract the path (account/label info)
+            # Path format can be: /ACCOUNT, /ISSUER:ACCOUNT, or /ACCOUNT with issuer in params
+            path = unquote(parsed.path.lstrip('/'))
+            
+            # Parse query parameters
+            params = parse_qs(parsed.query)
+            
+            # Extract secret (required)
+            secret = params.get('secret', [None])[0]
+            if not secret:
+                print("No secret found in QR code")
+                return None
+            
+            # Extract issuer from params if available
+            issuer_param = params.get('issuer', [None])[0]
+            if issuer_param:
+                issuer_param = unquote(issuer_param)
+            
+            # Parse the path for issuer:account format
+            if ':' in path:
+                # Format: ISSUER:ACCOUNT
+                issuer_from_path, name = path.split(':', 1)
+            else:
+                # Format: just ACCOUNT
+                issuer_from_path = None
+                name = path
+            
+            # Use issuer from parameter if available, otherwise from path
+            issuer = issuer_param or issuer_from_path or "Unknown"
+            
+            print(f"Parsed TOTP: issuer={issuer}, name={name}, secret={secret[:4]}...")
             return (issuer, secret, name)
             
-        # Alternative format: otpauth://totp/ACCOUNT?secret=SECRET&issuer=ISSUER
-        match = re.match(r'otpauth://totp/([^?]+)\?secret=([^&]+)&issuer=([^&]+)(.*)?', qr_data)
-        
-        if match:
-            name = unquote(match.group(1))
-            secret = match.group(2)
-            issuer = unquote(match.group(3))
-            return (issuer, secret, name)
-            
-        return None
+        except Exception as parse_error:
+            print(f"Error parsing otpauth URL: {parse_error}")
+            return None
         
     except Exception as e:
         print(f"Error scanning QR code: {e}")
-        return None 
+        return None

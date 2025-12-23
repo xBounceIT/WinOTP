@@ -8,6 +8,7 @@ to capture for QR code scanning.
 import tkinter as tk
 import logging
 import traceback
+import time
 from screeninfo import get_monitors
 
 class ScreenRegionSelector:
@@ -66,20 +67,30 @@ class ScreenRegionSelector:
                   or None if selection was cancelled
         """
         try:
-            # Create a full-screen transparent window
+            # Create a transparent overlay window
             self.root = tk.Tk()
             self.root.attributes("-alpha", 0.3)  # Semi-transparent
             
-            # Set window to cover the entire virtual screen
-            self.root.geometry(f"{self.full_width}x{self.full_height}+{self.offset_x}+{self.offset_y}")
-            self.root.attributes("-fullscreen", True)
+            # Use overrideredirect instead of fullscreen - fullscreen snaps to one monitor only!
+            # overrideredirect removes window decorations and allows us to span multiple monitors
+            self.root.overrideredirect(True)
             self.root.attributes("-topmost", True)  # Keep on top
             
-            # Set window title and hint text
-            self.root.title("Select QR Code Region")
+            # Position window to cover all monitors using the calculated virtual screen
+            self.root.geometry(f"{self.full_width}x{self.full_height}+{self.offset_x}+{self.offset_y}")
+            
+            # Force the window to update its geometry before creating the canvas
+            self.root.update_idletasks()
+            
+            # Log actual window geometry for debugging
+            actual_x = self.root.winfo_x()
+            actual_y = self.root.winfo_y()
+            actual_w = self.root.winfo_width()
+            actual_h = self.root.winfo_height()
+            logging.info(f"Selector window geometry: {actual_w}x{actual_h} at ({actual_x},{actual_y})")
             
             # Create canvas for drawing selection rectangle
-            self.canvas = tk.Canvas(self.root, cursor="crosshair")
+            self.canvas = tk.Canvas(self.root, cursor="crosshair", bg="gray")
             self.canvas.pack(fill=tk.BOTH, expand=True)
             
             # Add instructions text
@@ -158,7 +169,14 @@ class ScreenRegionSelector:
         # Store the selected region (without offsets - those are applied in get_region)
         self.selected_region = (left, top, right, bottom)
         
-        # Close the window
+        # Hide and minimize the window first to ensure it's not visible during capture
+        self.root.withdraw()
+        self.root.update_idletasks()
+        
+        # Small delay to ensure the window is fully hidden from screen
+        time.sleep(0.2)
+        
+        # Now destroy the window
         self.root.destroy()
     
     def _on_cancel(self, event):
