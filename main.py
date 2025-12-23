@@ -2270,72 +2270,73 @@ def main():
     update_thread = threading.Thread(target=asset_manager.check_for_updates, daemon=True)
     update_thread.start()
 
-    # Check if automatic backup should be created
-    print("Checking if automatic backup is needed...")
-    try:
-        if should_create_backup(settings_path):
-            print("Creating automatic backup...")
-            # Create API instance first to load tokens
-            api = Api()
-            # Load tokens to get decrypted data
-            api.load_tokens()
-            # Create backup using the loaded tokens
-            backup_result = create_backup(tokens_path, settings_path=settings_path, tokens_data=api.tokens)
-            if backup_result["status"] == "success":
-                print(f"Automatic backup created successfully: {backup_result.get('backup_path', 'Unknown path')}")
-            else:
-                print(f"Automatic backup failed: {backup_result.get('message', 'Unknown error')}")
-        else:
-            print("Automatic backup not needed (disabled or already created today)")
-    except Exception as e:
-        print(f"Error during automatic backup check: {e}")
-
-    # Create API instance (which will load settings and tokens based on the set paths)
+    # Create API instance once (will be reused for backup if needed)
     api = Api()
 
-    # Copy static files to ui directory if they don't exist - this ensures the web server can find them
-    ui_static_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ui", "static")
-    static_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
-    
-    # Ensure ui/static directories exist
-    os.makedirs(os.path.join(ui_static_dir, "js"), exist_ok=True)
-    os.makedirs(os.path.join(ui_static_dir, "css"), exist_ok=True)
-    os.makedirs(os.path.join(ui_static_dir, "icons"), exist_ok=True)
-    
-    # List of files to copy if they don't exist in ui/static
-    files_to_copy = [
-        ("js", "bootstrap.bundle.min.js"),
-        ("js", "jquery-3.6.0.min.js"),
-        ("css", "bootstrap.min.css"),
-    ]
-    
-    # Copy each file if it doesn't exist in ui/static
-    for subdir, filename in files_to_copy:
-        src = os.path.join(static_dir, subdir, filename)
-        dst = os.path.join(ui_static_dir, subdir, filename)
-        if os.path.exists(src) and not os.path.exists(dst):
-            try:
-                import shutil
-                shutil.copy2(src, dst)
-                print(f"Copied {src} to {dst}")
-            except Exception as e:
-                print(f"Error copying {src} to {dst}: {e}")
-    
-    # Also copy all icon files
-    icon_src_dir = os.path.join(static_dir, "icons")
-    icon_dst_dir = os.path.join(ui_static_dir, "icons")
-    if os.path.exists(icon_src_dir):
-        for icon_file in os.listdir(icon_src_dir):
-            src = os.path.join(icon_src_dir, icon_file)
-            dst = os.path.join(icon_dst_dir, icon_file)
-            if os.path.isfile(src) and not os.path.exists(dst):
+    # Define background startup tasks to run after window is shown
+    def background_startup_tasks():
+        """Run heavy startup tasks in background after window is visible."""
+        import shutil
+        
+        # Copy static files to ui directory if they don't exist
+        ui_static_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ui", "static")
+        static_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
+        
+        # Ensure ui/static directories exist
+        os.makedirs(os.path.join(ui_static_dir, "js"), exist_ok=True)
+        os.makedirs(os.path.join(ui_static_dir, "css"), exist_ok=True)
+        os.makedirs(os.path.join(ui_static_dir, "icons"), exist_ok=True)
+        
+        # List of files to copy if they don't exist in ui/static
+        files_to_copy = [
+            ("js", "bootstrap.bundle.min.js"),
+            ("js", "jquery-3.6.0.min.js"),
+            ("css", "bootstrap.min.css"),
+        ]
+        
+        # Copy each file if it doesn't exist in ui/static
+        for subdir, filename in files_to_copy:
+            src = os.path.join(static_dir, subdir, filename)
+            dst = os.path.join(ui_static_dir, subdir, filename)
+            if os.path.exists(src) and not os.path.exists(dst):
                 try:
-                    import shutil
                     shutil.copy2(src, dst)
-                    print(f"Copied icon {src} to {dst}")
+                    print(f"Copied {src} to {dst}")
                 except Exception as e:
-                    print(f"Error copying icon {src} to {dst}: {e}")
-    
+                    print(f"Error copying {src} to {dst}: {e}")
+        
+        # Also copy all icon files
+        icon_src_dir = os.path.join(static_dir, "icons")
+        icon_dst_dir = os.path.join(ui_static_dir, "icons")
+        if os.path.exists(icon_src_dir):
+            for icon_file in os.listdir(icon_src_dir):
+                src = os.path.join(icon_src_dir, icon_file)
+                dst = os.path.join(icon_dst_dir, icon_file)
+                if os.path.isfile(src) and not os.path.exists(dst):
+                    try:
+                        shutil.copy2(src, dst)
+                        print(f"Copied icon {src} to {dst}")
+                    except Exception as e:
+                        print(f"Error copying icon {src} to {dst}: {e}")
+        
+        # Check if automatic backup should be created (deferred to background)
+        print("Checking if automatic backup is needed...")
+        try:
+            if should_create_backup(settings_path):
+                print("Creating automatic backup...")
+                # Load tokens to get decrypted data (use existing api instance)
+                api.load_tokens()
+                # Create backup using the loaded tokens
+                backup_result = create_backup(tokens_path, settings_path=settings_path, tokens_data=api.tokens)
+                if backup_result["status"] == "success":
+                    print(f"Automatic backup created successfully: {backup_result.get('backup_path', 'Unknown path')}")
+                else:
+                    print(f"Automatic backup failed: {backup_result.get('message', 'Unknown error')}")
+            else:
+                print("Automatic backup not needed (disabled or already created today)")
+        except Exception as e:
+            print(f"Error during automatic backup check: {e}")
+
     # Create window with HTML file
     window = webview.create_window(
         "WinOTP", 
@@ -2350,6 +2351,10 @@ def main():
     
     # Set window reference in API
     api.set_window(window)
+
+    # Start background startup tasks after window is created (but before webview.start blocks)
+    startup_tasks_thread = threading.Thread(target=background_startup_tasks, daemon=True)
+    startup_tasks_thread.start()
 
     # Set up closing event handler
     def on_closing():
@@ -2374,3 +2379,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

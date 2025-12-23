@@ -2,10 +2,26 @@ import os
 import sys
 import ctypes
 from ctypes import wintypes
-import win32api
-import win32con
-import win32gui
-import win32process
+
+# Lazy-loaded win32 modules for faster cold start
+_win32api = None
+_win32con = None
+_win32gui = None
+_win32process = None
+
+def _ensure_win32():
+    """Lazy import for win32 modules to avoid startup overhead."""
+    global _win32api, _win32con, _win32gui, _win32process
+    if _win32gui is None:
+        import win32api
+        import win32con
+        import win32gui
+        import win32process
+        _win32api = win32api
+        _win32con = win32con
+        _win32gui = win32gui
+        _win32process = win32process
+    return _win32api, _win32con, _win32gui, _win32process
 
 # Windows API constants
 ERROR_ALREADY_EXISTS = 0xB7
@@ -56,6 +72,8 @@ def find_existing_window():
     Returns:
         int: Window handle of the existing instance, or None if not found
     """
+    _, _, win32gui, win32process = _ensure_win32()
+    
     result = [None]
     found_windows = []
     
@@ -110,6 +128,8 @@ def activate_existing_window(hwnd):
     if not hwnd:
         return False
     
+    _, win32con, win32gui, _ = _ensure_win32()
+    
     try:
         # If the window is minimized, restore it
         is_iconic = win32gui.IsIconic(hwnd)
@@ -127,4 +147,4 @@ def activate_existing_window(hwnd):
         return True
     except Exception as e:
         print(f"Error activating existing window: {e}")
-        return False 
+        return False

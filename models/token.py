@@ -1,7 +1,17 @@
 import re
-import pyotp
 from datetime import datetime
 from utils.ntp_sync import get_accurate_time
+
+# Lazy-loaded pyotp module for faster cold start
+_pyotp = None
+
+def _ensure_pyotp():
+    """Lazy import for pyotp to avoid startup overhead."""
+    global _pyotp
+    if _pyotp is None:
+        import pyotp
+        _pyotp = pyotp
+    return _pyotp
 
 # Cache for TOTP objects
 _totp_cache = {}
@@ -22,6 +32,7 @@ class Token:
         if cache_key in _totp_cache:
             self.totp = _totp_cache[cache_key]
         else:
+            pyotp = _ensure_pyotp()
             self.totp = pyotp.TOTP(self.secret)
             _totp_cache[cache_key] = self.totp
     
